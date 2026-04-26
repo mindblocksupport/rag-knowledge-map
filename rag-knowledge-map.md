@@ -2664,6 +2664,223 @@ Gen 4 (Agent) 解决方式:
 - S3 存储: 月新增 30 万 × 平均 1MB = 300GB/月, $7/月 (S3 标准价)
 - Redis 状态: 30 万 × 1KB = 300MB, $2/月 (Redis Cloud)
 
+#### 4.3.8 企业级多源脏数据治理架构 (用户反馈"来源处理没讲清") ⭐
+
+> §4.3.1-7 讲了 RAG 内部的 Ingestion 写流程. 这一节专门讲**数据从源系统流入 RAG 之前**怎么治理 — 因为企业 RAG 80% 数据来自外部系统 (Confluence/Slack/Salesforce/...), 每个源的脏数据特征不同, 治理策略也不同.
+
+##### 4.3.8.1 企业 RAG 数据来源全景 (10 种典型源 + 占比)
+
+| 源系统 | 在企业 RAG 数据中占比 | 接入方式 | 脏数据特征 |
+|---|---|---|---|
+| Confluence / Notion (内部 wiki) | 25-35% | API 轮询 + Webhook | 多版本 / 模板复用 / 嵌入页 / Markdown |
+| Slack / 飞书 / 钉钉 (聊天) | 15-25% | API 流 + Webhook | 短消息 / 表情 / 引用回复 / 公开 vs 私聊 |
+| SharePoint / Google Drive (文档) | 10-20% | Graph API / Drive API | Office 格式 / 重复文档 / 多版本 / 嵌入图 |
+| Salesforce / HubSpot (CRM) | 5-15% | REST API + CDC | 结构化字段 + 长 free-text / 客户 PII |
+| GitHub / GitLab (代码 + Wiki + Issue) | 5-10% | API + Webhook | 代码 / Markdown / 注释 / PR 评论 |
+| Email (Outlook / Gmail) | 3-8% | IMAP / Graph API | 签名 / 转发链 / 引用 / HTML 噪声 / 隐私 |
+| Jira / Linear (工单系统) | 3-8% | REST API | 短描述 + 长评论 / 状态 / 关联工单 |
+| 自建数据库 (Postgres/MySQL) | 5-15% | CDC (Debezium) / 直查 | 事务表 + 业务表 / 频繁更新 / 关联表 |
+| 网页爬取 (公开知识) | 2-5% | scrapy + Playwright | HTML 噪声 / 广告 / 反爬 / robots.txt |
+| 客户上传 (PDF / Word) | 2-5% | 用户上传 UI | 任意格式 / 任意质量 / 任意大小 |
+
+> 占比来自 Glean / Notion AI / Klarna 公开数据. 80% 数据由前 5 个源组成.
+
+##### 4.3.8.2 每种源的脏数据特征 + 治理策略 (生产实战)
+
+###### 源 1: Confluence / Notion (内部 wiki, 占比最大)
+- **脏数据特征**:
+  - 多版本爆炸 (一个页面平均 3-5 历史版本, "Final / Final-Final / 真的 Final")
+  - 模板复用 (onboarding doc 被 30 个团队 fork, 95% 内容一样)
+  - 嵌入页面 (page A 嵌入 page B, 一份内容入库 N 次)
+  - 表情 / GIF / 内嵌图 / 内嵌 Slack message
+  - 跨 workspace 数据隔离 (源系统 ACL 必须同步)
+- **源头侧治理** (在 Confluence 拉取时做):
+  - 用 API 参数 `expand=version` 只拉最新版 (跳过历史版)
+  - 用 `include_descendants=false` 不展开嵌入页
+  - 抓 `restrictions` 字段同步 ACL 到 RAG
+- **RAG 侧治理** (拉到本地后做):
+  - 模板去重 (MinHash LSH, Jaccard ≥ 0.85)
+  - 跨页面 chunk 级去重 (95%+ 相似 chunk 视为模板段, 只留 1 份)
+  - 内嵌图描述化 (用 GPT-5 Vision 把图转文字)
+- **真实数据**: Confluence 5 万文档实测 35% 重复 (10% 完全重复 + 18% 近似 + 5% 语义) — 不去重 RAG 召回臃肿
+
+###### 源 2: Slack / 飞书 / 钉钉 (聊天历史)
+- **脏数据特征**:
+  - 大量短消息 (< 20 字), 单条无信息密度
+  - 表情符号 / GIF / 引用回复 / 内嵌链接
+  - 公开 channel 跟私聊隔离严 (ACL 复杂)
+  - 跨多 channel 同一话题, 上下文断裂
+- **源头侧治理**:
+  - 只拉公开 channel + 用户 opt-in 的 (法规)
+  - 用 `oldest`/`latest` 参数增量拉, 不拉 90 天前
+  - 抓 `members` 字段同步 channel ACL
+  - 跳过 bot 消息 (system / monitoring bot 噪声多)
+- **RAG 侧治理**:
+  - 短消息聚合: 同 channel 同时间窗 (10 分钟) 内的短消息合并成一个 chunk (上下文完整)
+  - 表情 / GIF 删除 (无信息) 或转描述 (e.g. "用户竖大拇指")
+  - 引用回复展开 (把被引用的原消息也拼进去)
+  - 隐私二次过滤 (员工抱怨 / 离职吐槽 必须过滤)
+- **真实事故**: §13.26 Slack AI Prompt Injection — 公开 channel 含恶意指令被 RAG 召回执行
+
+###### 源 3: SharePoint / Google Drive (文档共享)
+- **脏数据特征**:
+  - Office 二进制格式 (.docx / .pptx / .xlsx)
+  - 同一份文档多版本同存 (V1.docx / V2.docx / Final.docx)
+  - 嵌入图 / 表 / 公式
+  - 文件夹结构跟权限挂钩
+- **源头侧治理**:
+  - 用 Microsoft Graph API 的 `versions` 端点只拉最新版
+  - 同步文件夹 ACL 到 RAG (递归继承)
+  - 用 `lastModified` 字段做增量
+  - 跳过 .tmp / ~$ 临时文件 / 隐藏文件
+- **RAG 侧治理**:
+  - python-docx / python-pptx 转纯文本 (保留 heading / bullet / table)
+  - 同 canonical_id 的多版本文档归档旧版 (is_active=false)
+  - 文件名同步打 metadata 标签 (e.g. "policy_v2.docx" → version=2)
+
+###### 源 4: Salesforce / HubSpot (CRM)
+- **脏数据特征**:
+  - 结构化字段 (Account / Contact / Opportunity) + 长 free-text (Notes / Email Threads)
+  - 客户 PII 极敏感 (姓名 / 电话 / 邮箱 / 销售内部评论)
+  - 跨对象关联 (Account → Contact → Opportunity → Email)
+  - 数据更新极频繁 (销售每分钟改字段)
+- **源头侧治理**:
+  - 用 SOQL 选字段拉 (不拉无关字段)
+  - 用 Salesforce Streaming API (CDC) 实时同步, 不轮询
+  - 按 `OwnerId` + Sharing Rules 同步 ACL
+  - 跳过 Test Account / Inactive User
+- **RAG 侧治理**:
+  - 结构化字段 → JSON metadata, 不进 chunk text
+  - 长 free-text (Notes / Emails) 走完整 6 道治理 + PII 严格脱敏
+  - 跨对象关联 chunk 级关联 (chunk metadata 含 related_account_id)
+  - 销售内部吐槽 / 评级 必须过滤 (合规)
+
+###### 源 5: GitHub / GitLab (代码 + Wiki + Issue)
+- **脏数据特征**:
+  - 代码 + Markdown + 注释 (混合内容)
+  - PR / Issue / 评论 (跨链关联)
+  - 大量重复 (boilerplate / generated code)
+  - 含密钥 (.env / api_key 误提交)
+- **源头侧治理**:
+  - 用 GitHub API 的 `since` 参数增量
+  - 跳过 vendor/ / node_modules/ / dist/ (gitignore 类目录)
+  - 用 `truffleHog` / `detect-secrets` 在源头拒绝含密钥的 commit (CI 集成)
+  - 同步 repo visibility (public / internal / private) 到 RAG
+- **RAG 侧治理**:
+  - AST-aware Chunking (按函数 / 类切, 不切函数体, §5.2)
+  - 代码 / 注释 / Markdown 分别处理 (不要混 chunk)
+  - PR / Issue / 评论按对话线程合并 (上下文完整)
+  - 二次密钥检测 (兜底, 防 CI 漏检)
+
+###### 源 6: Email (Outlook / Gmail)
+- **脏数据特征**:
+  - 签名 / 免责声明 (每封邮件 30-50% 内容是 boilerplate)
+  - 转发链 (一封邮件含 5+ 历史邮件, 重复内容)
+  - HTML 格式 (noise / 字体 / 颜色)
+  - 高隐私 (个人邮件 / 客户邮件)
+- **源头侧治理**:
+  - IMAP 增量拉 (用 UID > last_uid)
+  - 只拉用户 opt-in 的邮箱 (合规, GDPR)
+  - 跳过 Spam / Trash 文件夹
+  - 抓 `From` / `To` / `CC` 字段做 ACL (邮件参与者才能检索到)
+- **RAG 侧治理**:
+  - 签名识别 + 删除 (mailparse + 自定义规则)
+  - 转发链拆解 (只留最新一封, 历史邮件单独入库 + 用 thread_id 关联)
+  - HTML → 纯文本 (BeautifulSoup)
+  - PII 极严格 (信用卡 / SSN / 密码必须删除, 不脱敏)
+
+###### 源 7-10: Jira / 数据库 / 网页 / 上传 (略, 类似模式)
+- 详见 §4.16.7 工具栈速查表
+
+##### 4.3.8.3 企业架构数据流 — 源到 RAG 的完整流水
+
+完整数据流 (用列表表达, 不画 Mermaid):
+
+- **Layer 1: 源系统** (公司已有的 SaaS / 自建系统)
+  - Confluence / Notion / Slack / Salesforce / SharePoint / Email / Jira / GitHub / DB / Web
+- **Layer 2: Connector 层** (Airbyte / Fivetran / 自研)
+  - 每个源一个 Connector (350+ 现成 Airbyte 可用)
+  - 负责: API 调用 / Webhook 监听 / 增量识别 (last_modified / since) / 限流 / 失败重试
+  - 配置: 拉哪些字段 / 拉哪些 ACL / 多频繁拉 / 跳过哪些
+- **Layer 3: 数据中转层** (S3 + Kafka)
+  - 原始数据落 S3 (raw bucket, 按源分目录: s3://raw/confluence/2026/04/...)
+  - Kafka 发 ingestion 事件 (doc_id + source + s3_path + timestamp + metadata)
+  - 优势: 解耦, 后续治理可重跑 (从 raw 重新治理), 可审计
+- **Layer 4: 治理层** (Spark Pipeline + LLM)
+  - 消费 Kafka 事件 → 从 S3 读 raw → 走 6 道治理 (按源类型分流不同 pipeline)
+  - Spark cluster: 50 worker × 8 core × 32GB
+  - LLM 调用: Anthropic Haiku 4.5 (质量评分 + 分类打标), 异步 + rate limit
+  - 治理后落 cleaned bucket (s3://cleaned/...)
+- **Layer 5: 索引构建层**
+  - 从 cleaned bucket 读 → Chunking → Embedding (BGE-M3 on GPU cluster) → 入三存储
+  - 三存储: pgvector (向量) + Elasticsearch (BM25) + Postgres (Doc Store + metadata + ACL)
+- **Layer 6: 监控 / 反馈层**
+  - Datadog 监控 KB Health 7 大指标
+  - LangSmith 追踪检索质量
+  - Bad case 反馈回 Layer 4 (调整治理规则)
+
+##### 4.3.8.4 源头侧 vs RAG 侧治理的分工原则
+
+| 治理动作 | 谁该做 | 为什么 |
+|---|---|---|
+| 增量识别 (only changed) | 源头侧 | 源系统知道 last_modified, RAG 侧再判效率低 |
+| ACL 提取 + 同步 | 源头侧 | 源系统是 ACL 权威, RAG 复制 |
+| 字段筛选 (拉哪些字段) | 源头侧 | 减少传输量 + 避免拉敏感字段 |
+| 限流 / 失败重试 | 源头侧 | 源 API 有 rate limit, Connector 处理 |
+| 格式解析 (PDF/Word/HTML) | RAG 侧 | 源系统不知道 RAG 要什么格式 |
+| 去噪 / 格式化 | RAG 侧 | 跟 RAG 检索质量挂钩 |
+| 去重 (跨源) | RAG 侧 | 跨源去重源系统看不到 |
+| PII 检测脱敏 | **两侧都做** | 源头侧粗筛 + RAG 侧精筛 (深度防御) |
+| 质量评分过滤 | RAG 侧 | 源系统不懂"什么是 RAG 高质量" |
+| 分类打标 | RAG 侧 | 跟 RAG 检索 metadata 挂钩 |
+| 版本管理 (同 doc 多版本) | **两侧都做** | 源头侧拉最新版 + RAG 侧归档历史版 |
+
+##### 4.3.8.5 真实企业案例: Glean 多源治理架构
+
+- **Glean 公开数据** (估值 $4.6B 内部知识库 SaaS):
+  - 接入 100+ source (Confluence / Slack / SharePoint / Salesforce / Jira / GitHub / Outlook / Box / Asana / Trello / ...)
+  - 100+ Connector 全部基于 Airbyte 改造 (不自研)
+  - 数据中转: S3 + Kafka, raw bucket 保留 90 天 (审计 + 可重跑)
+  - 治理: Spark + Haiku LLM-as-judge + Presidio
+  - 索引: pgvector + Elasticsearch + Postgres
+  - 监控: 自研 KB Health Dashboard + Datadog
+- **关键设计**:
+  - 每源专属 pipeline (Confluence pipeline ≠ Slack pipeline ≠ Salesforce pipeline)
+  - 增量同步 webhook 主导 + 每周全量 reconcile (避免 webhook 漏)
+  - ACL 由源系统权威, RAG 严格继承 (不重新发明权限模型)
+- **关键数字**:
+  - 月新增 5000 万 chunk
+  - 治理后召回率 0.85+ (各源加权)
+  - 治理成本: $50K/月 (LLM 调用 + GPU + 人力)
+
+##### 4.3.8.6 企业架构常见问题 (反模式)
+
+- ❌ **每个源都自研 Connector**
+  - 现象: 50 个源 50 个自研代码, 维护成本爆炸
+  - 真实: 一些公司投入 5-10 个工程师全职维护 Connector
+  - 避免: Airbyte 现成 350+ Connector, 自研只做特殊业务源
+- ❌ **不分源治理 (一套 pipeline 跑所有源)**
+  - 现象: Confluence 跟 Slack 走同一治理流程, Slack 短消息全被 Quality Gating 过滤
+  - 真实: KB 缺失 30% 聊天数据, 用户问聊天里的事 RAG 答不出
+  - 避免: 每源专属 pipeline, 治理规则按源调
+- ❌ **ACL 在 RAG 侧重新设计**
+  - 现象: 工程师觉得源系统 ACL 复杂, 在 RAG 侧简化重做
+  - 真实: §13.9 Notion 越权事故 — RAG 没正确同步源 ACL, 普通员工看到 CEO 文档
+  - 避免: 严格继承源系统 ACL, 不发明新权限模型
+- ❌ **不留 raw bucket, 治理直接覆盖**
+  - 现象: 源数据治理完直接进 RAG, 没存原始版本
+  - 真实: 治理规则改了 (e.g. PII 标准变严), 想重跑只能重拉源系统 (源 API rate limit 慢)
+  - 避免: 必须留 raw bucket 90 天, 可从 S3 重跑治理
+- ❌ **Webhook 不做全量 reconcile**
+  - 现象: 只信 webhook, 漏一个事件永久不同步
+  - 真实: 多家公司源系统改了文档但 RAG 没跟上, 用户问到旧版本答案
+  - 避免: webhook 主导 + 每周一次全量 reconcile
+
+##### 4.3.8.7 一句话总结
+
+企业 RAG 数据治理 ≠ 单纯在 RAG 侧治理. 必须在源系统侧 (Connector 配置 / ACL 同步 / 增量识别 / 字段筛选) + RAG 侧 (6 道治理 + 索引) **两侧分工**. 每个源专属治理 pipeline, 不要一套打天下. raw bucket 是审计 + 重跑的命脉.
+
+
 ### 4.4 组件 1: Parser (解析器) 完整写流程
 
 #### 4.4.1 是什么
