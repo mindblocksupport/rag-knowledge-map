@@ -555,6 +555,57 @@ messages[1].content 里的样子 (上一节展示过):
 - 5. **整个 RAG 三存储架构的存在意义就是: 让"找"和"查原文"分开** — 找用向量/倒排 (快但只返 ID), 查原文用 KV 主键 (准但只能按 ID 查). 这两步配合才高效
 
 
+##### 0.1.5e 为什么不直接把向量喂给 LLM
+
+> 既然 RAG 把文档转成了向量, 为什么不直接喂向量给 LLM, 反而要回查原文再拼成 messages?
+
+###### 一句话答案
+
+**LLM 输入接口只接受 token 序列 (整数 ID), 不接受 float 向量数组**. 这是 Transformer 架构和 LLM API 协议的双重根本约束, 不是工程选择.
+
+###### 5 个根本原因
+
+**原因 1 — LLM 输入必须是 token, 不是向量 (架构约束)**
+
+LLM 内部流程是: 输入 token ID 序列 → LLM 自己的 embedding 层把 token 转成隐藏状态 → 多层 attention → 输出 token. **输入接口在 token 层, 不在 embedding 层**. 你给它 1024 维 float 数组, LLM 的输入层根本接不住.
+
+**原因 2 — RAG 的向量空间跟 LLM 的向量空间完全不一样**
+
+- RAG embedding: BGE-M3 (1024 维) / OpenAI text-3-large (3072 维) / Voyage (1024 维) — 这些是**专门为检索训练的模型**, 优化目标是"语义近的文本余弦相似度高"
+- LLM 内部 embedding: Claude / GPT / Gemini 各自的 hidden state (4096-12288 维) — 这是**为生成下一个 token 训练的**, 跟检索完全不同的优化目标
+
+即使维度凑巧对得上, 数值意义也完全不同. 把 BGE 向量塞给 LLM 等于把法语词典查到的拼写塞给中文母语者 — 字面对得上, 含义错乱.
+
+**原因 3 — API 协议规定 content 是字符串, 没"喂向量"的 API**
+
+Anthropic / OpenAI / Gemini 的 API 协议都规定 `messages[].content` 是 string (或 string + image 的多模态 part), 没有"喂 float 数组"的接口. 你即使想喂向量, HTTP 请求都构造不出来.
+
+**原因 4 — 向量是有损压缩, 喂向量丢信息**
+
+Embedding 把一段 500 字的 chunk 压缩成 1024 维 float — **本质是有损压缩**. 喂原文 LLM 能看到"5-7 个工作日"这种精确数字; 喂向量后 LLM 看到的只是"跟退款相关"的语义浓缩, 精确数字早丢了.
+
+**原因 5 — 向量是黑盒, 不可解释**
+
+喂原文出错能 debug — 看 messages 就知道 LLM 看了什么. 喂向量出错根本查不了, 1024 个 float 数字人脑无法读.
+
+###### 类比 (一句话)
+
+向量像"图书索引卡上的标签关键词", 原文像"书页本身". RAG 用索引卡快速定位到几本书 (检索), 但最后给读者的还得是**书页本身** (原文喂 LLM), 不是索引卡上的关键词.
+
+###### 学术界确实尝试过, 但没成主流
+
+- **REPLUG (2023)** — Shi et al., 把检索的 embedding 直接拼接到 LLM 输入, 需 fine-tune LLM 让它"读懂"外部 embedding
+- **RETRO (DeepMind 2022)** — Borgeaud et al., LLM 中间层加 cross-attention 看检索到的 embedding chunks
+- **结果** — 这些方法都需要专门改 LLM 架构 + 重新训练 (成本千万美元级), 而且效果不如直接喂原文 + 标准 LLM 简单方案. 业界最终选了"喂原文" 这条路.
+
+###### 总结认知
+
+- 不喂向量给 LLM, 是因为 **LLM 输入接口物理上只接 token, 不接 float 数组** (架构 + 协议双重约束)
+- 即使能喂, RAG 向量空间跟 LLM 向量空间不兼容, 强喂 LLM 看不懂
+- 向量是检索阶段的"内部工作产物", 找完就丢; 真正喂 LLM 的永远是原文文本
+- 这个设计让 RAG 工程上极简洁: 检索系统输出 chunk_id, Doc Store 查原文, 拼成纯文本 messages, LLM 直接处理. 没有跨系统的向量传递, 没有 LLM 重训练成本
+
+
 #### 0.1.6 5 个最容易被忽略的事实 (面试高频)
 - 事实 1: **真实工业 RAG 是三存储, 不是双存储**
   - 误区: "RAG = 向量库 + LLM, 两个组件够了"
