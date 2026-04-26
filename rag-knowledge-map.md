@@ -758,11 +758,39 @@
 - 机制: Transformer 的 self-attention 机制让 LLM 在生成每个 token 时, 能 attend to prompt 里所有 token
 - 检索结果放进 prompt 后, LLM 生成时自然会"重点参考"这些 token (attention weight 高)
 - 等价于: 检索结果作为 prompt token 参与 self-attention 计算, 使模型在生成时能关注到训练期未见过的外部信息
-- ICL 为什么 work — 深层理论 (面试追问):
-  - 解释 1 (注意力机制): Transformer 的 self-attention 让每个生成 token 能 attend to prompt 中所有 token, 检索结果自然获得高 attention weight
-  - 解释 2 (隐式梯度下降, Dai et al. 2023): ICL 等价于在 forward pass 中对 attention 参数做隐式一步梯度更新, 类似 fine-tuning 但不改参数
-  - 解释 3 (贝叶斯推理, Xie et al. 2022): LLM 在 ICL 时隐式做贝叶斯后验更新, prompt 中的 context 作为"观测证据"
-  - 与 fine-tuning 的区别: ICL 不改参数 (临时的), fine-tuning 改参数 (永久的); ICL 每次推理都要带 context (有 token 成本), fine-tuning 推理时不需要额外 context
+- ICL 为什么 work — 深层理论 (面试追问)
+
+  **解释 1 — 注意力机制视角 (最直观)**
+  - Transformer 的 self-attention 让每个生成 token 能 attend to prompt 中所有 token
+  - 检索结果在 prompt 中, 与 query 的语义相关 → softmax(QK^T) 后 attention weight 高
+  - 公式 (简化): output_i = Σ_j softmax(q_i · k_j / √d) · v_j
+  - 含义: 生成 token i 时, 对 prompt 中相关 chunk 的 token j 给予高权重 v_j
+
+  **解释 2 — 隐式梯度下降 (Dai et al. 2023, arXiv:2212.10559)**
+  - 论文标题: "Why Can GPT Learn In-Context? Language Models Implicitly Perform Gradient Descent as Meta-Optimizers"
+  - 核心定理: ICL 在数学上等价于对 attention 参数做隐式一步梯度更新
+  - 简化公式 (单层 linear attention 视角):
+    - 设 query token 为 q, demonstrations 为 (x_i, y_i)
+    - ICL 输出 ≈ q · W_zero-shot + q · ΔW_ICL
+    - 其中 ΔW_ICL = Σ_i v_i · k_i^T (demonstrations 贡献的"虚拟梯度")
+    - 这等价于在原 attention 权重上叠加一步 SGD 更新
+  - 直觉: ICL 时模型"用 demonstrations 临时调整了一次参数", 但不改实际 weights
+  - 意义: 解释了为什么 ICL 能在 0-shot 模型上 work — context 等价于 fine-tune 一步
+
+  **解释 3 — 贝叶斯推理 (Xie et al. 2022, arXiv:2111.02080)**
+  - 论文标题: "An Explanation of In-context Learning as Implicit Bayesian Inference"
+  - 核心思想: LLM 预训练时见过大量 (concept, sequence) 配对, 学到了 P(sequence | concept) 的隐式分布
+  - ICL 时 LLM 做贝叶斯推断:
+    - P(answer | query, demonstrations) ∝ Σ_concept P(answer | query, concept) · P(concept | demonstrations)
+    - demonstrations 帮 LLM "选对了正确的 concept", 然后基于 concept 生成 answer
+  - 直觉: prompt 里的 context 作为"观测证据", 模型计算后验分布 P(concept | context), 找最可能的 concept 来回答
+  - 实验验证 (HMM 玩具模型): 即使 demonstrations 标签错乱, ICL 仍能 work (因为重点是激活 concept, 不是学映射)
+
+  **与 fine-tuning 的本质区别**
+  - ICL: 临时, 不改参数, 每次推理带 context (token 成本); fine-tuning: 永久, 改参数, 推理时无需额外 context
+  - ICL 上下文上限 = context window (32K-200K); fine-tuning 数据量上限 = 训练数据规模 (无限)
+  - ICL 即时生效 (秒级); fine-tuning 需要数小时训练
+  - 工业建议: 知识用 RAG (ICL 模式), 风格用 fine-tuning
 - 关键限制 1: prompt 长度有限 (context window), 所以只能喂 top-K 最相关的 chunk, 不能全部文档塞进去 — 这就是"检索"步骤存在的原因
 - 关键限制 2: Distraction Effect (干扰效应) — 如果检索召回不相关的 chunk 塞进 prompt, LLM 反而会被误导, 答案质量不升反降 (Shi et al. 2023). 所以检索精度很关键, 因此不能盲目增大召回数量
 - 关键限制 3: Lost in the Middle (Liu 2023) — LLM 对 prompt 中间部分注意力低, 重要 chunk 应放头尾 (详见 §6.6)
@@ -2248,38 +2276,14 @@ User:
 
 ### 3.1 正确的层级模型 (写路径 + 读路径 + 横切)
 
-#### 3.1.1 完整架构 (按职责分层, 不绑流量)
+> **核心架构和误区纠正已在 §0.3 完整说明** (写路径 L1+L2 / 读路径 L3+L4+L5+Generation / 横切 ACL+Audit+Cost+Observability / 80-15-5 路径分布而非层独占).
+> 本节聚焦 **§0.3 没讲的 4 件事**: 各层职责拆解 (§3.2) / 投资分配 (§3.3) / 缺层诊断 (§3.4) / 接口契约 (§3.7).
 
-##### 离线写路径 (Offline / Write Path) — 文档入库时
-- Layer 1: Data Governance (数据治理)
-  - 100% 文档都经过 (Parse → Dedup → PII → Quality Gating → Metadata)
-- Layer 2: Index Quality (索引质量)
-  - 100% 文档都索引 (Chunking → Embedding → Vector Index + Sparse Index)
-
-##### 在线读路径 (Online / Read Path) — 用户 query 时
-- Layer 4: Query Routing (查询路由) — 100% query 必经入口
-  - Router 决策走哪条路径 (80/15/5 分流)
-- Layer 3: Retrieval & Reranking (检索 + 重排) — 100% query 都用
-  - Hybrid Search (Dense + Sparse + RRF) + Reranker
-- Layer 5: Agent Orchestration (智能体调度) — 仅 5% 复杂 query
-  - Plan-and-Execute + Tool Calling + 多次 L3 检索
-- Generation Layer: LLM 生成 + Validator (校验)
-  - 100% query 最终都到这层 (Context Builder → LLM → Citation 校验)
-
-##### 横切关注点 (Cross-cutting) — 贯穿所有层
-- ACL (访问控制): 三层防御 (schema strip + JWT 60s + MCP gating)
-- Audit (审计): chunk-level 溯源 + 不可篡改
-- Cost Control (成本): 5 层缓存 + 路由分流
-- Observability (可观测): Phoenix / Langfuse / OpenTelemetry
-
-#### 3.1.2 关键认知更正 (重要)
-- ❌ 旧版误解: "Layer 5 占 5% 流量, Layer 4 占 15%, Layer 3 占 80%"
-- ✅ 正确事实:
-  - 100% query 都经过 L4 Router (Router 是必经入口)
-  - 100% query 都用 L3 检索 (即使 Agent 也是多次调 L3)
-  - 100% query 都用 Generation (LLM 生成是必经终点)
-  - 5% query 走 Agent (L5), 95% 不走 Agent
-- ✅ 80/15/5 是 Router 决策后的"路径分布", 不是某层独占流量
+#### 3.1.1 一句话回顾 (详见 §0.3)
+- 写路径 (离线): L1 数据治理 → L2 索引质量
+- 读路径 (在线): L4 Router (入口) → L3 检索 → [L5 Agent 5%] → Generation (终点)
+- 横切: ACL / Audit / Cost / Observability 贯穿所有层
+- 80/15/5 是 **Router 决策后的路径分布**, 不是某层独占流量
 
 ### 3.2 各层职责详解
 
@@ -5238,7 +5242,7 @@ START
 - PDF 中的图表/架构图: 用 BLIP-2 生成 caption → caption 入文本 KB → 正常文本检索
 - 这比 CLIP 直接 embed 图像更实用 (因为 RAG 的 LLM 只能读文本, 不能读图像向量)
 
-#### 5.6.3 BGE-Visualized-M3 (智源 BAAI, ��文图文最佳)
+#### 5.6.3 BGE-Visualized-M3 (智源 BAAI, 中文图文最佳)
 
 ##### 核心思想
 - 在 BGE-M3 (文本 Embedder) 底座上加视觉适配器 (Vision Adapter)
@@ -5269,27 +5273,68 @@ START
 - 学术意义 > 工程落地 (Google 内部用, 未大规模开源部署)
 - 启发后续: SigLIP (Google 2023) 更实用
 
-#### 5.6.5 多模态 LLM 直接做 Visual Parser (2024-2026 新趋势)
+#### 5.6.5 ColPali (Faysse et al. 2024.06, PDF RAG 当前 SOTA)
+
+##### 核心创新 — 跳过 OCR 直接 embed PDF 整页
+- 论文: "ColPali: Efficient Document Retrieval with Vision Language Models" (arXiv:2407.01449), ICLR 2025
+- 痛点: 传统 PDF RAG 必须先 OCR / Parser 转文字, 表格/图表/版式信息全损失
+- 解法: 把 PDF 每页当成"图像", 用 PaliGemma (Google 视觉 LLM, 3B 参数) 直接 embed 成 token-level 向量序列
+- 检索时: query 文本也 embed 成 token 向量, 用 ColBERT 风格的 maxsim late interaction 算相似度
+- 优势:
+  - 0 OCR (省 Parser 复杂度), 整页一次 embed
+  - 表格/图表/版式天然保留 (因为是图像视角)
+  - ViDoRe benchmark (视觉文档检索) NDCG@5 比传统 OCR + 文本 RAG +14-30%
+
+##### 架构
+- 视觉底座: PaliGemma-3B (Google, 2024.05 开源)
+- 输出: 每页 ~1030 个 patch token, 每个 128 维向量
+- 索引: token-level 向量入向量库 (单页 ~130KB), 比传统单文档单向量大 100×
+- 检索: ColBERT MaxSim — score(q, d) = Σ_i max_j (q_i · d_j)
+
+##### 性能数字
+- ViDoRe benchmark (法语 + 英语 PDF, 含财报/学术/工业):
+  - 传统 OCR + BGE-M3 + 文本检索: NDCG@5 = 67.0
+  - ColPali: NDCG@5 = 81.3 (+14.3 pt)
+  - 复杂表格/图表场景: 提升更显著 (+25-30%)
+
+##### 适用场景
+- PDF 中表格/图表密集 (财报 / 学术论文 / 工业说明书)
+- 多语言 PDF (PaliGemma 训过 100+ 语言)
+- 不愿维护 Parser 流水线的团队
+
+##### 局限
+- 存储成本: 单页 130KB vs 传统 4.5KB, 1 亿页要 13TB (vs HNSW 450GB)
+- 推理成本: PaliGemma-3B 比 BGE-M3 慢 6-10×, 单 GPU 100 doc/s
+- 仅适合 PDF / 截图 / 扫描件, 纯文本场景退化为 BERT
+
+##### 业界落地
+- Mistral 团队公开博客示范
+- Anthropic Claude PDF 处理 (推测内部用类似思路)
+- 多家 LegalTech / FinTech 评估中
+
+#### 5.6.6 多模态 LLM 直接做 Visual Parser (2024-2026 新趋势)
 - GPT-4o / Claude Sonnet 4 / Qwen-VL: 原生多模态 LLM, 直接输入图像
 - RAG 用法: PDF 图表 → 截图 → 多模态 LLM 生成文本描述 → 描述入文本 KB
 - 优势: 不需要训练/部署专门的多模态 Embedder, 用 LLM API 直接出 caption
 - 劣势: API 成本高 ($0.01-0.05/图), 延迟高 (1-3s/图)
 - 适合: 文档中图表数量不多 (<1 万) 的场景
 
-#### 5.6.6 多模态选型决策表
+#### 5.6.7 多模态选型决策表
 
 | 模型 | 训练数据 | 维度 | 中文 | VQA | RAG 用法 | 适合 |
 |---|---|---|---|---|---|---|
 | CLIP (OpenAI) | 4 亿图文 | 512 | ❌ 弱 | ❌ | 图直接 embed→检索 | 英文图搜文 |
 | BLIP-2 (Salesforce) | ~130M | Q-Former | ⚠️ 中 | ✅ | 图→caption→文本 KB | VQA + 图描述 |
-| BGE-Visualized-M3 | BGE-M3 + 视觉 | 1024 | ✅ SOTA | ❌ | ���embed→同空间检索 | 中文图文 |
+| BGE-Visualized-M3 | BGE-M3 + 视觉 | 1024 | ✅ SOTA | ❌ | 图 embed→同空间检索 | 中文图文 |
 | ALIGN (Google) | 18 亿 | 640 | ❌ | ❌ | 学术参考 | 研究 |
+| **ColPali** (PaliGemma 底座) | — | 128/token | ✅ 多语言 | — | **PDF 整页 embed → maxsim** | **PDF 表格/图表 SOTA** |
 | GPT-4o Vision | — | — | ✅ | ✅ | 图→caption→文本 KB | 少量图, API 预算够 |
 
-#### 5.6.7 RAG 多模态最佳实践
-- 路线 A (简单, 推荐): PDF 图��� → GPT-4o/Claude 生成 caption → caption 入文本 KB → 正常文本检索
+#### 5.6.8 RAG 多模态最佳实践
+- 路线 A (简单, 推荐): PDF 图表 → GPT-4o/Claude 生成 caption → caption 入文本 KB → 正常文本检索
 - 路线 B (中文图文多): 图像 → BGE-Visualized-M3 embed → 与文本同一向量库 → Hybrid 检索
 - 路线 C (VQA 需求): BLIP-2 做图文 QA, 答案入 KB
+- 路线 D (**PDF 复杂表格图表 SOTA**): ColPali 整页 embed + late interaction (跳过 OCR)
 - 核心原则: RAG 的 LLM 只读文本 token, 图像必须转成文本 (caption) 或向量 (同空间 embed) 才能用
 
 ### 5.7 真实事故 (L2 相关)
@@ -6972,42 +7017,14 @@ START
 
 #### 8.5.2 CRAG (Corrective-RAG, Yan et al. 2024, arXiv:2401.15884)
 
-##### 核心思想
-- 检索后用一个轻量级 Evaluator 评估检索结果质量
-- 论文原文: 三档 Correct / Incorrect / Ambiguous (正确 / 错误 / 模糊, 见 §6.9 state machine 详解)
-- 工程简化版: 用数值 score 分三档 — 高置信 (>0.7) / 中置信 / 低置信 (<-0.3)
-- 核心流程: 好 → Knowledge Refinement (原文精炼后使用); 中 → 改写 query 重检; 差 → web search 兜底
-- 不需要 fine-tune LLM, prompt-based 即可
+> **完整 state machine + 三档分流 + Evaluator prompt + 性能数字 详见 §6.9**.
+> 本节聚焦 §6.9 没讲的 "Agent 视角的位置": CRAG 在 §8.5 七模式中属于"自反思" 类, 与 Self-RAG (§8.5.1) 是兄弟模式但更轻量.
 
-##### 完整执行流程
-- 步 1: query 输入
-- 步 2: 走标准 RAG 检索 → top-K chunks
-- 步 3: Evaluator (轻量 LLM, 如 T5-large 或 Claude Haiku) 给每个 chunk 打分 [-1, 1]
-  - 输出 confidence score
-- 步 4: 三档分流:
-  - 高置信 (avg score > 0.7): 直接用 top-K
-  - 中置信 (-0.3 < avg score < 0.7): query 改写 + 重检 (类似 Multi-Query)
-  - 低置信 (avg score < -0.3): 触发 web search (Tavily / Bing API)
-- 步 5: knowledge refinement — 把多源结果用 LLM 融合
-- 步 6: 生成最终答案
-
-##### Evaluator Prompt 模板
-- "Query: {query}\nDocument: {doc}\nIs this document relevant? Output a score from -1 to 1, where -1 = completely irrelevant, 0 = neutral, 1 = highly relevant. Score:"
-
-##### 性能数字
-- PopQA: +9.8% accuracy vs vanilla RAG
-- Bio: +12.3% vs vanilla RAG
-- Open-domain QA: +5-15% vs Self-RAG (因为兜底 web search)
-
-##### 工程优势 vs Self-RAG
-- 不需 fine-tune, 任意 LLM 都能用
-- Evaluator 可独立换 (轻量模型即可)
-- 兜底 web search 让低质 KB 场景救命
-
-##### 真实采用
-- LangGraph 官方示例
-- LlamaIndex CRAG 模板
-- Anthropic Claude search (推测)
+##### 一句话定位 (相对 §6.9 的额外补充)
+- vs Self-RAG: 不需 fine-tune LLM (Self-RAG 要), prompt-based 即可
+- vs Iterative RAG (§20.2.5): CRAG 单轮 + 兜底 web search; Iterative 多轮无 web 兜底
+- 工业落地: LangGraph 官方示例 / LlamaIndex CRAG 模板 / Anthropic Claude search (推测)
+- 性能 (论文 PopQA): +9.8% vs vanilla RAG, +5-15% vs Self-RAG (因兜底 web search)
 
 #### 8.5.3 GraphRAG (Microsoft 2024, github.com/microsoft/graphrag)
 
@@ -8088,7 +8105,8 @@ START
 | 维度 | SaaS 多租户 | Single-tenant | VPC | On-prem | 混合云 |
 |---|---|---|---|---|---|
 | 数据隔离 | 逻辑 | 物理 (DB) | 物理 (网络) | 物理 (机房) | 分层 |
-| 成本 | $50-500/月 | $1K-10K/月 | $5K-30K/月 | $50K-500K/年 | $200K-1M/年 |
+| 月成本 | $50-500 | $1K-10K | $5K-30K | $4K-42K (年 $50K-500K÷12) | $17K-83K (年 $200K-1M÷12) |
+| 年成本 | $0.6K-6K | $12K-120K | $60K-360K | $50K-500K | $200K-1M |
 | 部署周期 | 0 | 1-2 周 | 2-6 周 | 2-6 月 | 1-3 月 |
 | 合规等级 | 低 | 中 | 高 | 最高 | 高 |
 | 适合 | SMB | 中企 | 金融医疗 | 政府军工 | 跨国 |
@@ -8884,6 +8902,10 @@ START
 - 永久: 强 faithfulness > 0.85 + chunk-level cite + 涉钱转人工
 - 后续: 高风险 query 100% 转人工
 - 行业: 所有面客 AI 必须强 Guardrail; 法律共识 chatbot = 公司承诺
+- 一手来源:
+  - 法庭判决: Moffatt v. Air Canada, 2024 BCCRT 149 (Civil Resolution Tribunal of British Columbia)
+  - 法律文档: decisions.civilresolutionbc.ca → search "Moffatt v. Air Canada"
+  - 报道: theguardian.com/world/2024/feb/16/air-canada-chatbot-lawsuit / arstechnica.com
 
 ### 13.2 Bing/Sydney Prompt Injection (2023.02)
 - 标签: [横切 / Security] [致命]
@@ -8894,6 +8916,10 @@ START
 - 临时: 限制对话 5 轮
 - 永久: system prompt 不放敏感 + XML wrap user input + Llama Guard + 二次审
 - 行业: Prompt Injection 成 LLM 安全核心; OWASP LLM Top 10 第 1
+- 一手来源:
+  - Kevin Liu 原始 Twitter: twitter.com/kliu128/status/1623472922374574080 (2023.02.09)
+  - Ars Technica 报道: arstechnica.com/information-technology/2023/02/ai-powered-bing-chat-spills-its-secrets-via-prompt-injection-attack/
+  - OWASP LLM Top 10: owasp.org/www-project-top-10-for-large-language-model-applications/
 
 ### 13.3 Samsung ChatGPT 代码泄露 (2023.04)
 - 标签: [L1 / 横切 Security] [高]
@@ -8902,6 +8928,9 @@ START
 - RCA: 默认开启训练 + 无 DLP + 员工不知
 - 永久: 私有化部署 + DLP + Enterprise 版 + NDA + 培训
 - 行业: enterprise AI 数据安全意识增强; 推动 OpenAI Enterprise / Azure OpenAI 市场
+- 一手来源:
+  - Bloomberg 报道: bloomberg.com/news/articles/2023-05-02/samsung-bans-chatgpt-and-other-generative-ai-use-by-staff-after-leak (2023.05)
+  - 韩国 Economist 原报: economist.co.kr (2023.04)
 
 ### 13.4 Spotify 多语言搜索降级
 - 标签: [L2 索引]
@@ -8945,6 +8974,9 @@ START
 - 关键: 80/15/5 分流 + 严格 SLA + 业务集成
 - 上线初期: 转人工率 60% → 调拒答阈值后 30%
 - 行业: AI 客服可行性证明; Intercom Fin / Salesforce Einstein 加速落地
+- 一手来源:
+  - Klarna 官方新闻稿: klarna.com/international/press/klarna-ai-assistant-handles-two-thirds-of-customer-service-chats-in-its-first-month/ (2024.02.27)
+  - OpenAI 联合发布: openai.com/index/klarna/ (含具体数字)
 
 ### 13.9 Notion 早期 ACL 越权 (2023)
 - 标签: [横切 / ACL] [高]
@@ -8953,6 +8985,7 @@ START
 - 排查: 跨 workspace 检索没 ACL 过滤
 - 永久: 索引时打 workspace_id + 三层防御 + 红队测试
 - 行业: 多租户 RAG 安全意识增强
+- 一手来源: 业界推测案例 (具体细节未公开, 类似事件被多家 SaaS 团队私下复盘)
 
 ### 13.10 大文件 ingest OOM
 - 标签: [L1 数据治理] [中]
@@ -9040,6 +9073,10 @@ START
 - RCA: (1) 无 Llama Guard / NeMo Guardrails 输出过滤 (2) system prompt 无 "绝不骂人" 硬约束 (3) 无 prompt injection 检测
 - 永久修复: (1) 加 Llama Guard (毒性/暴力/色情检测) (2) 强人设 system prompt: "你是 DPD 客服, 始终友善专业, 绝不发表负面评价" (3) 关键词黑名单 + 正则 (4) 出口 LLM 二审 (Haiku 做 safety check, 0.1ms)
 - 行业影响: DPD 次日下线 AI chatbot, 全行业 Guardrail 意识提升, 公关风险 > 技术风险
+- 一手来源:
+  - 用户原始 Twitter 截图: x.com/AshBeauchamp/status/1748034519104450874 (2024.01.18)
+  - BBC 报道: bbc.com/news/technology-68025677 (2024.01.20)
+  - The Guardian: theguardian.com/technology/2024/jan/20/dpd-ai-chatbot-swears-calls-itself-useless
 
 ### 13.19 NYC MyCity 给违法建议 (2024.03)
 - 标签: [横切 / Security] [致命]
@@ -9051,6 +9088,10 @@ START
 - RCA: (1) 知识库中旧版法规未下线 (时效性问题) (2) 无法律领域专项审核 (3) 高风险话题无拒答/转人工机制
 - 永久修复: (1) 法律文档定期审核 + expires_at (2) 敏感话题关键词检测 → 强制转人工 (歧视/解雇/犯罪/税务) (3) 法律顾问逐月审查 AI 回答样本 (4) 加 disclaimer: "本回答仅供参考, 不构成法律建议"
 - 行业影响: 政府 AI 部署标准收紧, 高风险领域 (法律/医疗/金融) 必须有人工审核兜底
+- 一手来源:
+  - The Markup 原报道: themarkup.org/news/2024/03/29/nyc-ai-chatbot-tells-businesses-to-break-the-law (2024.03.29)
+  - AP News: apnews.com/article/new-york-city-chatbot-misinformation-6ebc71db5b770b9969c906a7ee4fae21
+  - NYC 官方回应: nyc.gov/site/ocss/about/news.page
 
 ### 13.20 召回 vs 答案不一致
 - 标签: [Validator] [中]
@@ -17069,10 +17110,12 @@ Agent 多步执行:
 ## 附录 B: 术语索引 (按字母, 完整中英对照)
 
 - ACL — 访问控制列表
-- Adaptive RAG — 自适应 RAG
+- Adaptive RAG — 自适应 RAG (Jeong et al. 2024)
 - Advanced RAG — Gen 2 RAG
 - Agent — 智能体
+- Apache Atlas — Hadoop 生态数据血缘
 - AST-aware Chunking — 按代码语法树切
+- AutoNugget — TREC 2024 RAG Track 评估方法 (atomic facts 覆盖率)
 - BGE-M3 — 智源开源 embedder
 - BGE-Reranker-V2-M3 — 智源开源 reranker
 - BGE-Visualized-M3 — BGE 多模态版
@@ -17080,6 +17123,8 @@ Agent 多步执行:
 - Boilerplate — 网页/文档样板代码
 - chunk — 文档分块
 - ColBERT — token-level 后期交互
+- ColPali — 2024 PDF RAG SOTA, Vision Embedder + late interaction (PaliGemma 底座)
+- Computer Use — Anthropic 2024.10 视觉 Agent (操作 GUI)
 - Connector — 数据源接入器
 - Context Builder — 上下文组装
 - Contextual Retrieval — Anthropic 2024.09 chunk 加上下文
@@ -17088,6 +17133,8 @@ Agent 多步执行:
 - Cross-Encoder — 联合编码 reranker
 - Decomposition — 多查询分解
 - Dense Retrieval — 稠密检索
+- DataHub — LinkedIn 开源现代化数据 catalog (含 LLM/Embedding 资产)
+- Deequ — AWS 出品大数据质量验证 (Spark)
 - DiskANN — 基于磁盘 ANN
 - Embedder — 嵌入向量模型
 - embedding — 嵌入向量
@@ -17096,6 +17143,7 @@ Agent 多步执行:
 - FLAT — 暴力搜索 100% 召回
 - Function Calling — 函数调用 / 工具调用
 - Generator — Modular RAG 第 6 模块
+- Great Expectations — 数据质量框架 (期望式契约)
 - Golden Set — 人工标注评估集
 - GraphRAG — 图增强 RAG
 - Guardrail — 安全护栏
@@ -17103,6 +17151,7 @@ Agent 多步执行:
 - HNSW — 层次可导航小世界图
 - HyDE — 假设性文档嵌入
 - Index — 索引
+- Indirect Prompt Injection — 间接提示注入 (KB 投毒攻击)
 - Ingestion — 文档摄取
 - IVF — 倒排文件索引
 - JWT — JSON Web Token
@@ -17111,10 +17160,13 @@ Agent 多步执行:
 - Late Chunking — Jina 后期分块
 - LightRAG — GraphRAG 轻量版
 - LLM-as-judge — LLM 作为评判器
+- Lakera Guard — 商业 prompt injection 检测 SaaS
 - LSH — 近似去重算法
 - LTR — Learning to Rank
+- Magentic-One — Microsoft 2024.11 多 Agent 框架 (Orchestrator + 4 Worker)
 - MaxSim — ColBERT 最大相似度聚合
-- MCP — Model Context Protocol
+- MCP — Model Context Protocol (Anthropic 2024.11 标准化工具调用协议)
+- Multi-Agent — 多智能体协作 (AutoGen / CrewAI / Magentic-One)
 - Memory — Agent 记忆
 - Milvus — 开源向量数据库
 - MinHash — 近似去重算法
@@ -17135,7 +17187,10 @@ Agent 多步执行:
 - Query Understanding — Modular RAG 第 1 模块
 - RAGAS — RAG 评估框架
 - RankLLM — LLM 作为 reranker
+- Reasoning Model — 显式推理链模型 (OpenAI o1/o3, DeepSeek-R1, Claude Sonnet 4 extended thinking)
+- Rebuff — 开源 prompt injection 检测库
 - Reciprocal Rank Fusion (RRF) — 倒数排名融合
+- Reflexion — 自反思 Agent 框架 (Shinn 2023, episodic memory)
 - Recall — 查全率
 - Refusal — 拒答机制
 - Reranker — 重排序模型
@@ -17156,6 +17211,7 @@ Agent 多步执行:
 - Tool Calling — 工具调用
 - tsvector — PG 全文搜索类型
 - Validator — Modular RAG 第 7 模块
+- VECTARA HEM — Vectara 幻觉检测专用小模型 (270M, 比 LLM-as-judge 便宜 30×)
 - vLLM — 高吞吐 LLM 推理引擎
 - Voyage — embedding + reranker 公司
 - Workspace — 工作空间 (多租户单位)
