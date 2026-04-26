@@ -647,7 +647,7 @@
 
 ##### 是什么
 - LLM 训练有时间边界, 训练集之后的信息一概不知
-- GPT-4o cutoff: 2024 年中 (规划中: GPT-5)
+- GPT-4o cutoff: 2024 年中
 - Claude Sonnet 4 cutoff: 2025 年初
 - Qwen3 cutoff: 2024 年底
 - 模型参数冻结后, 无法通过提问获取新信息 — 就像一本印好的书, 出版后不会自动更新
@@ -4333,7 +4333,7 @@ User:
 
 ##### 给学习者的建议
 - **不要被"业界宣传"迷惑**: 各家公司博客都在说"我们的 RAG 很完美", 实际都有大量长尾问题
-- **关注 failure mode**: §16 6 大失败模式比成功案例更值得学
+- **关注 failure mode**: §16 7 大失败模式比成功案例更值得学
 - **重视监控**: 大部分团队栽在"上线后没人盯", 而不是"上线时治理不够"
 
 #### 4.15.6 反模式 (业界踩过的坑)
@@ -7408,15 +7408,15 @@ START
 - 豆包大模型
 
 ##### 英文 API
-- Claude Sonnet 4 / GPT-4o (规划中: GPT-5)
+- Claude Sonnet 4 / GPT-4o
 - Gemini 2.0 Pro / Flash (Gemini 2.5 已发布部分预览)
 
 #### 9.3.4 LLM 模型选型决策表
 
 | 场景 | 推荐 |
 |---|---|
-| 高质量 + 国际 | Claude Sonnet 4 / GPT-4o (规划中: GPT-5) |
-| 性价比 + 国际 | Claude Haiku / GPT-4o (规划中: GPT-5) mini |
+| 高质量 + 国际 | Claude Sonnet 4 / GPT-4o |
+| 性价比 + 国际 | Claude Haiku / GPT-4o mini |
 | 中文 + API | Qwen3-Max / DeepSeek-V3 |
 | 中文 + 私有化 | Qwen3-72B / DeepSeek-V3 |
 | 极致便宜 | DeepSeek-V3 ($1/1M) / Qwen3-7B 自托管 |
@@ -7881,8 +7881,11 @@ START
 ##### 杠杆 2: 路由分流 (降低平均 token 单价 50%)
 - 原理: 80% 简单 query 走 Haiku ($0.0025), 15% 走 Sonnet ($0.03), 5% 走 Agent ($0.30)
 - 效果 (加权平均): 0.8×$0.0025 + 0.15×$0.03 + 0.05×$0.30 = $0.0215/query
-- vs 全用 Sonnet ($0.03/query): 加权后 $0.0215, 节省 28%
-- vs 80% Sonnet + 20% Agent 的原方案: 路由分流后实际省 50-72% (因 80% 流量从 Sonnet 降级到 Haiku)
+- 与不同 baseline 的对比:
+  - vs 全部用 Sonnet 处理 (无路由): $0.03/query → $0.0215/query, **节省 28%**
+  - vs 全部用 Agent 处理 (无路由, 极端 baseline): $0.30/query → $0.0215/query, **节省 93%**
+  - vs 80% Sonnet + 20% Agent 的次优方案: 加权 $0.084/query → $0.0215/query, **节省 74%**
+  - 本节"节省 50%"统一指 vs 该次优方案 (大多数项目优化前的状态)
 
 ##### 杠杆 3: Quality Gating (减少入库垃圾 10%)
 - 原理: 入库前用 LLM-as-judge 过滤质量 < 3 的 chunk, 减少检索阶段的 noise
@@ -9075,7 +9078,7 @@ START
 - 永久修复: (1) expires_at 字段: 每份文档标注过期时间 (2) recency_decay: 检索评分乘以时效性权重 (3) canonical_version: 同一文档多版本只有一个 is_current=true (4) 过期文档自动软删 + 周期清理
 - 教训: 时效性是 L1 数据治理核心职责, 不能靠用户自己下线旧文档
 
-### 13.24 Uber Genie — 内部 Slack 客服 RAG (Vanilla → Production)
+### 13.23 Uber Genie — 内部 Slack 客服 RAG (Vanilla → Production)
 - 标签: [L1 / L2 / 横切] [成功案例]
 - 时间: 2023-2024, Uber 工程团队公开博客
 - 背景: Uber 数千名内部员工每天问大量重复问题 (HR / IT / 工程文档), Slack 噪声大
@@ -9098,7 +9101,7 @@ START
   - 内部 LLM Gateway 是大企业必备 (统一计费 / rate limit / 模型切换)
 - 引用: eng.uber.com (Genie 系列博客, 2023-2024)
 
-### 13.25 Mercari — Serverless RAG on Google Cloud
+### 13.24 Mercari — Serverless RAG on Google Cloud
 - 标签: [部署 / L1] [成功案例]
 - 时间: 2024, Mercari 工程博客
 - 背景: 日本电商 Mercari 内部事件管理系统, 需要 RAG 支持工程师查历史事件
@@ -9122,27 +9125,28 @@ START
   - 内部工具不必追求 P95 < 1s, 3-5s 可接受
 - 引用: engineering.mercari.com (RAG 系列, 2024)
 
-### 13.23 22 案例统计
+### 13.25 24 案例统计
 
-> 注: 单个案例可能跨多 Layer (e.g. Samsung 既是 L1 数据治理 + 横切 Security), 故按 Layer/严重程度累加可能 > 22.
-> 22 是案例总数, 下面是"主标签"分布 (每案例归一个最主要 Layer).
+> 注: 单个案例可能跨多 Layer (e.g. Samsung 既是 L1 数据治理 + 横切 Security), 故按 Layer/严重程度累加可能 > 24.
+> 24 是案例总数 (失败 22 + 成功 2: Klarna 13.8 + Uber Genie 13.23 + Mercari 13.24), 下面是"主标签"分布 (每案例归一个最主要 Layer).
 
-#### 13.23.1 按主 Layer 分布 (主标签去重计 22)
+#### 13.25.1 按主 Layer 分布 (主标签去重计 24)
 - L1 数据治理 (主): 9 个 — 13.3 / 13.5 / 13.7 / 13.10 / 13.13 / 13.14 / 13.16 / 13.21 / 13.22
 - L2 索引: 1 个 — 13.4
 - L3 检索: 2 个 — 13.6 / 13.12
-- L7 Validator: 2 个 — 13.11 / 13.20
-- L5 Agent (含成功案例): 1 个 — 13.8
+- 横切 / Validator: 2 个 — 13.11 / 13.20
+- L5 Agent (含成功案例): 1 个 — 13.8 Klarna
 - 横切 (Security/ACL/Refusal/产品): 7 个 — 13.1 / 13.2 / 13.9 / 13.15 / 13.17 / 13.18 / 13.19
+- 成功架构案例 (Vanilla → Production): 2 个 — 13.23 Uber Genie / 13.24 Mercari Serverless
 
-#### 13.23.2 按严重程度
+#### 13.25.2 按严重程度
 - 致命 (法律 / 品牌灾难): 4 个 — 13.1 Air Canada / 13.2 Bing-Sydney 越狱 / 13.18 DPD / 13.19 NYC MyCity
 - 高 (合规 / 隐私): 3 个 — 13.3 Samsung 数据外泄 / 13.9 Notion ACL / 13.15 Bing/Bard PII
 - 中 (质量 / 性能): 9 个 — 13.4 / 13.5 / 13.7 / 13.11 / 13.12 / 13.13 / 13.14 / 13.16 / 13.20
 - 低 (优化 / 工程): 5 个 — 13.6 / 13.10 / 13.17 / 13.21 / 13.22
-- 成功案例 (反向): 1 个 — 13.8 Klarna FinOps
+- 成功案例 (反向, 学习架构): 3 个 — 13.8 Klarna FinOps / 13.23 Uber Genie / 13.24 Mercari Serverless
 
-#### 13.23.3 共同教训
+#### 13.25.3 共同教训
 - 数据治理是地基 (50%+ 案例)
 - 横切关注点关乎系统安全存亡 (Air Canada / DPD 案例证明)
 - 拒答 + Guardrail 必须
@@ -9612,7 +9616,7 @@ A: 4 个监控维度: (1) Recall@10 月度趋势 (Golden Set 跑) (2) NDCG@10 �
 
 ##### 反例 (常见错误回答)
 - ❌ "重启服务" — 没诊断盲修
-- ❌ "升级到 GPT-4o (规划中: GPT-5)" — 不解决根因
+- ❌ "升级到 GPT-4o" — 不解决根因
 - ❌ "增加 top-K" — 缓解症状不治本
 - ❌ "改阈值" — 治标不治本
 
@@ -11218,8 +11222,8 @@ LangChain 实现 (1 行代码):
 ##### 第二轮追问 Q: 怎么诊断是不是 Lost in the Middle?
 A: 把正确答案 chunk 强制放头部测一次, 放尾部测一次, 放中间测一次. 如果头尾正确率 > 中间 20pt, 就是 LITM. 修复方案 LongContextReorder.
 
-##### 第三轮追问 Q: GPT-4o (规划中: GPT-5) / Claude Sonnet 4 还有 Lost in the Middle 吗?
-A: 减弱但仍存在. GPT-4o (规划中: GPT-5) 测试中间准确率 70% (vs 头 80%, 差 10pt, 比 GPT-3.5 30pt 好很多). Long-context 模型 (1M+) 影响更小但不消除. Reorder 仍有价值.
+##### 第三轮追问 Q: GPT-4o / Claude Sonnet 4 还有 Lost in the Middle 吗?
+A: 减弱但仍存在. GPT-4o 测试中间准确率 70% (vs 头 80%, 差 10pt, 比 GPT-3.5 30pt 好很多). Long-context 模型 (1M+) 影响更小但不消除. Reorder 仍有价值.
 
 ##### 反例
 - ❌ "用更大 context 模型就解决" — 不解决根本
@@ -13283,7 +13287,7 @@ A: 三招: (1) 提前 1 周扩容 (LLM API 提 quota / GPU 加副本) (2) 缓存
 
 ##### 反例
 - ❌ "拒答阈值设很低, 反正出错有人审" — Air Canada 案后绝对不行
-- ❌ "全程 GPT-4o (规划中: GPT-5)" — 成本爆炸 ($30K → $300K)
+- ❌ "全程 GPT-4o" — 成本爆炸 ($30K → $300K)
 
 #### Q7.3 设计代码 RAG (Cursor 级别)
 
@@ -13337,7 +13341,7 @@ L5 Agent (核心, 2026 趋势):
 - 增量索引: < 30s
 
 成本:
-- 大部分用户用 GPT-4o (规划中: GPT-5) / Claude Sonnet 4 (代码生成质量关键)
+- 大部分用户用 GPT-4o / Claude Sonnet 4 (代码生成质量关键)
 - 单次任务 $0.05-5 (Agentic 多步)
 - 月活 100 万开发者 × 50 任务/月 × $0.5 = $25M
 - 用户付费 ($20/月 Pro tier)
@@ -13918,10 +13922,10 @@ A: 算法负责 "为什么这样做" (选 embedder / 调参 / 评估), 工程负
 ## 十六. RAG Failure Mode 系统诊断
 
 > 说明: RAG 出错时, 大多数人凭直觉乱调 (调 prompt? 换模型? 改 chunk 大小?), 浪费数周.
-> 本节给一个**结构化诊断框架**: 把所有失败归类为 6 种 Type, 每种有明确的"如何识别 → 根因分析 → 修复方案", 像故障诊断手册一样使用.
-> 6 种分类原则: 按 RAG 数据流的两个核心阶段拆 — 检索阶段 (A/B/C) + 生成阶段 (D/E/F)
+> 本节给一个**结构化诊断框架**: 把所有失败归类为 7 种 Type, 每种有明确的"如何识别 → 根因分析 → 修复方案", 像故障诊断手册一样使用.
+> 7 种分类原则: 按 RAG 数据流的三个维度 — 检索阶段 (A/B/C) + 生成阶段 (D/E/F) + 安全维度 (G Indirect Prompt Injection)
 
-### 16.1 6 大失败模式 (按数据流阶段分类)
+### 16.1 7 大失败模式 (检索 + 生成 + 安全)
 
 #### 16.1.1 Type A — Retrieval Failure (检索失败: 该召回的没召回)
 
@@ -14129,28 +14133,33 @@ A: 算法负责 "为什么这样做" (选 embedder / 调参 / 评估), 工程负
 ### 16.2 诊断决策树
 
 ```
-用户报"答案错"
+用户报"答案错"或"AI 行为异常"
     ↓
 Step 1: 复现 (5min)
     ├─ 复现成功 → Step 2
     └─ 复现失败 → 用户期望问题 / 已修复
     ↓
-Step 2: 看检索 chunk
+Step 2: AI 是否做了"不该做的事" (调外部 API / 输出敏感数据 / 拒绝合法请求)?
+    ├─ 是 → 看检索 chunk 是否含可疑指令 ("ignore previous" / "system:" 模式) → Type G Indirect Prompt Injection
+    │       └─ 修: 入库 PI 检测 (Lakera/Rebuff) + System Prompt 强约束 + Tool 白名单 + 输出过滤
+    └─ 否 → Step 3
     ↓
-Step 3: KB 中真有答案吗?
+Step 3: 看检索 chunk
+    ↓
+Step 4: KB 中真有答案吗?
     ├─ KB 没有 → Coverage Gap (补 KB)
-    └─ KB 有 → Step 4
+    └─ KB 有 → Step 5
     ↓
-Step 4: chunk 对吗?
+Step 5: chunk 对吗?
     ├─ chunk 没召到 → Type A
     │       └─ 修: Hybrid + HyDE + Multi-Query + 父子 + Contextual
     ├─ chunk 召到但版本错 → Type B
     │       └─ 修: 版本管理 + 时效 + Dedup
     ├─ chunk 召到但不全 → Type C
     │       └─ 修: 增 K + 父子 + Multi-hop
-    └─ chunk 对的但答错 → Step 5
+    └─ chunk 对的但答错 → Step 6
     ↓
-Step 5: LLM 出错类型?
+Step 6: LLM 出错类型?
     ├─ 编了 chunk 没说 → Type D Hallucination
     │       └─ 修: prompt 强约束 + Validator + LongContextReorder
     ├─ 答对但引用错 → Type E
@@ -14351,12 +14360,7 @@ Step 5: LLM 出错类型?
   - Q: 推导 BM25 IDF 公式从概率检索框架 (Robertson-Spärck Jones 模型)
   - Q: Multi-Agent 协作中如何防止 Critic Agent 变 yes-man?
   - Q: 从 Modular RAG 渐进迁移到 Agent RAG 的 4 步 Roadmap
-- 自检标准: 能 mentor 他人 + 有技术影响力 → 过
-
-#### 17.7.4 专家
-- 能上线 1000 QPS + 月成本可控
-- 能解决业界没解决的问题
-- 能开源被业界采用
+- 自检标准: 能 mentor 他人 + 有技术影响力 + 能上线 1000 QPS + 月成本可控 + 能解决业界没解决的问题 + 能开源被业界采用 → 过
 
 ---
 
@@ -16038,9 +16042,9 @@ class ModularRAG:
 - 多步推理 (拆问题 + 综合)
 - 需执行操作 (创建工单 / 发邮件)
 
-### 20.1.5 2025-2026 Agent RAG 最新发展 (前沿知识)
+### 20.1.3 2025-2026 Agent RAG 最新发展 (前沿知识)
 
-#### 20.1.5.1 时间线 (2024-2026 关键节点)
+#### 20.1.3.1 时间线 (2024-2026 关键节点)
 - 2024.05 — Anthropic Claude 3.5 Sonnet + Computer Use (multimodal Agent, 浏览网页 / 操作 GUI)
 - 2024.10 — Anthropic 发布 Computer Use API (public beta), Agent 能控制鼠标键盘
 - 2024.10 — OpenAI Swarm 开源 (极简 multi-agent 框架, handoff 机制)
@@ -16055,7 +16059,7 @@ class ModularRAG:
 - 2026.Q1 — MCP 1.0 协议稳定, 1000+ Server 生态
 - 2026.Q2 — Multi-modal Agent 成熟 (视觉 + 语音 + 操作)
 
-#### 20.1.5.2 5 大新趋势 (2025-2026)
+#### 20.1.3.2 5 大新趋势 (2025-2026)
 
 ##### 趋势 1 — MCP (Model Context Protocol) 协议化
 - 解决: 之前每个 LLM (OpenAI/Anthropic/Gemini) 工具调用 schema 不同, 工程师重复造轮子
@@ -16087,7 +16091,7 @@ class ModularRAG:
 - 特点: 越用越强 (vs 传统 Agent 每次从 0 开始)
 - 落地: 还在学术阶段, 工业生产应用少
 
-#### 20.1.5.3 Agent RAG 完整架构图 (2026 标准)
+#### 20.1.3.3 Agent RAG 完整架构图 (2026 标准)
 
 ##### 完整数据流 (用户 query → 答案)
 - 用户 query (str)
@@ -16145,7 +16149,7 @@ class ModularRAG:
 - 同 tool 重复 3 次 → 熔断
 - 总 token 监控 + 告警
 
-#### 20.1.5.4 2026 Agent RAG 真实落地案例
+#### 20.1.3.4 2026 Agent RAG 真实落地案例
 
 ##### Klarna AI 客服 (95% RAG + 5% Agent)
 - 95% 普通 query 走 Modular RAG (Haiku, 单次响应)
@@ -16171,7 +16175,7 @@ class ModularRAG:
 - 接 GitHub Issue → 生成 PR
 - 多 Agent 协作 (Architect + Coder + Reviewer)
 
-#### 20.1.5.5 2025-2026 vs 2024 关键差异
+#### 20.1.3.5 2025-2026 vs 2024 关键差异
 
 | 维度 | 2024 (早期 Agent) | 2025-2026 (成熟 Agent) |
 |---|---|---|
