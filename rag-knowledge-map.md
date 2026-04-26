@@ -126,7 +126,7 @@
   - 防线 5 — Quality Gating: 用 LLM-as-judge 给每个 chunk 打分 (信息密度 / 完整性 / 时效性), 低质量的不入库
   - 防线 6 — 时效性管理: 给每份文档标 expires_at, 过期自动下线 (旧法规不下线 → NYC MyCity 违法建议 §13.19)
   - 防线 7 — 版本管理: 同一文档多版本只有一个 is_current=true, 切换原子性 + 灰度
-- 不做这 7 道防线的后果: 60-70% 的生产问题可追溯到离线数据质量 (详见 §13 案例库, L1 占 9/22)
+- 不做这 7 道防线的后果: 60-70% 的生产问题可追溯到离线数据质量 (详见 §13 案例库, L1 占 9/28)
 
 ##### 完整 8 步流程 (含数据治理)
 - 步 1: 文档入库 (Document Ingestion)
@@ -143,7 +143,7 @@
   - Quality Gating: LLM 打分, 3 维度 5 分制, 总分 < 3 的不入库
   - 时效性标注: expires_at + recency_decay 衰减函数
   - 版本管理: canonical_version 标记唯一当前版
-- 不做这 7 道防线的后果: 60-70% 的生产问题可追溯到离线数据质量 (详见 §13 案例库, L1 占 9/22 案例)
+- 不做这 7 道防线的后果: 60-70% 的生产问题可追溯到离线数据质量 (详见 §13 案例库, L1 占 9/28 案例)
 
 ##### 企业级数据治理架构 (真实生产做法)
 - 整体架构: **异步流水线 + 消息队列 + 多 Worker 并行**
@@ -801,7 +801,7 @@ LLM 维度规律: **参数量越大 hidden_dim 越大** (大致 hidden_dim ≈ 1
 - 详见 §6.7
 
 ##### 增强 5: Modular RAG + Agent RAG (解决"架构僵化 + 复杂问题单次检索不够"的问题)
-- Modular RAG (Gen 3, 2024): 把整条流水线拆成 7 个可插拔模块 (Query Understanding / Router / Retriever / Reranker / Context Builder / Generator / Validator), 每个可独立替换、升级、评估 → 详见 §19
+- Modular RAG (Gen 3, 2024): 把整条流水线拆成 7 个可插拔模块 (Indexing / Pre-Retrieval / Retrieval / Post-Retrieval / Generation / Routing / Orchestration (Yunfan Gao 2024 综述定义)), 每个可独立替换、升级、评估 → 详见 §19
 - Agent RAG (Gen 4, 2025-2026): 在 Modular 之上加智能调度, LLM 自己决定要不要再检索 / 调什么工具 / 检索几次 → 解决单次检索答不全的复杂问题 → 详见 §20
 
 #### 0.1.9 BM25 在 RAG 中扮演的角色 (单独强调)
@@ -878,6 +878,8 @@ LLM 维度规律: **参数量越大 hidden_dim 越大** (大致 hidden_dim ≈ 1
 
 ### 0.5 RAG 4 代演进缩略表
 
+> 完整代表实现 / 详细对比见 §1.4 RAG 4 代演进史完整章节.
+
 > 完整 4 代演进详见 §1.4. 这里给个 60 秒能记住的缩略对比.
 
 | 代 | 时间 | 核心特征 | 代表系统 | 单 query 成本 | 局限 |
@@ -933,7 +935,7 @@ LLM 维度规律: **参数量越大 hidden_dim 越大** (大致 hidden_dim ≈ 1
 - LLM (Large Language Model, 大语言模型) — Transformer 架构的预训练模型, 参数量 7B-1T+ (e.g. GPT-4o / Claude / Qwen3)
 - Embedder (嵌入模型) — 把文本压缩成定长向量的模型, 与 LLM 不同 (Embedder 输出向量, LLM 输出 token), e.g. BGE-M3
 - Agent (智能体) — 能自主规划+调工具+多步执行的 LLM 应用形态, vs RAG 的"单次问答"
-- Modular RAG (模块化 RAG, Gen 3) — 把 RAG 拆成 7 个可插拔模块 (Query Understanding / Router / Retriever / Reranker / Context Builder / Generator / Validator)
+- Modular RAG (模块化 RAG, Gen 3) — 把 RAG 拆成 7 个可插拔模块 (Indexing / Pre-Retrieval / Retrieval / Post-Retrieval / Generation / Routing / Orchestration (Yunfan Gao 2024 综述定义))
 - Workflow (工作流) — 预定义步骤的固定流水线, vs Agent 的动态决策
 
 #### 0.7.2 数据处理 (L1)
@@ -1073,7 +1075,7 @@ LLM 维度规律: **参数量越大 hidden_dim 越大** (大致 hidden_dim ≈ 1
 - LangSmith / Langfuse / Phoenix — RAG/Agent 可观测性平台
 - Connector — 数据源接入器 (S3 / Confluence / Notion / Slack 等 100+)
 
-### 0.7.6 Anthropic Workflow 5 Pattern 术语 (新, 配合 §20.1.4)
+### 0.7.10 Anthropic Workflow 5 Pattern 术语 (新, 配合 §20.1.4)
 
 - **Augmented LLM** — 单 LLM + 检索 + 工具的最简形态, 90% 场景够用
 - **Workflow** (工作流) — 工程师写好的固定多步流程, LLM 在节点上工作
@@ -2533,7 +2535,7 @@ Gen 4 (Agent) 解决方式:
   - 扫描件清晰度低, 关键数字识别错 ("0" → "O", "1" → "l")
 - 危害:
   - Bloomberg 财报案 (§13.5): 数字脱离上下文, LLM 混淆 Q3 vs Q4
-  - 法律合同 "在满足 A 且 B 的条件下" 被切到上一段 → 当前 chunk 只剩 "可以退款" → LLM 答 "无条件可退" (错)
+  - 法律合同 "在满足 A (7 天内提交申请) 且 B (商品未拆封) 的条件下" 被切到上一段 → 当前 chunk 只剩 "可以退款" → LLM 答 "无条件可退" (错)
 - 修复成本对比:
   - 用 PyPDF2 凑合: $0, 但表格准确率 50-60%
   - 用 LlamaParse: $0.003/页, 准确率 92%
@@ -4761,7 +4763,7 @@ Gen 4 (Agent) 解决方式:
 ##### 决策 1: Chunking 策略错 → 召回失败
 - 切太大 (>1024 token): 一个 chunk 含多主题, embedding 是"多主题混合", 检索时主题不匹配 → 召回精度差
 - 切太小 (<128 token): 上下文不全, 关键信息被切到隔壁 chunk (DocuSign 限定词案 §13.14)
-- 切错位 (跨段切断): 法律 "在满足 A 且 B 的条件下" 被切到上一段, 当前 chunk 只剩 "可以退款" → LLM 答 "无条件退" (致命错)
+- 切错位 (跨段切断): 法律 "在满足 A (7 天内提交申请) 且 B (商品未拆封) 的条件下" 被切到上一段, 当前 chunk 只剩 "可以退款" → LLM 答 "无条件退" (致命错)
 - 量化: chunking 选错可让 NDCG 从 0.75 掉到 0.55 (-27%), 比任何 Reranker 都拯救不回来
 
 ##### 决策 2: Embedding 模型选错 → 检索质量崩
@@ -4831,7 +4833,7 @@ Gen 4 (Agent) 解决方式:
 ##### 反模式 + 真实失败
 - ❌ chunk_size = 100: 上下文严重丢失, NDCG 塌到 0.4
 - ❌ chunk_size = 2000: 多主题混合, embedding 质量差
-- ❌ overlap = 0: §13.14 DocuSign 案 — 法律条款"在满足 A 且 B 的条件下"被切到上一段, 当前 chunk 只剩"可以退款", LLM 答"无条件退" (致命错)
+- ❌ overlap = 0: §13.14 DocuSign 案 — 法律条款"在满足 A (7 天内提交申请) 且 B (商品未拆封) 的条件下"被切到上一段, 当前 chunk 只剩"可以退款", LLM 答"无条件退" (致命错)
 - ✅ 默认 512 + overlap 50 是工业起步
 
 ##### 工具
@@ -5924,7 +5926,7 @@ START
 - 工业: 部分英文 RAG 用 (Elastic Cloud 内置)
 - 中文: 资源少, 业界主流仍是 BM25 + Dense Hybrid
 
-### 5.5b ### 5.5b Doc Store (文档库) + 三存储集成 ⭐ (用户反馈"三存储没体现")
+### 5.5b Doc Store (文档库) + 三存储集成 ⭐ (用户反馈"三存储没体现")
 
 > §5.4 讲了向量库, §5.5 讲了倒排索引库, 但**三存储里的"文档库"** (Doc Store) 一直没集中讲. 这一节补上, 同时讲三存储的协同关系.
 
@@ -7764,7 +7766,7 @@ CRAG 是 §6 检索的兜底机制 — 当内部 KB 召回质量差时 (Evaluato
 #### 7.2.6 Module 6: Generator
 - LLM 推理 (见 §九)
 
-#### 7.2.7 Module 7: Validator (输出校验) (输出校验)
+#### 7.2.7 Module 7: Validator (输出校验)
 - Citation 校验
 - Schema 校验 (Pydantic)
 - Faithfulness (忠实度) 评分
@@ -8119,7 +8121,7 @@ CRAG 是 §6 检索的兜底机制 — 当内部 KB 召回质量差时 (Evaluato
 - 易上手 (5 行代码起 Agent)
 - 适用: POC / 内容生成
 
-#### 8.2.5 OpenAI Agents SDK (2025.03 取代 Swarm, Swarm 2024.10 实验性发布)
+#### 8.2.5 OpenAI Agents SDK (2025.03 发布, 取代 2024.10 的实验性 Swarm)
 - 极简 Multi-Agent
 - 通过 handoff 转交
 - 适用: 学习 / 简单 demo
@@ -8141,7 +8143,7 @@ CRAG 是 §6 检索的兜底机制 — 当内部 KB 召回质量差时 (Evaluato
 | OpenAI 生态 + 学习 | OpenAI Agents SDK |
 | 步骤明确的高质量 | Plan-and-Execute |
 
-### 8.3 Tool Calling (工具调用) (工具调用) 6 步完整流程
+### 8.3 Tool Calling (工具调用) 6 步完整流程
 
 #### 8.3.1 步 1: 定义 Tool
 - JSON Schema 描述: 名 / 功能 / 参数 / 返回
@@ -8342,7 +8344,7 @@ CRAG 是 §6 检索的兜底机制 — 当内部 KB 召回质量差时 (Evaluato
 #### 8.5.2 CRAG (Corrective-RAG, Yan et al. 2024, arXiv:2401.15884)
 
 > **完整 state machine + 三档分流 + Evaluator prompt + 性能数字 详见 §6.9**.
-> 本节聚焦 §6.9 没讲的 "Agent 视角的位置": CRAG 在 §8.5 七模式中属于"自反思" 类, 与 Self-RAG (§8.5.1) 是兄弟模式但更轻量.
+> 本节聚焦 §6.9 没讲的 "Agent 视角的位置": CRAG 在 §8.5 5 模式中属于"自反思" 类, 与 Self-RAG (§8.5.1) 是兄弟模式但更轻量.
 
 ##### 一句话定位 (相对 §6.9 的额外补充)
 - vs Self-RAG: 不需 fine-tune LLM (Self-RAG 要), prompt-based 即可
@@ -8471,28 +8473,22 @@ CRAG 是 §6 检索的兜底机制 — 当内部 KB 召回质量差时 (Evaluato
 | 极致精度 + 能 fine-tune | Self-RAG | reflection token 自反思 |
 | 快速 PoC 起步 | CRAG | 最低门槛 |
 
-### 8.6 Agent 真实代价
+### 8.6 Agent 真实代价 (索引 — 完整 5 道防线见 §20.7)
 
-#### 8.6.1 慢
-- 一次 query 跑 5-10 步
-- 总耗时 5-30 秒, 比普通 RAG 慢 5-10×
+> Agent 5 大代价 + 完整 5 道防线 + 3 起公开真实事故 + 代码骨架 详见 §20.7 死循环防御.
 
-#### 8.6.2 贵
-- 每步 LLM token
-- 8 步 = 8× 成本
-- 真实事故: 死循环 1 小时烧 $5000
+#### 8.6.1 5 大代价速记 (8.6.x 编号保留作引用)
 
-#### 8.6.3 死循环
-- LLM 反复触发同一工具
-- 解法: max_steps=8, max_tool_calls_per_step=3
+| 代价 | 描述 | 工业默认 | 详见 |
+|---|---|---|---|
+| 慢 | 5-10 步 → 5-30s, 比 RAG 慢 5-10× | 客服 8s timeout | §20.7.2 防线 2 |
+| 贵 | 8 步 = 8× LLM cost, 死循环可 1h $5000 | budget cap $1/query | §20.7.2 防线 3 |
+| 死循环 | LLM 反复同一 tool | max_same_tool_repeat = 3 | §20.7.2 防线 4 |
+| 调错工具 | LLM 选错或参数错 | 工具池 ≤ 10 + 清晰 description | §20.4 |
+| 难调试 | 多步出错难定位 | LangSmith / Phoenix 必上 | §10.6 |
 
-#### 8.6.4 调错工具
-- LLM 选错或参数错
-- 解法: 工具描述清晰 + Few-shot + 工具数量控制 (< 10)
-
-#### 8.6.5 难调试
-- 多步推理出错难定位
-- 解法: Phoenix / Langfuse 全链路追踪
+##### 完整代码骨架 + 真实事故 + 监控仪表盘
+详见 §20.7 死循环防御 5 道防线.
 
 ### 8.7 Agent 完整执行流程 (退款诊断 6 步)
 
@@ -8536,18 +8532,19 @@ CRAG 是 §6 检索的兜底机制 — 当内部 KB 召回质量差时 (Evaluato
 - per-tool retry limit
 - 死循环检测 (同 tool 重复 3 次熔断)
 
-### 8.8 业界 Agent 案例
+### 8.8 业界 Agent 案例 (索引 — 完整 5 标杆见 §20.6)
 
-#### 8.8.1 Klarna AI 客服
-- 替代 700 人, 年省 $40M
-- 80/15/5 分流 (5% 流量 Agent)
+> 完整业界 5 标杆案例 (Klarna / Cursor-Devin-Claude Code / Microsoft Copilot Workspace / Anthropic Computer Use / OpenAI Operator) 摘要 + 共性教训 详见 §20.6.
 
-#### 8.8.2 Cursor / Devin / Claude Code
-- 完整 SWE Agent
-- Agentic 代码探索 (主动 grep/find/read)
+#### 8.8.1 案例索引表
 
-#### 8.8.3 Microsoft Copilot Workspace
-- Plan-Implement-Review 三步
+| 案例 | 形态 | 详见 |
+|---|---|---|
+| Klarna AI 客服 | Plan-and-Execute, 80/15/5 | §13.8 + §20.6.1 + §20.1.7 (含 2025.05 部分 rollback) |
+| Cursor / Devin / Claude Code | ReAct Agentic Coding | §12.4 + §13.28 + §20.6.2 |
+| Microsoft Copilot Workspace | Plan-Implement-Review | §13.27 + §20.6.3 |
+| Anthropic Computer Use | GUI Agent | §13.28 + §16.1.7 + §20.6.4 |
+| OpenAI Operator | Browser Agent | §13.29 + §20.6.5 |
 
 ---
 
@@ -8555,7 +8552,7 @@ CRAG 是 §6 检索的兜底机制 — 当内部 KB 召回质量差时 (Evaluato
 
 > RAG 最后一步 — 把检索的 chunks + query 拼成 prompt 给 LLM, 流式输出 + 校验.
 
-### 9.0 §9 横切思维导图 ⭐
+### 9.0 §9 Generation 生成流程思维导图 ⭐
 
 > 进入本章之前先看这张思维导图建立全章认知.
 
@@ -8593,6 +8590,34 @@ CRAG 是 §6 检索的兜底机制 — 当内部 KB 召回质量差时 (Evaluato
 #### 9.2.3 Skill 系统提示词注入
 - Per-team / Per-skill 自定义 system prompt
 - 模板变量替换 ({{ var }})
+
+
+##### 9.2.X 反模式 + 业务场景 (audit 补)
+
+###### prompt 拼装顺序原则 (Anthropic 推荐)
+- system 在最前 (Anthropic Prompt Caching 友好, prefix 稳定)
+- few-shot 例子在 system 后 (一次性, cache 命中率高)
+- multi-turn history 在中间
+- RAG context 在 query 前 (避免 LLM 边读边推时丢上下文)
+- query 在最后 (触发推理 + LLM attention 强)
+- 详见 §0.1.5c Prompt 是怎么组装出来的
+
+###### 反模式 (业界踩坑)
+- ❌ chunks 之间不加分隔符直接拼 — LLM 看成一段, 失去引用边界
+- ❌ metadata 放 chunk 末尾 — LLM 边读 chunk 边构建语义, metadata 来不及
+- ❌ RAG context 不用 XML tag (`<documents>`) 包 — 跟 user query 混淆易被 prompt injection
+- ❌ 不修 Lost in the Middle (top-K ≥ 10 时) — 中间 chunk 被 LLM 忽略
+- ✅ system → few-shot → history → `<documents>` chunks → user query (业界标配)
+
+###### 业务场景: 法律 vs 客服 prompt 差异
+- 法律: chunks 必须保留章节号 / 条款号 (e.g. `[chunk_42, source: 民法典§584]`), system 强制"必须引用"
+- 客服: chunks 可省章节号, system 偏"友好语气"
+- 跨语言: chunks 标 language 字段, system 提示 "respond in user's language"
+
+###### Anthropic Prompt Caching 在 RAG 中的用法
+- system + few-shot 包 cache_control breakpoint = "ephemeral" (5 min TTL) 或 "persistent" (1 hour)
+- RAG context (每次不同) 不缓存
+- 实测省 35-49% LLM 成本 (Anthropic blog 公开数据)
 
 ### 9.3 LLM Inference (推理) 完整流程
 
@@ -8728,6 +8753,30 @@ CRAG 是 §6 检索的兜底机制 — 当内部 KB 召回质量差时 (Evaluato
 #### 9.4.3 用户感知延迟
 - 首 token (First Token Latency, TTFT): 关键指标, 目标 < 1s
 - 后续 token: 平均 30-100 token/s
+
+
+##### 9.4.X 反模式 + 业务场景 (audit 补)
+
+###### 反模式 (业界踩坑)
+- ❌ 用 WebSocket 而不是 SSE — RAG 流式只是单向 (server → client), WebSocket overkill + 复杂; SSE 自动重连
+- ❌ nginx 默认 proxy_buffering on — 流式输出被 buffer 256KB 才发, 用户看到延迟 5-10s. 必须 `proxy_buffering off`
+- ❌ 前端不解析 SSE chunked — 等整段返回才显示, 失去流式价值
+- ❌ Cloudflare 默认 disable streaming — 必须显式 enable Smart Routing
+- ❌ Token 中断后不重连 — 用户感知"卡住", 应 SSE 自动重连 + idempotent retry
+
+###### 工具栈
+- FastAPI: StreamingResponse + sse-starlette
+- LangChain: ConversationalRetrievalChain.astream()
+- Anthropic: stream=True 参数 + iter_text()
+- 前端: Vercel AI SDK (Next.js) / 原生 EventSource API
+- 反向代理: nginx `proxy_buffering off; proxy_cache off;`
+- CDN: Cloudflare Workers Streams / Fastly Streams
+
+###### 业务场景
+- ✅ 客服 RAG: 用户看到 token 流出, 感知响应快
+- ✅ 长答案 (法律 / 学术): 不流式用户等不及
+- ❌ 极短答案 (FAQ < 50 字): 流式跟一次性差不多, 不必
+- ❌ 严格审核场景 (输出全部 Validator 后再给) — 必须等完整生成
 
 ### 9.5 Validator (输出校验)
 
@@ -9665,7 +9714,7 @@ CRAG 是 §6 检索的兜底机制 — 当内部 KB 召回质量差时 (Evaluato
 - Supabase / Neon / 大量自建项目
 
 #### 11.2.5 ChromaDB / Weaviate / LanceDB / Vespa
-- 见 §二十四 详, 此处省略
+- 见 §11.2.1-§11.2.4, 此处省略
 - ChromaDB: 极简, Python 优先, 千万级 OK
 - Weaviate: 多模态原生, GraphQL
 - LanceDB: 列式存储, 嵌入式
@@ -9798,6 +9847,25 @@ CRAG 是 §6 检索的兜底机制 — 当内部 KB 召回质量差时 (Evaluato
 - 阿里 OSS / 腾讯 COS / 华为 OBS (国内)
 - Cloudflare R2 (0 出口流量费)
 
+
+##### 11.5.5 跟 §0.1.4 三存储中 Doc Store 的关系 (audit 补)
+
+###### 概念澄清
+- **S3 (本节)**: 存原始文档 binary (PDF / docx / 图片 / 音频), 存"未处理"的源文件
+- **Doc Store (§5.5b)**: 存 chunk 后的纯文本 + metadata + ACL, 存"处理后"的检索单位
+- 两者不同层级, S3 不能替代 Doc Store
+
+###### 完整数据流
+- 原始 PDF 上传 → S3 (raw bucket, 备份 + 审计)
+- Parse + Chunk + Embed → 写 Doc Store (Postgres / Redis) + 向量库 + 倒排索引
+- 检索时: 拿 chunk_id 去 Doc Store 查 text, **不是去 S3 查 PDF** (PDF 解析 + Chunk 是离线动作)
+
+###### 何时回 S3 取原文 (vs Doc Store)
+- ✅ 用户点引用查看完整原文 PDF — 回 S3
+- ✅ 重新 Parse / Chunk (e.g. Embedder 升级要重 embed 全库) — 从 S3 raw 重跑
+- ❌ 检索时 — 永远不回 S3, 用 Doc Store
+- 详见 §0.1.4 离线索引构建 + §5.5b Doc Store 完整 schema
+
 ### 11.6 消息队列 + Workflow
 
 #### 11.6.1 Kafka
@@ -9849,6 +9917,26 @@ CRAG 是 §6 检索的兜底机制 — 当内部 KB 召回质量差时 (Evaluato
 ##### RAG 适合
 - 多步 ingest pipeline
 - Agent 长任务
+
+
+##### 11.6.X 三选一决策树 (audit 补)
+
+| 业务量 / 场景 | 推荐 | 理由 |
+|---|---|---|
+| < 1000 任务/秒 + 简单 | **Celery** (Python, RabbitMQ/Redis 后端) | 极简 (5 行起), Python 生态, 适合 RAG ingest |
+| 1000-100K 任务/秒 + 高吞吐 | **Kafka** | 高吞吐 + 持久化 + 多消费者, 适合事件驱动 |
+| 长耗时 (multi-day) + 状态机 | **Temporal** | 跨语言 + Workflow 编排 + 自动重试 + 中断恢复 |
+| 简单延迟队列 | **Redis Stream** | 极简 + Redis 已有 |
+
+##### 11.6.X 反模式
+- ❌ 100 任务/秒上 Kafka — overkill, Celery + Redis 够
+- ❌ 长 Workflow (24h+) 用 Celery — 状态丢失, 必上 Temporal
+- ❌ 用 Celery 做事件溯源 — Celery 没持久 log, 用 Kafka
+
+##### 11.6.X 业界采用
+- Klarna: Kafka + Temporal (Agent 多步任务 Temporal)
+- Glean: Kafka + Celery (Connector 增量同步)
+- Cursor: Temporal (Agent Coding 长任务)
 
 ### 11.7 LLM 推理引擎读写流程
 
@@ -9944,6 +10032,28 @@ CRAG 是 §6 检索的兜底机制 — 当内部 KB 召回质量差时 (Evaluato
 - 千亿级
 - 美团 / 字节 / 京东用
 
+
+##### 11.9.X 何时上 KG vs 不上 (audit 补)
+
+###### 何时上 KG (RAG 场景)
+- ✅ 跨文档关系挖掘 (e.g. "A 公司投资了哪些公司, 这些公司的 CEO 是谁") — KG 多跳查询
+- ✅ 多跳推理 (entity → relation → entity → relation) — KG 自然支持
+- ✅ 大规模实体网络 (公司 / 法律案例 / 学术论文引用) — KG 比文档检索强
+- ✅ 想用 GraphRAG (§8.5.3) 全局问答
+
+###### 何时不上 KG
+- ❌ 单点查询 ("A 公司是什么时候成立的") — 直接文档检索就够, KG overkill
+- ❌ 文档结构化弱 (聊天 / 邮件 / 散文) — 抽 entity 准确率低, KG 质量塌
+- ❌ 离线建图 $10K-50K 浪费 (大型企业图谱建图昂贵)
+- ❌ 团队没 Cypher / SPARQL 经验 — 学习曲线高
+
+###### 工具选型
+- **Neo4j** (主流, AuraDB SaaS / 企业版)
+- **NebulaGraph** (国产, 大规模)
+- **TigerGraph** (商业, 极致性能)
+- **GraphRAG** (Microsoft 开源, 直接接 LLM)
+- 详见 §8.5.3 GraphRAG 完整流程
+
 ### 11.10 容器编排 + 网关
 
 #### 11.10.1 Kubernetes
@@ -9970,6 +10080,33 @@ CRAG 是 §6 检索的兜底机制 — 当内部 KB 召回质量差时 (Evaluato
 #### 11.11.3 国产
 - DataX (阿里开源, Java)
 - Sqoop (Hadoop 生态)
+
+
+##### 11.11.X Connector / 增量同步 (用户反馈痛点) (audit 补)
+
+###### Airbyte 350+ connector 完整列表 (RAG 场景常用)
+- 知识库类: Confluence / Notion / SharePoint / Google Drive / Dropbox / Box
+- 聊天类: Slack / Discord / Teams / Telegram
+- CRM 类: Salesforce / HubSpot / Zendesk / Freshdesk
+- 工单类: Jira / Linear / GitHub Issues / GitLab Issues
+- 代码类: GitHub / GitLab / Bitbucket
+- 数据库类: Postgres / MySQL / MongoDB / DynamoDB / Snowflake / BigQuery
+- 文件类: S3 / GCS / Azure Blob
+
+###### RAG 增量同步策略 (CDC vs 轮询)
+- **CDC (Change Data Capture, 推)** — Debezium / Airbyte CDC 模式
+  - 优势: 实时 < 1 分钟同步
+  - 缺点: 需源系统支持 binlog (DB) 或 webhook (SaaS)
+- **轮询 (拉)** — 定时调 API 查 last_modified > last_sync
+  - 优势: 不依赖源系统能力
+  - 缺点: 延迟 (平均半个间隔)
+- **混合** — webhook 主导 + 每周全量 reconcile (业界主流)
+- 详见 §4.3.8 企业级多源治理 + §0.1.5d Connector 自动同步
+
+###### 反模式
+- ❌ 全自研 Connector — 50 个源 50 个自研, 维护爆炸 (Glean 用 Airbyte 是对的)
+- ❌ 不做 reconcile, 信任 webhook 100% 成功 — 半年发现 30% chunk 已删但 RAG 还在
+- ❌ Connector 不抓 ACL — §13.9 Notion 越权事故
 
 ### 11.12 5 套推荐技术栈组合
 
@@ -10552,12 +10689,12 @@ CRAG 是 §6 检索的兜底机制 — 当内部 KB 召回质量差时 (Evaluato
   - "通用浏览器 Agent" 的 PMF 比预期窄得多
 - 引用: openai.com/index/introducing-operator, system card 2025.01
 
-### 13.25 28 案例统计 (含 4 个 2024H2-2025 新案例)
+### 13.30 28 案例统计 (含 4 个 2024H2-2025 新案例)
 
 > 注: 单个案例可能跨多 Layer (e.g. Samsung 既是 L1 数据治理 + 横切 Security), 故按 Layer/严重程度累加可能 > 24.
-> 28 是案例总数 (失败 26 + 成功 2: 失败含 13.1-13.22 + 13.26-13.29; 成功含 13.8 Klarna + 13.23 Uber Genie + 13.24 Mercari), 下面是"主标签"分布 (每案例归一个最主要 Layer).
+> 28 是案例总数 (失败 25 + 成功 3: 失败含 13.1-13.22 + 13.26-13.29; 成功含 13.8 Klarna + 13.23 Uber Genie + 13.24 Mercari), 下面是"主标签"分布 (每案例归一个最主要 Layer).
 
-#### 13.25.1 按主 Layer 分布 (主标签去重计 28)
+#### 13.30.1 按主 Layer 分布 (主标签去重计 28)
 - L1 数据治理 (主): 9 个 — 13.3 / 13.5 / 13.7 / 13.10 / 13.13 / 13.14 / 13.16 / 13.21 / 13.22
 - L2 索引: 1 个 — 13.4
 - L3 检索: 2 个 — 13.6 / 13.12
@@ -10567,7 +10704,7 @@ CRAG 是 §6 检索的兜底机制 — 当内部 KB 召回质量差时 (Evaluato
 - L5 Agent 操作风险: 2 个 — 13.28 Anthropic Computer Use / 13.29 OpenAI Operator
 - 成功架构案例 (Vanilla → Production): 2 个 — 13.23 Uber Genie / 13.24 Mercari Serverless
 
-#### 13.25.2 按严重程度
+#### 13.30.2 按严重程度
 - 致命 (法律 / 品牌灾难): 4 个 — 13.1 Air Canada / 13.2 Bing-Sydney 越狱 / 13.18 DPD / 13.19 NYC MyCity
 - 高 (合规 / 隐私): 5 个 — 13.3 Samsung 数据外泄 / 13.9 Notion ACL / 13.15 Bing/Bard PII / 13.26 Slack AI Injection / 13.27 MS Recall
 - 中 (质量 / 性能): 9 个 — 13.4 / 13.5 / 13.7 / 13.11 / 13.12 / 13.13 / 13.14 / 13.16 / 13.20
@@ -10575,7 +10712,7 @@ CRAG 是 §6 检索的兜底机制 — 当内部 KB 召回质量差时 (Evaluato
 - L5 Agent 操作类: 2 个 — 13.28 Anthropic Computer Use / 13.29 OpenAI Operator
 - 成功案例 (反向, 学习架构): 3 个 — 13.8 Klarna FinOps / 13.23 Uber Genie / 13.24 Mercari Serverless
 
-#### 13.25.3 共同教训
+#### 13.30.3 共同教训
 - 数据治理是地基 (50%+ 案例)
 - 横切关注点关乎系统安全存亡 (Air Canada / DPD 案例证明)
 - 拒答 + Guardrail 必须
@@ -13461,7 +13598,7 @@ CrewAI:
 - 劣势: 灵活性不如 LangGraph / 生产级稳定性待提升
 - 适用: POC / Demo / 内容生成
 
-OpenAI Agents SDK (2025.03 取代 Swarm, Swarm 2024.10 实验性发布):
+OpenAI Agents SDK (2025.03 发布, 取代 2024.10 的实验性 Swarm):
 - 架构: 极简 Multi-Agent. 通过 handoff 在 Agent 间转交
 - 优势: 极简 (< 100 行核心代码) / OpenAI 官方
 - 劣势: 太简, 生产级要自加监控/cache/retry
@@ -15180,7 +15317,7 @@ A: 三招乘法叠加 (不是加法): (1) 缓存命中 60% → 只有 40% 走 LL
 - 不跟业务方对齐 → 优化方向偏
 
 ##### 第二轮追问 Q: 怎么算 ROI?
-A: ROI = (节省成本 - 投入成本) / 投入成本. Klarna 真实: 节省 $40M/年 (替代 700 人), 投入 $30K/月 = $360K/年. ROI = 11000% (110×). 极高.
+A: ROI = (节省成本 - 投入成本) / 投入成本. Klarna 真实: 节省 $40M/年 (替代 700 人), 投入 $30K/月 = $360K/年. ROI ≈ 6500% (~65×, $40M / $0.6M 年投入). 极高.
 
 ##### 第三轮追问 Q: 业务方说"AI 抢我饭碗" 怎么办?
 A: 沟通: AI 替代低价值重复工作, 让人做高价值 (复杂客诉 / 销售关系 / 战略思考). Klarna 实践: 客服转 AI training / 客户成功. 流失率反而下降 (低价值工作累人).
@@ -15505,7 +15642,7 @@ A: 算法负责 "为什么这样做" (选 embedder / 调参 / 评估), 工程负
 ##### Type G 子类 1 — KB Poisoning (知识库投毒)
 - 定义: 攻击者把恶意指令藏在 ingest 来源 (公司 wiki / Confluence / 用户上传 / 爬虫)
 - 检测: ingest 时跑 PI Detector + 异常字符比例阈值 + 指令模式正则
-- 真实: §13.26 Slack AI 漏洞 (公开频道注入指令窃取私密 token) / §13.27 Bing-Sydney
+- 真实: §13.26 Slack AI 漏洞 (公开频道注入指令窃取私密 token) / §13.2 Bing-Sydney + §13.26 Slack AI
 - 修复: 防线 1 (入库前检测) + 防线 2 (system prompt 强约束 + XML tag 包裹)
 - 反模式: 只对外部内容 PI 检测, 内部 wiki 默认信任 — 内部攻击 / 离职员工恶意 commit 一样能投毒
 
@@ -18322,7 +18459,7 @@ Anthropic 总结的 5 种 Workflow Pattern, 90% 业务用其中一种就解决, 
 
 #### 20.6.2 Cursor / Devin / Claude Code (Agentic Coding, 估值 $9-20B)
 - **架构亮点**: 不预先索引 codebase, ReAct 风格 Agent 实时探索 (grep/find/read 多文件) + AST-aware 理解代码结构 + 写代码 + 跑测试 + 看错误循环
-- **关键数字**: Cursor 2026 估值 ~$20B / Devin (Cognition) ~$4B / 单任务 5-50 步 / 成本 $0.5-5 / 替代开发者 0.1 全职
+- **关键数字**: Cursor 2026 估值 ~$25B+ (2025.06 $9.9B → 2026) / Devin (Cognition) ~$4B / 单任务 5-50 步 / 成本 $0.5-5 / 替代开发者 0.1 全职
 - **关键工具**: Sonnet 4.5 + extended thinking / Anthropic Claude Code SDK / Cursor Composer
 - **教训**: §13.28 Computer Use 误删用户文件风险 — destructive 操作必须用户确认 + sandbox 隔离 + 审计日志
 - 详见: §12.4 代码 RAG 场景 + §15.7 Q7.3 系统设计
