@@ -5537,6 +5537,18 @@ GPT-4o Vision | — | — | ✅ | ✅ | 图→caption→文本 KB | 少量图, A
             <outline text="延迟: LLM 推理 2-5s; Cross-Encoder 50-150ms (快 20-50×)"/>
             <outline text="并发: LLM API 有 rate limit (100 QPS 级); Cross-Encoder 自托管 GPU 可以 1000+ QPS"/>
           </outline>
+        </outline>
+        <outline text="何时不该用 Reranker (反模式 5 条)">
+          <outline text="❌ 召回 top-10 &lt; 50 时 — 候选少 Reranker 收益 &lt; 5%, 加延迟得不偿失 (BM25/Dense 直接给前 5 即可)"/>
+          <outline text="❌ 单 query QPS &gt; 1000 + 自托管 GPU 不足 — Cross-Encoder 吃 GPU, 算不过来直接成瓶颈"/>
+          <outline text="❌ 实时性要求 &lt; 200ms 的语音/搜索建议场景 — Reranker 50-150ms 占太大延迟预算"/>
+          <outline text="❌ 召回质量本就 0.95+ 的窄域场景 (FAQ / 词典) — Reranker 提升空间被天花板锁死"/>
+          <outline text="❌ 不做 query-doc 相关性评分而是做"个性化排序" — 用 LTR (LightGBM/XGBoost) 比 Cross-Encoder 准且便宜"/>
+        </outline>
+        <outline text="Reranker 选型决策树 (3 问题)">
+          <outline text="Q1: 候选数 &lt; 30 + 实时性 &lt; 200ms? → 不上 Reranker (BM25+Dense 直出)"/>
+          <outline text="Q2: 候选 30-200 + 中等延迟 (200ms-1s)? → BGE-Reranker / Cohere Rerank-3.5"/>
+          <outline text="Q3: 候选 &gt; 200 + 可放宽延迟 + 高价值 query? → Cascade (Cross-Encoder → LLM Reranker 双阶段)"/>
           <outline text="成本 break-even 点:">
             <outline text="&lt; 10 QPS + 高价值场景 (法律/医疗, 单 query 价值 &gt; $1) → LLM rerank 值得, 精度优先"/>
             <outline text="10-100 QPS + 一般场景 → Cross-Encoder (BGE-Reranker / Cohere)"/>
@@ -6364,6 +6376,42 @@ RankLLM (3 LLM) | LLM Voting | — | LLM context | ✅ | $0.15-0.45/query | 3-6s
       </outline>
     </outline>
     <outline text="7.5 Text2SQL 完整流程 (RAGFlow 架构)">
+      <outline text="7.5.0 Text2SQL 是什么 + 何时该 / 不该用">
+        <outline text="一句话定义">
+          <outline text="Text2SQL = 自然语言问题 → SQL → 直接查 DB → 把结果给 LLM 总结"/>
+          <outline text="与普通 RAG 区别: 不查文档 chunk, 查关系型数据 (订单 / 用户 / 销售)"/>
+        </outline>
+        <outline text="何时该用">
+          <outline text="数据强结构化 (订单表 / 销售表 / 用户表)"/>
+          <outline text="业务方常问 "上月 / 本季度" 类聚合统计"/>
+          <outline text="需精确数字 (RAG 给"约几百万", Text2SQL 给"3,247,891")"/>
+          <outline text="数据更新频繁 (RAG 索引重建慢, Text2SQL 实时查 DB)"/>
+        </outline>
+        <outline text="何时不该用 (反模式)">
+          <outline text="❌ 数据非结构化 (合同 / 邮件 / 工单内容) — 用 RAG, Text2SQL 没 schema 可挂"/>
+          <outline text="❌ 业务方喜欢点击式探索 — 直接给 BI tool (Tableau / Superset / Metabase)"/>
+          <outline text="❌ DB schema 极复杂 (1000+ 表, 多 join 路径) — 当前 LLM 准确率塌, 60-70% 错 SQL"/>
+          <outline text="❌ 严格事务 / 一致性 — Text2SQL 不能跑写操作, 只能 SELECT"/>
+          <outline text="❌ 查询性能敏感 — LLM 生成的 SQL 常缺索引提示, 慢查询频发"/>
+        </outline>
+        <outline text="vs BI 工具对比 (Tableau / Superset / Metabase / Cube.js)">
+          <outline text="BI 工具优势: 可视化交互 / 拖拉拽 / 业务方自助 / 性能稳定 (预聚合)"/>
+          <outline text="BI 工具劣势: 学习曲线 (拖字段, 学 measure/dimension), 复杂查询表达受限"/>
+          <outline text="Text2SQL 优势: 自然语言, 0 学习, 复杂查询可表达"/>
+          <outline text="Text2SQL 劣势: 准确率 60-85% (vs BI 100%), 黑盒 (用户看不到生成的 SQL), 性能不可控"/>
+          <outline text="工业现状: 企业通常 BI + Text2SQL 双轨 — BI 给固定报表, Text2SQL 给 ad-hoc 探索 (限 SELECT, 加 row limit)"/>
+        </outline>
+        <outline text="vs 直接 RAG 对比">
+          <outline text="RAG: 适合非结构化文档, 答 "公司的退款政策是什么""/>
+          <outline text="Text2SQL: 适合结构化数据, 答 "上个月退款金额最高的 10 个客户""/>
+          <outline text="路由: §7 Modular Router 应能识别 query 意图分流, 不要混"/>
+        </outline>
+        <outline text="准确率天花板 (2024-2025 公开 benchmark)">
+          <outline text="Spider benchmark (跨域 SQL): GPT-4 ~72% / Claude Sonnet 4.5 ~75% / 微调小模型 ~85%"/>
+          <outline text="BIRD benchmark (大规模真实): 还在 60-70% 区间, 远未到生产级 95%+"/>
+          <outline text="工业项目典型: 80% query 答对 (含简单 + 中等), 20% 错或拒答, 用 Validator 兜底"/>
+        </outline>
+      </outline>
       <outline text="7.5.1 三大业务挑战">
         <outline text="幻觉: LLM 编不存在的表 / 字段"/>
         <outline text="Schema 理解: JOIN 错"/>
@@ -6661,12 +6709,13 @@ OpenAI 生态 + 学习 | Swarm
         </outline>
       </outline>
     </outline>
-    <outline text="8.5 7 种高级 RAG-Agent 模式 (每种完整流程详解)">
+    <outline text="8.5 5 种高级 RAG-Agent 模式 (每种完整流程详解)">
       <outline text="注: 本节 7 种按"检索策略创新"分类 (Self-RAG / CRAG / GraphRAG / LightRAG / FRAG / GraphIRAG / Adaptive RAG)"/>
       <outline text="§20.2 的 5 种按"Agent 执行范式"分类 (Plan-and-Execute / ReAct / Multi-Agent / Self-Reflection / Iterative)"/>
       <outline text="两者是不同分类维度, 可叠加: 例如 GraphRAG (本节) 可用 Plan-and-Execute 范式 (§20.2) 执行"/>
       <outline text="Self-RAG (本节) ≈ Self-Reflection (§20.2); CRAG (本节) ≈ Iterative (§20.2)"/>
-      <outline text="8.5.0 7 模式定位 + 一句话区别">
+      <outline text="8.5.0 5 模式定位 + 一句话区别" _note="注: 原文档列了 7 模式, 其中 FRAG 和 GraphIRAG 是 2025 推测性学术构想, 业界尚无公认定义
+和生产实现, 已删除以避免误导. 保留 5 个有论文 + 工业落地的主流模式.">
         <outline text="Self-RAG: LLM 自带反思 token, 决定要不要检索 / 检索结果好不好 (需 fine-tune)"/>
         <outline text="CRAG: 检索后用 Evaluator 评分, 不行就 web search 兜底 (prompt-based, 轻量)"/>
         <outline text="GraphRAG: 用图数据库存实体关系, Leiden 社区检测做层次摘要, 全局问题强 (重)"/>
@@ -6814,60 +6863,7 @@ OpenAI 生态 + 学习 | Swarm
           <outline text="中等规模 (10 万 - 100 万 doc)"/>
         </outline>
       </outline>
-      <outline text="8.5.5 FRAG (Flexible RAG, 2025 推测, 业界尚无定论)">
-        <outline text="核心思想 (注: 该术语在主流文献库未明确对应论文, 多家厂商内部用类似设计)">
-          <outline text="把 Naive RAG / GraphRAG / Self-RAG 三种放在一起, query 自适应分流"/>
-          <outline text="简单 query → Naive RAG (快+便宜)"/>
-          <outline text="中等 query → Advanced RAG (Reranker + HyDE)"/>
-          <outline text="复杂 query → GraphRAG / Self-RAG (慢+贵)"/>
-        </outline>
-        <outline text="完整执行流程">
-          <outline text="步 1: query 输入"/>
-          <outline text="步 2: Classifier (轻量模型) 判断复杂度: simple / medium / complex"/>
-          <outline text="步 3: 分流:">
-            <outline text="simple → Naive RAG (5 步标准流水)"/>
-            <outline text="medium → Advanced RAG (Hybrid + Reranker + HyDE)"/>
-            <outline text="complex → GraphRAG 或 Self-RAG"/>
-          </outline>
-          <outline text="步 4: 各自走完整流程"/>
-          <outline text="步 5: 输出答案"/>
-        </outline>
-        <outline text="性能数字 (推测)">
-          <outline text="综合成本下降 40-60% (因为大部分 query 走 Naive)"/>
-          <outline text="复杂 query 质量保持 GraphRAG 水平"/>
-        </outline>
-        <outline text="真实采用 (推测)">
-          <outline text="大型企业搜索内部架构 (Glean / Notion)"/>
-        </outline>
-      </outline>
-      <outline text="8.5.6 GraphIRAG (Graph + Iterative RAG, 2025 推测)">
-        <outline text="核心思想 (注: 同 FRAG, 该术语未明确对应单篇论文, 但迭代式 GraphRAG 是业界趋势)">
-          <outline text="GraphRAG 单次检索 → 多轮迭代检索"/>
-          <outline text="每轮根据已检索内容, 用信息增益准则决定下一轮检索什么"/>
-          <outline text="类似 Plan-and-Execute Agent 但聚焦在图上"/>
-        </outline>
-        <outline text="完整执行流程">
-          <outline text="步 1: query 输入"/>
-          <outline text="步 2: 第一轮 GraphRAG 检索 → top-K1 chunks"/>
-          <outline text="步 3: LLM 评估: 信息够答了吗?">
-            <outline text="够 → 进步 6"/>
-            <outline text="不够 → 生成下一轮检索 query (基于已知信息的 gap)"/>
-          </outline>
-          <outline text="步 4: 第二轮检索 (新 query) → top-K2 chunks"/>
-          <outline text="步 5: 重复步 3-4, 最多 N=5 轮"/>
-          <outline text="步 6: 拼所有轮次 chunks → LLM 答"/>
-        </outline>
-        <outline text="信息增益停止准则">
-          <outline text="计算第 N 轮新 chunks 与已有 chunks 的 cosine 相似度"/>
-          <outline text="如新 chunks 与已有重合 &gt; 80% (信息增益低), 停止"/>
-          <outline text="或答案 confidence &gt; 0.9, 停止"/>
-        </outline>
-        <outline text="性能数字 (推测)">
-          <outline text="多跳推理 +25-40% accuracy vs 单次 GraphRAG"/>
-          <outline text="延迟 +3-5× (多轮检索)"/>
-        </outline>
-      </outline>
-      <outline text="8.5.7 Adaptive RAG (Jeong et al. 2024, arXiv:2403.14403)">
+      <outline text="8.5.5 Adaptive RAG (Jeong et al. 2024, arXiv:2403.14403)">
         <outline text="核心思想">
           <outline text="用一个分类器 (T5-large 微调) 判断 query 复杂度"/>
           <outline text="三档分流: A (No-RAG) / B (Single-step RAG) / C (Multi-step RAG)"/>
@@ -6898,7 +6894,7 @@ OpenAI 生态 + 学习 | Swarm
           <outline text="多家创业公司 PoC"/>
         </outline>
       </outline>
-      <outline text="8.5.8 7 模式选型决策表" _note="场景 | 推荐模式 | 理由
+      <outline text="8.5.6 5 模式选型决策表" _note="场景 | 推荐模式 | 理由
 通用 FAQ / 客服 | CRAG | 轻量 prompt-based, web search 兜底
 全局问题 (跨文档总结) | GraphRAG | 唯一能解全局问题的
 资源受限 + 需图能力 | LightRAG | GraphRAG 轻量版
@@ -8567,15 +8563,15 @@ PoC / 个人 | ChromaDB
         <outline text="Tool Calling 强制带 user_id"/>
       </outline>
     </outline>
-    <outline text="12.9 选型决策表" _note="场景 | RAG 必要性 | 关键 Layer | Agent 必要性
-法规合规 | 极高 | L1-L3 | 低
-内部 KB | 极高 | L1-L4 | 中
-客服 | 高 | L1-L5 | 高
-代码 | 中 (Agentic) | L1, L5 | 极高
-销售 | 中 | L1-L4 | 中
-数据分析 | 中 | L4 (Text2SQL) | 中
-多模态 | 高 | L1-L3 | 中
-跨系统诊断 | 低 | L5 | 极高">
+    <outline text="12.9 选型决策表" _note="场景 | RAG | Layer | Agent | 数据规模门槛 | 月成本带 (1 万用户) | 团队 | 关键反模式
+法规合规 | 极高 | L1-L3 | 低 | 1K-100K 文档 | $5K-30K | 3-5 (含合规) | ❌ 不做引用校验 / 不做 Validator
+内部 KB | 极高 | L1-L4 | 中 | 100K-10M chunks | $30K-150K | 5-15 | ❌ ACL 不同步源系统权限
+客服 | 高 | L1-L5 | 高 | 10K-1M FAQ | $20K-200K | 5-20 | ❌ 全 Agent 不分 80/20 流量
+代码 | 中 (Agentic) | L1, L5 | 极高 | 全 codebase | $50K-500K | 10-50 | ❌ 不做 sandbox 直接执行生成代码
+销售 | 中 | L1-L4 | 中 | CRM + 文档 | $10K-80K | 3-10 | ❌ 把销售话术当事实喂 LLM
+数据分析 | 中 | L4 (Text2SQL) | 中 | DB schema 100-1000 表 | $5K-50K | 3-8 | ❌ 不限 SELECT 不加 row limit
+多模态 | 高 | L1-L3 | 中 | 1K-100K PDF/图 | $20K-150K | 5-15 | ❌ Parser 不分图 / 表格 / 文本
+跨系统诊断 | 低 | L5 | 极高 | API 网关 | $30K-200K | 5-20 | ❌ 全 Agent 替代客服 (95% 该走纯 RAG)">
       <outline text="---"/>
     </outline>
   </outline>
@@ -11601,7 +11597,7 @@ OpenAI 生态 + 学习 | Swarm
           <outline text="选型"/>
         </outline>
         <outline text="完整高分答案">
-          <outline text="7 种高级 RAG-Agent 模式:"/>
+          <outline text="5 种高级 RAG-Agent 模式:"/>
           <outline text="Self-RAG (Asai et al. 2023):"/>
           <outline text="论文: "Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection""/>
           <outline text="思想: 训练 LLM 输出 reflection token (Retrieve / IsRel / IsSup / IsUse)"/>
@@ -12378,6 +12374,13 @@ K8s | 阿里 ACK / 腾讯 TKE / KubeSphere">
         <outline text="题面">
           <outline text="设计一个面向企业 1 万员工的内部知识库 RAG 系统, 支持 100 个数据源 (Confluence/Slack/Jira/Salesforce/GitHub/Email 等), SLA 99.9%, 严格权限隔离 (源系统 ACL 自动同步), 多语言 (10+)."/>
         </outline>
+        <outline text="考察点">
+          <outline text="大数据规模架构能力 (10M+ chunks 怎么撑)"/>
+          <outline text="ACL 跨多源系统的权限同步设计"/>
+          <outline text="多语言 + 多 connector 工程化"/>
+          <outline text="SLA 99.9% 的灾备设计"/>
+          <outline text="FinOps 意识 (10K 用户单月成本)"/>
+        </outline>
         <outline text="完整高分答案 (5 层架构 + 横切)">
           <outline text="需求拆解:"/>
           <outline text="用户: 1 万员工"/>
@@ -12470,10 +12473,23 @@ K8s | 阿里 ACK / 腾讯 TKE / KubeSphere">
           <outline text="❌ "全部本地化部署, 数据安全" — 没考虑成本和运维"/>
           <outline text="❌ "Agent 全包" — 80% query 是简单 FAQ, 全 Agent 浪费"/>
         </outline>
+        <outline text="加分项">
+          <outline text="引用 Glean 工程博客 (eng.glean.com): 100+ connectors / Universal API"/>
+          <outline text="引用 Microsoft SharePoint Premium 2024: AI semantic index"/>
+          <outline text="提到 Anthropic Contextual Retrieval (2024.09 blog)"/>
+          <outline text="给具体数字: 1 万用户 × 100 query/天 × [0.01 = 月 ]30K LLM"/>
+        </outline>
       </outline>
       <outline text="Q7.2 设计客服 RAG (Klarna 级别)">
         <outline text="题面">
           <outline text="为电商公司设计 AI 客服系统, 支持多语言 (38 种), 月处理 250 万 query, 业务系统集成 (订单/支付/物流), 严格拒答 (Air Canada 案后必备)."/>
+        </outline>
+        <outline text="考察点">
+          <outline text="80/20 流量分流 + Router 设计"/>
+          <outline text="LLM 选型 (Planner vs Executor 分级)"/>
+          <outline text="拒答 / Validator 链路 (避免 Air Canada 类法律事故)"/>
+          <outline text="实时性 P95 &lt; 3s"/>
+          <outline text="成本 / NPS 双指标平衡"/>
         </outline>
         <outline text="完整高分答案">
           <outline text="业务目标:"/>
@@ -12560,10 +12576,23 @@ K8s | 阿里 ACK / 腾讯 TKE / KubeSphere">
           <outline text="❌ "拒答阈值设很低, 反正出错有人审" — Air Canada 案后绝对不行"/>
           <outline text="❌ "全程 GPT-4o" — 成本爆炸 ([30K → ]300K)"/>
         </outline>
+        <outline text="加分项">
+          <outline text="Klarna 公开 KPI: 700 客服替代 / $40M ARR 节省 / NPS +5pt"/>
+          <outline text="Anthropic 客服 case studies (claude.com/customers)"/>
+          <outline text="引用 §20.1.5 Klarna 量化对比 ([0.008 vs ]0.42 / 1.2s vs 8.3s)"/>
+          <outline text="提到 Mercari Serverless 客服 (§13.24)"/>
+        </outline>
       </outline>
       <outline text="Q7.3 设计代码 RAG (Cursor 级别)">
         <outline text="题面">
           <outline text="为开发者设计一个 AI 代码助理, 支持 monorepo 全量索引 (100 万文件), 跨文件理解 (函数调用图), Agentic 探索 (主动 grep/find/read)."/>
+        </outline>
+        <outline text="考察点">
+          <outline text="AST-aware chunking (vs 普通 token 切)"/>
+          <outline text="Codebase scale (百万行 / 多语言)"/>
+          <outline text="Agent 多步循环设计 (read-write-test 闭环)"/>
+          <outline text="Sandbox 安全 (避免 Agent 误删用户文件 §13.28)"/>
+          <outline text="Coding-specific 评估 (SWE-Bench)"/>
         </outline>
         <outline text="完整高分答案">
           <outline text="需求拆解:"/>
@@ -12625,10 +12654,23 @@ K8s | 阿里 ACK / 腾讯 TKE / KubeSphere">
           <outline text="❌ "全量预先索引 100 万文件" — 成本爆 + 实时性差"/>
           <outline text="❌ "纯 LLM 写代码" — 跨文件不知道"/>
         </outline>
+        <outline text="加分项">
+          <outline text="Cursor Composer Agent / Devin ACE 框架 / Anthropic Claude Code"/>
+          <outline text="SWE-Bench-Verified 当前 SOTA ~50% (2025)"/>
+          <outline text="提到 AST-aware chunking (Cody / 通义灵码)"/>
+          <outline text="给具体数字: $200/月 Pro 定价 vs 替代 0.1 全职工程师 ROI"/>
+        </outline>
       </outline>
       <outline text="Q7.4 设计法律 RAG (Harvey AI 级别)">
         <outline text="题面">
           <outline text="为律所设计法律 AI 助理, 100 万份合同 + 法律法规, 律师查询 + 合同审查 + 案件分析, 严格引用 + 不能错答 (法律责任)."/>
+        </outline>
+        <outline text="考察点">
+          <outline text="法律语料治理 (case law / statute / 司法解释)"/>
+          <outline text="引用必须精确到段 (Faithfulness 必 ≥ 0.95)"/>
+          <outline text="双 LLM judge 验证 (Harvey 公开做法)"/>
+          <outline text="国别 / 司法管辖隔离"/>
+          <outline text="ROI: 律师小时费 vs RAG 成本"/>
         </outline>
         <outline text="完整高分答案">
           <outline text="需求拆解:"/>
@@ -12699,10 +12741,23 @@ K8s | 阿里 ACK / 腾讯 TKE / KubeSphere">
           <outline text="❌ "通用 BGE-M3 不微调" — 法律 NDCG 只有 35"/>
           <outline text="❌ "用 GPT-4 不私有化" — 客户合规不接受"/>
         </outline>
+        <outline text="加分项">
+          <outline text="Harvey AI 估值 2024 [1.5B → 2025 ]5B"/>
+          <outline text="引用 Bloomberg/Reuters 法律 AI 实测报告"/>
+          <outline text="提到 Anthropic legal customer (Davis Wright Tremaine)"/>
+          <outline text="给数字: 律师 [500/h × 节省 30% 时间 vs RAG ]50/律师/月"/>
+        </outline>
       </outline>
       <outline text="Q7.5 设计数据分析 RAG (Snowflake Cortex Analyst 级别)">
         <outline text="题面">
           <outline text="为业务团队设计 Text2SQL 助理, 1000+ 表 / 5000+ 字段, 自然语言转 SQL, 准确率 &gt; 80%, 安全 (不能误删)."/>
+        </outline>
+        <outline text="考察点">
+          <outline text="Text2SQL vs RAG 路由"/>
+          <outline text="Schema 注入 + Few-shot 例子选择"/>
+          <outline text="SQL 安全 (只 SELECT, row limit, 不允许 DROP)"/>
+          <outline text="准确率天花板 (60-85%) + Validator 兜底"/>
+          <outline text="大表性能 (LLM 生成 SQL 缺索引提示)"/>
         </outline>
         <outline text="完整高分答案">
           <outline text="需求拆解:"/>
@@ -12770,6 +12825,12 @@ K8s | 阿里 ACK / 腾讯 TKE / KubeSphere">
         <outline text="反例">
           <outline text="❌ "全表 DDL 直接塞 prompt" — 1000 表装不下"/>
           <outline text="❌ "无安全检查" — DELETE 风险"/>
+        </outline>
+        <outline text="加分项">
+          <outline text="Snowflake Cortex Analyst 公开架构 + RAGFlow 三模块对照"/>
+          <outline text="Spider / BIRD benchmark 数字 (60-85%)"/>
+          <outline text="提到 Cube.js 语义层 / DuckDB 嵌入式 SQL"/>
+          <outline text="给数字: 数据分析师 $80K/年 × 替代 20% 时间 = ROI 测算"/>
         </outline>
       </outline>
     </outline>
@@ -12861,6 +12922,19 @@ K8s | 阿里 ACK / 腾讯 TKE / KubeSphere">
           <outline text="❌ "重启就好了" — 显得没思考"/>
           <outline text="❌ "记不清具体数字" — 显得没真做过"/>
         </outline>
+        <outline text="第二轮追问 Q: 那次踩坑怎么发现的?">
+          <outline text="答: 用户反馈 + 监控指标双通道. 用户先吐槽 "答非所问", SRE 看 Faithfulness P50 跌 0.92 → 0.78, 同时召回 Recall@10 跌 0.85 → 0.62. 双指标对齐才确认是召回问题"/>
+          <outline text="加分: 提具体追踪工具 (LangSmith / Phoenix / Langfuse), 不只说"看日志""/>
+        </outline>
+        <outline text="第三轮追问 Q: 修了之后怎么证明真修好了?">
+          <outline text="A/B 实验 (新版 vs 旧版), 双方流量 50/50, 跑 1 周看 4 个指标 (满意度 / Faithfulness / Recall@10 / 拒答率)"/>
+          <outline text="统计显著性 (Welch's t-test p &lt; 0.05)"/>
+          <outline text="持续监控 1 月, 没有 regression 才认定修好"/>
+        </outline>
+        <outline text="反例">
+          <outline text="❌ "我重启就好了" — 暴露你不懂根因, 生产事故必查 RCA"/>
+          <outline text="❌ "我们换了个 LLM 就好了" — 99% 情况换 LLM 解不掉数据治理问题, 暴露你不懂 RAG 70/20/10 投资"/>
+        </outline>
       </outline>
       <outline text="Q8.2 你怎么从 0 到 1 建一个 RAG?">
         <outline text="考察点">
@@ -12932,6 +13006,20 @@ K8s | 阿里 ACK / 腾讯 TKE / KubeSphere">
           <outline text="❌ "直接上 Agent + GraphRAG 高大上" — 没 PMF 浪费"/>
           <outline text="❌ "POC 跳过直接 MVP" — 风险大"/>
         </outline>
+        <outline text="第二轮追问 Q: 怎么定 PoC 范围?">
+          <outline text="选高频 + 易评估场景 (FAQ / 客服) — 1 周可上线, 100 query 可标"/>
+          <outline text="不选: 多模态 / 跨多源 / 强合规 (这些 6 月都搞不定)"/>
+          <outline text="加分: 提"先 1 source / 1000 doc / 100 user / 50 query 验证""/>
+        </outline>
+        <outline text="第三轮追问 Q: PoC 通过后怎么过渡到生产?">
+          <outline text="4 阶段 (详见 §20.1.7): Modular RAG → Tool Calling → Plan-and-Execute → Multi-Agent"/>
+          <outline text="反模式: 跳阶段直接上 LangGraph multi-agent (3 月调不通)"/>
+          <outline text="必上追踪 (LangSmith) + 必上 Validator (Faithfulness gate)"/>
+        </outline>
+        <outline text="反例">
+          <outline text="❌ "上来就 LangGraph + multi-agent" — 调不通, PoC 失败"/>
+          <outline text="❌ "PoC 用 50 个开发自测 query" — 偏差极大, 必须真用户 query"/>
+        </outline>
       </outline>
       <outline text="Q8.3 怎么向产品经理 / 老板解释 RAG?">
         <outline text="考察点">
@@ -12993,6 +13081,20 @@ K8s | 阿里 ACK / 腾讯 TKE / KubeSphere">
           <outline text="❌ "RAG 是 retrieval-augmented generation" — PM 不懂"/>
           <outline text="❌ "用 embedding + cosine similarity..." — 越说越远"/>
         </outline>
+        <outline text="第二轮追问 Q: 老板问 "这能省多少钱?"">
+          <outline text="公式: ROI = (节省 - 投入) / 投入"/>
+          <outline text="客服场景: Klarna 替代 700 客服 × [50K/年 = ]35M 节省 - 投入 (开发 [500K + 月运营 ]30K × 12 = [860K) ≈ ]34M 净, ROI 4000%"/>
+          <outline text="提具体数字, 不要只说"很省""/>
+        </outline>
+        <outline text="第三轮追问 Q: 那为什么不全公司都上 RAG?">
+          <outline text="不是所有场景都 ROI 正: 高频低价值 (FAQ) 上 Agent 反而毁成本"/>
+          <outline text="80/20 法则: 20% 场景占 80% ROI"/>
+          <outline text="选场景比堆技术重要"/>
+        </outline>
+        <outline text="反例">
+          <outline text="❌ "RAG 让 LLM 更准" — 太抽象, 老板要数字"/>
+          <outline text="❌ "不做就被竞品超越" — FOMO 话术, 严肃老板会怀疑你没想清楚"/>
+        </outline>
       </outline>
       <outline text="Q8.4 怎么评估 RAG 上线后的成功?">
         <outline text="考察点">
@@ -13052,6 +13154,20 @@ K8s | 阿里 ACK / 腾讯 TKE / KubeSphere">
         <outline text="反例">
           <outline text="❌ "技术指标好就行" — 老板要业务价值"/>
           <outline text="❌ "等 1 年看 ROI" — 反应慢"/>
+        </outline>
+        <outline text="第二轮追问 Q: 业务指标和技术指标冲突怎么办?">
+          <outline text="例: 提高 Faithfulness 到 0.95 让拒答率涨 15%, NPS 跌 — 业务方不要"/>
+          <outline text="解: 调拒答阈值 (0.7 → 0.5), 接受 Faithfulness 0.88, 拒答率 5%, NPS +3"/>
+          <outline text="关键: 业务指标优先, 技术指标是工具不是目标"/>
+        </outline>
+        <outline text="第三轮追问 Q: 怎么避免"看起来好但用户不爽"?">
+          <outline text="必看用户原话反馈 (NPS 评论 / Slack 群讨论 / 客诉日志)"/>
+          <outline text="上线后 2 周 PM 必须读 100 条 bad case, 不靠看 dashboard"/>
+          <outline text="隐性 bug (e.g. 用户感觉答案"机械") 是 dashboard 抓不到的"/>
+        </outline>
+        <outline text="反例">
+          <outline text="❌ 只看 RAGAS 4 指标 — 那只是技术 health check, 不是用户体验"/>
+          <outline text="❌ 只看 NPS — 没法定位是 L1/L2/L3 哪层问题"/>
         </outline>
       </outline>
       <outline text="Q8.5 RAG 团队应该几个人?什么角色?">
@@ -13114,6 +13230,20 @@ K8s | 阿里 ACK / 腾讯 TKE / KubeSphere">
           <outline text="❌ "外包给 Glean" — 失去自主性"/>
           <outline text="❌ "全是 PhD" — 工程能力不够"/>
           <outline text="---"/>
+        </outline>
+        <outline text="第二轮追问 Q: 1 个人能做 RAG MVP 吗?">
+          <outline text="能, 但限制大: 范围必须窄 (1 数据源 / 1 场景 / 100 user)"/>
+          <outline text="用 LangChain / LlamaIndex 模板省 80% 工程, 重点投数据治理"/>
+          <outline text="PoC 上线后必扩团队到 3-5 人 (1 算法 + 2 工程 + 0.5 PM + 0.5 SRE)"/>
+        </outline>
+        <outline text="第三轮追问 Q: 大公司团队 50 人是不是过度?">
+          <outline text="50 人对应 enterprise 级 (Glean / Microsoft Copilot 量级), 不过度"/>
+          <outline text="拆分: 平台组 (10) + connectors 组 (15) + 算法 (8) + 评估 (5) + 安全 (5) + PM/SRE (7)"/>
+          <outline text="中等公司 (Klarna 级) 5-15 人足够"/>
+        </outline>
+        <outline text="反例">
+          <outline text="❌ "全外包给 1 个供应商" — RAG 持续优化必须内部团队 (数据治理是核心 IP)"/>
+          <outline text="❌ "招 1 个 ML 大牛搞定" — RAG 是工程项目, 不是单点 ML, 需要工程主导"/>
         </outline>
       </outline>
     </outline>
@@ -13410,6 +13540,11 @@ P3 (1 周) | 长尾 query 拒答 | 加 KB / 优化 prompt | KB Health"/>
   </outline>
   <outline text="十七. 学习路径建议">
     <outline text="17.1 0 → 入门 (1 周)">
+      <outline text="反模式">
+        <outline text="❌ 一上来读论文 — 论文是研究者视角, 工程师先做 demo 比读论文有效 100x"/>
+        <outline text="❌ 跳过 Python / API 基础 — RAG 90% 是工程, ML 只是其中 10%"/>
+        <outline text="❌ 一周想搞透 — 1 周只够建认知, 真上手要 1 月"/>
+      </outline>
       <outline text="17.1.1 Day 1-2 概念 + Demo">
         <outline text="读: §〇-三"/>
         <outline text="看: LangChain RAG cookbook 视频"/>
@@ -13429,6 +13564,11 @@ P3 (1 周) | 长尾 query 拒答 | 加 KB / 优化 prompt | KB Health"/>
       </outline>
     </outline>
     <outline text="17.2 入门 → 中级 (1 月)">
+      <outline text="反模式">
+        <outline text="❌ 只用 LangChain 模板, 不读源码 — 模板挂了 debug 不动"/>
+        <outline text="❌ 跳过数据治理直接上 Embedder fine-tune — Recall 不上 90% 时 fine-tune 没意义"/>
+        <outline text="❌ 不上追踪 (LangSmith / Phoenix) — 链路一长 debug 就崩"/>
+      </outline>
       <outline text="17.2.1 Week 1: 深化基础">
         <outline text="读: §十五 (面试题)"/>
         <outline text="实操: 用自己 KB 数据搭完整 5 层 RAG"/>
@@ -13450,6 +13590,11 @@ P3 (1 周) | 长尾 query 拒答 | 加 KB / 优化 prompt | KB Health"/>
       </outline>
     </outline>
     <outline text="17.3 中级 → 高级 (3 月)">
+      <outline text="反模式">
+        <outline text="❌ 看到新论文就上 (HyDE / Self-RAG / GraphRAG ...) — 工业 80% 收益来自 Hybrid + Reranker, 高级技术 &lt; 5%"/>
+        <outline text="❌ 一上 multi-agent — 90% 业务单 Agent 够, multi-agent 调试成本 5x"/>
+        <outline text="❌ 不跑 RAGAS 评估 — 没数字怎么知道好转还是退化"/>
+      </outline>
       <outline text="17.3.1 Month 1: 工程化 + 横切关注点">
         <outline text="读: 本文档全部 (重点 §10 横切: ACL / Cache / Cost / Observability)"/>
         <outline text="读: datawhalechina/all-in-rag"/>
@@ -13471,6 +13616,11 @@ P3 (1 周) | 长尾 query 拒答 | 加 KB / 优化 prompt | KB Health"/>
       </outline>
     </outline>
     <outline text="17.4 高级 → 专家 (6 月+)">
+      <outline text="反模式">
+        <outline text="❌ 只追新模型 / 新框架 — 专家 = 把 1 套技术做透 + 量化每个决策的代价"/>
+        <outline text="❌ 不写博客 / 不公开分享 — 专家级别必须输出, 不输出等于停止思考"/>
+        <outline text="❌ 不读 SRE / FinOps — RAG 上线后 70% 时间在运维 + 成本优化, 不是写代码"/>
+      </outline>
       <outline text="17.4.1 Month 1-2: 规模化">
         <outline text="实操: 1000 QPS RAG (LB / 缓存 / 监控)"/>
         <outline text="优化: 月成本 $10K 以下"/>
@@ -13485,7 +13635,7 @@ P3 (1 周) | 长尾 query 拒答 | 加 KB / 优化 prompt | KB Health"/>
         <outline text="社区分享 (Meetup / 讲座)"/>
       </outline>
     </outline>
-    <outline text="17.5 转型路线">
+    <outline text="17.5 转型路线 (7 个角色)">
       <outline text="17.5.1 前端 → AI 工程师 (6-12 月)">
         <outline text="M1-2: Python + ML 基础 (Coursera)"/>
         <outline text="M3-4: LLM 入门 (本文档 §〇-六)"/>
@@ -13505,6 +13655,38 @@ P3 (1 周) | 长尾 query 拒答 | 加 KB / 优化 prompt | KB Health"/>
         <outline text="M4-6: LLM (本文档 + Karpathy)"/>
         <outline text="M7-12: AI 工程实操"/>
         <outline text="优势: 数据治理是 RAG 70% 工作"/>
+      </outline>
+      <outline text="17.5.4 后端工程师 (Python/Go/Node) → AI 工程师 (3-6 月)">
+        <outline text="M1: LLM API 实操 (Anthropic / OpenAI SDK, 1 周搞定)"/>
+        <outline text="M2: RAG 基础 (本文档 §0-§9, 1 月)"/>
+        <outline text="M3: Modular RAG 工程化 (1-2 月)"/>
+        <outline text="M4-6: Agent + 评估 + 监控"/>
+        <outline text="优势: 已有工程能力, 学曲线最短 (3 月内可上岗 AI 工程师)"/>
+        <outline text="反模式: 跳过 §4-§5 数据治理, 直接学 LangChain — 上线必栽"/>
+      </outline>
+      <outline text="17.5.5 PM (产品经理) → AI 产品经理 (3-6 月)">
+        <outline text="M1: 上手 ChatGPT / Claude / Cursor 用 100h, 建直觉"/>
+        <outline text="M2: 读本文档 §0 / §12 / §13 (业务视角)"/>
+        <outline text="M3: 跑通 1 个 RAG demo (LangChain 简单模板)"/>
+        <outline text="M4-6: 业务对接 + ROI 测算 + 评估闭环 (RAGAS / 用户反馈)"/>
+        <outline text="优势: 不用写代码, 但能跟 AI 工程师顺畅沟通技术 trade-off"/>
+        <outline text="反模式: 把 AI PM 当一般 PM 做 — 不懂技术天花板会拍出离谱需求"/>
+      </outline>
+      <outline text="17.5.6 DevOps / SRE → AI Infra 工程师 (3-6 月)">
+        <outline text="M1: GPU 基础 (NVIDIA SMI / CUDA / nvidia-docker)"/>
+        <outline text="M2: 模型部署 (vLLM / SGLang / Triton, 服务化推理)"/>
+        <outline text="M3: 向量库运维 (pgvector / Milvus / Pinecone)"/>
+        <outline text="M4-6: AI 链路监控 (LangSmith / Phoenix / Langfuse) + FinOps + 告警"/>
+        <outline text="优势: AI Infra 严重缺人 (vs 算法岗), 薪资上限不输算法"/>
+        <outline text="反模式: 把 GPU 当 CPU 运维 — GPU 利用率 / 显存 / Tensor 并行模型完全不同"/>
+      </outline>
+      <outline text="17.5.7 数据分析 / DA → AI 评估工程师 (3-6 月)">
+        <outline text="M1: 学 RAG / Agent 基本概念 (本文档 §0-§3 + §20.1)"/>
+        <outline text="M2: RAGAS / TruLens / Phoenix 工具上手"/>
+        <outline text="M3: Golden Set 制作 + 标注规范"/>
+        <outline text="M4-6: A/B 实验设计 + 统计显著性 + bad case 闭环"/>
+        <outline text="优势: 评估岗位刚兴起 (Anthropic / OpenAI 都在招), 数据分析背景对口"/>
+        <outline text="反模式: 只跑 RAGAS 4 指标 — 真实评估必须 + 用户原话 + 业务 KPI 关联"/>
       </outline>
     </outline>
     <outline text="17.6 推荐资源">
@@ -14952,19 +15134,48 @@ MCP 支持 | 原生 (Anthropic 主导) | 2025.Q2+ (Agents SDK) | 2025.Q3+
       </outline>
     </outline>
     <outline text="20.8 Agent 成本优化 (FinOps 实战)">
-      <outline text="20.8.1 三大杠杆">
-        <outline text="per-user QPS 限制 (Free 1, Pro 10, Enterprise 100)"/>
-        <outline text="per-tool retry 限制"/>
-        <outline text="异常 query 熔断 (同 user 同 query 5 分钟内重复 → block)"/>
+      <outline text="20.8.1 5 大省钱杠杆 (按 ROI 排序)" _note="杠杆 | 省多少 | 实施复杂度 | 何时上 | 反模式
+1. Router 80/15/5 流量分流 | 5-10× | 中 | 任何上 Agent 项目第一步 | 全 Agent 一刀切
+2. Planner/Executor 模型分级 | 3-5× | 低 | 上 Agent 后立即 | 全程 Sonnet 全程 GPT-5
+3. Anthropic Prompt Caching | 5-10× | 低 (改 prompt 顺序) | 长 system prompt 时立即 | 把变量放 prompt 头部, 缓存命中 0%
+4. Batch API (OpenAI/Anthropic) | 2× | 中 | 异步可接受 (eval / dedup) | 实时 query 用 batch — 用户等不了
+5. Semantic Cache (GPTCache) | 1.05-1.15× | 中 | 高频查询场景 | cosine 阈值 &lt; 0.95 — 误命中">
+        <outline text="杠杆组合 — Klarna 实测">
+          <outline text="5 杠杆全开后: 单 Agent query 从 [0.42 → ]0.05 (省 88%)"/>
+          <outline text="5 杠杆只开 1-2: 从 [0.42 → ]0.25 (省 40%)"/>
+          <outline text="5 杠杆全不开: $0.42 (基线)"/>
+        </outline>
       </outline>
-      <outline text="20.8.2 路由优化">
-        <outline text="80% 简单 query 不走 Agent (普通 RAG 即可)"/>
-        <outline text="5% 高价值才上 Agent (Klarna 真实数字)"/>
+      <outline text="20.8.2 Anthropic Prompt Caching 详解 (省钱杠杆 3)">
+        <outline text="原理: 把 prompt 里相对稳定的部分 (system prompt / few-shot / 工具描述) 缓存中间状态, 下次命中只算增量"/>
+        <outline text="折扣: cache write 1.25× 基础价 (一次性), cache hit 0.1× 基础价 (持续)"/>
+        <outline text="命中要求: prompt prefix 100% 一致 (不能差一个字符)"/>
+        <outline text="实操: 把变量 (用户 query / 当前时间) 放 prompt 末尾, 不变量 (system / 工具) 放头部"/>
+        <outline text="5 分钟 TTL: 可在 1h ephemeral 模式延长"/>
+        <outline text="真实: Anthropic blog 公开案例: 长 system prompt + RAG context 场景平均省 35-49% LLM 成本"/>
       </outline>
-      <outline text="20.8.3 模型选型">
-        <outline text="Planner 用 Sonnet (准, 决策关键)"/>
-        <outline text="Executor 用 Haiku (便宜, 执行简单)"/>
-        <outline text="综合成本砍 50%+"/>
+      <outline text="20.8.3 OpenAI / Anthropic Batch API 详解 (省钱杠杆 4)">
+        <outline text="折扣: 50% (与 OpenAI 一致 0.5×)"/>
+        <outline text="异步: 24h 内返回 (不能用于实时 query)"/>
+        <outline text="适合: nightly evaluation / 文档预处理 / dedup / 离线 enrichment"/>
+        <outline text="不适合: 实时客服 / 实时搜索"/>
+      </outline>
+      <outline text="20.8.4 Router 80/15/5 流量分流 (省钱杠杆 1)">
+        <outline text="原理: 80% 简单 query 不走 Agent (普通 RAG 单次), 15% 中等 (Hybrid + Reranker), 5% 复杂 (Agent)"/>
+        <outline text="数字: 80% × [0.005 + 15% × ]0.02 + 5% × [0.42 = 平均 ]0.028/query (vs 全 Agent $0.42, 省 15×)"/>
+        <outline text="详见: §7 L4 Modular Router"/>
+      </outline>
+      <outline text="20.8.5 Planner/Executor 模型分级 (省钱杠杆 2)">
+        <outline text="Plan 阶段: Sonnet 4.5 / GPT-5 / o3 (1 次, 必须强模型)"/>
+        <outline text="Execute 阶段: Haiku 4.5 / GPT-5-mini (N 次, 便宜模型)"/>
+        <outline text="Synthesis 阶段: Haiku (综合不吃推理力)"/>
+        <outline text="平均: 1 Sonnet + 8 Haiku = 1×[0.05 + 8×]0.005 = [0.09 (vs 全 Sonnet ]0.45, 省 5×)"/>
+      </outline>
+      <outline text="20.8.6 反模式 (FinOps 必避)">
+        <outline text="❌ 不分 Planner / Executor — 全程 Sonnet, 1 query $0.42 直接打底"/>
+        <outline text="❌ 不开 Prompt Caching — 长 system prompt 每次重算, 多花 5-10×"/>
+        <outline text="❌ 不监控 P99 cost — 边缘 query 烧 $5-50 看不到"/>
+        <outline text="❌ 实时 query 用 Batch — 用户等 24h, 退订率爆"/>
       </outline>
     </outline>
     <outline text="20.9 Agent RAG 实施陷阱">
