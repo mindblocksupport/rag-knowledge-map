@@ -6624,40 +6624,116 @@ RAG 工业标准是**三存储架构** (vector + inverted + doc, 详见 §0.1.4 
 - 三路并行 vs 串行: 1.5-3× 加速
 - 总延迟 = max(dense, sparse, keyword) 而非 sum
 
-### 6.3 RRF Fusion (倒数排名融合) 读流程
+### 6.3 RRF Fusion (Reciprocal Rank Fusion 倒数排名融合) 读流程
 
-#### 6.3.1 RRF 公式
-- score_RRF(d) = Σ_{retrievers r} 1 / (k + rank_r(d))
-- k 是平滑常数 (默认 60)
+#### 6.3.1 解决什么问题 — 为什么不能简单加权和
 
-#### 6.3.2 k=60 来源
-- 论文: Cormack et al. 2009 SIGIR
-- 实验: TREC 数据集网格搜索
-- k=60 在多数检索任务上 NDCG 最优
+Hybrid Search 双路并行后, Dense 返 top-50 (cosine score 0-1) + BM25 返 top-50 (BM25 score 0-30). 怎么合并?
 
-#### 6.3.3 k 的影响
-- k 太小 (< 10): top 1 主导, 退化为单一检索器最强者
-- k 太大 (> 200): 所有 chunk 几乎平权
-- k=60 是甜点, 不需要调
+**朴素方案: 加权和 — 失败**
+- 直接 final_score = α × cosine + β × BM25
+- 问题: cosine 范围 0-1, BM25 范围 0-30, 数量级差 30 倍, 加权权重难定
+- 更糟: 不同 query 的 BM25 分布差异极大 (短 query BM25 平均 5, 长 query 平均 25)
+- 业界共识: 加权和不行, 必须用 rank-based 融合
 
-#### 6.3.4 RRF 读流程
-- 步 1: 各通道返回 ranked list (chunk_id + rank)
-- 步 2: 对每个 chunk, 累加 1/(60 + rank_i)
-- 步 3: 按累计分数重排
-- 步 4: 输出 top-K
+**RRF 解法: 只看 rank, 不看 score**
+- 公式: `score_RRF(d) = Σ_{retrievers r} 1 / (k + rank_r(d))`
+- 直觉: 一个文档在多个检索器都排靠前 → 综合分高
+- k = 60 是平滑常数, 防止 rank=1 的文档 score 爆 (1/61 vs 1/60.001 差异极小)
 
-##### Python 伪代码
-- def rrf_fuse(rankings: list[list], k=60):
-  - scores = defaultdict(float)
-  - for ranking in rankings:
-    - for rank, chunk_id in enumerate(ranking, 1):
-      - scores[chunk_id] += 1 / (k + rank)
-  - return sorted(scores.items(), key=lambda x: -x[1])
+#### 6.3.2 RRF 完整算法 + 公式推导
 
-#### 6.3.5 加权 RRF
+##### 公式
+- score_RRF(d) = Σ_{r=1}^{R} 1 / (k + rank_r(d))
+- d: 候选文档 / chunk
+- r: 检索器编号 (Dense / BM25 / SPLADE 等)
+- rank_r(d): d 在第 r 个检索器结果中的排名 (从 1 开始, 不在 top-K 视为 ∞ 即贡献 0)
+- k = 60 (默认, 论文实验最优)
+
+##### 退款 query 例子手算
+假设 Hybrid 双路返:
+- Dense 排名: [chunk_42, chunk_157, chunk_88] (rank 1/2/3)
+- BM25 排名: [chunk_88, chunk_42, chunk_311] (rank 1/2/3)
+
+RRF 计算:
+- chunk_42: Dense rank=1 + BM25 rank=2 → score = 1/(60+1) + 1/(60+2) = 0.01639 + 0.01613 = **0.03252**
+- chunk_88: Dense rank=3 + BM25 rank=1 → score = 1/63 + 1/61 = 0.01587 + 0.01639 = **0.03226**
+- chunk_157: Dense rank=2 + BM25 rank=∞ → score = 1/62 + 0 = **0.01613**
+- chunk_311: Dense rank=∞ + BM25 rank=3 → score = 0 + 1/63 = **0.01587**
+
+最终排名: chunk_42 > chunk_88 > chunk_157 > chunk_311
+- chunk_42 综合最强 (双路都靠前)
+- chunk_88 次之 (BM25 第 1 但 Dense 只第 3)
+- 单路命中的排后
+
+#### 6.3.3 为什么 k=60 (论文实验来源)
+
+##### 论文出处
+- Cormack et al. 2009 SIGIR "Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning Methods"
+- 在 TREC 数据集网格搜索 k ∈ [10, 200], k=60 在多数任务 NDCG 最优
+
+##### k 的影响 (调参直觉)
+- k 太小 (< 10): rank=1 的 score 远超其它, 退化为单一最强检索器
+- k 太大 (> 200): 1/(k+rank) 对 rank 不敏感, 所有 chunk 权重接近, 失去排序能力
+- k=60: 排名 1 跟排名 50 的 score 比是 1.83 (有梯度但不极端), 最佳平衡
+- 实测: k 在 30-100 范围内 NDCG 差异 < 2%, 不需调
+
+#### 6.3.4 加权 RRF (Weighted RRF, 进阶)
+
+##### 解决什么问题
+- 普通 RRF 假设各检索器质量相等 (每路权重 = 1)
+- 实际: Dense 在某些场景比 BM25 强 (e.g. 中文长文档), 应给 Dense 更高权重
+
+##### 公式
 - score = Σ w_r / (k + rank_r(d))
-- w_r 是检索器权重
-- 当某检索器质量明显好时用
+- w_r: 第 r 个检索器的权重 (默认全 1, 业务可调)
+
+##### 何时调权
+- A/B 测试发现某路明显好 → 权重调高
+- e.g. 中文场景 Dense 比 BM25 强 → w_dense=1.5, w_bm25=1.0
+- 极端场景 BM25 没用 (e.g. 纯语义场景) → w_bm25=0.5
+
+##### 反模式
+- ❌ 凭感觉调权重 — 必须 A/B 测试 100+ query 验证
+- ❌ 权重差异 > 3 倍 — 失去 Hybrid 意义, 不如直接关掉弱的那路
+- ✅ 默认全 1 (普通 RRF), 调权是优化, 不是必需
+
+#### 6.3.5 RRF 完整读流程 (4 步)
+
+- 步 1: 各检索器返 ranked list (e.g. Dense top-50, BM25 top-50)
+- 步 2: 对每个 chunk, 遍历各检索器的 rank 累加 1/(60+rank)
+- 步 3: 按累加 score 排序
+- 步 4: 输出 top-K (一般 top-20 给 Reranker 精排)
+
+##### Python 完整实现 (10 行)
+- def rrf_fuse(rankings: list[list], k=60):
+- &nbsp;&nbsp;scores = defaultdict(float)
+- &nbsp;&nbsp;for ranking in rankings:  # 每个检索器
+- &nbsp;&nbsp;&nbsp;&nbsp;for rank, chunk_id in enumerate(ranking, start=1):
+- &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;scores[chunk_id] += 1 / (k + rank)
+- &nbsp;&nbsp;return sorted(scores.items(), key=lambda x: -x[1])
+
+#### 6.3.6 RRF 跟其它融合方法对比
+
+| 方法 | 优势 | 劣势 | 何时选 |
+|---|---|---|---|
+| **RRF** | 不需调参 (k=60 通吃) / 鲁棒 / 跨检索器兼容 | 不利用 score 绝对值信息 | **业界标配** |
+| 加权和 | 利用 score 信息 | 不同检索器 score 范围差异大, 难调 | 已知各检索器 score 校准过 |
+| Condorcet | 投票机制 | 计算复杂 / 大规模慢 | 学术研究 |
+| LLM 融合 | 用 LLM 综合判断 | 极慢 + 极贵 | 高价值少量场景 |
+
+#### 6.3.7 反模式 (业界踩坑)
+
+- ❌ **直接加权和 cosine + BM25** — score 范围差 30 倍, 几乎只看 BM25
+- ❌ **k 调成 1 想"放大 top 1"** — 退化成单路最强, 失去 Hybrid 意义
+- ❌ **k 调成 1000 想"平均所有 chunk"** — score 几乎相等, 失去排序信号
+- ❌ **不传 rank 直接用 score** — score 跨检索器不可比, 必须用 rank
+- ✅ 默认 k=60, 默认权重全 1, 大概率最优
+
+#### 6.3.8 工具
+- LangChain EnsembleRetriever (内置 RRF)
+- LlamaIndex 自带 fusion 模块
+- 自实现 10 行 Python (上面代码)
 
 ### 6.4 Reranker (重排/精排模型) (8 种 + 完整流程详解)
 
@@ -6769,7 +6845,7 @@ RAG 工业标准是**三存储架构** (vector + inverted + doc, 详见 §0.1.4 
 - 中文: 不推荐, BGE-Reranker 完胜
 - 长 doc: 上下文太短
 
-#### 6.4.3 ColBERT-v2 + PLAID (Token-level Late Interaction (词级后期交互) (词级后期交互))
+#### 6.4.3 ColBERT-v2 + PLAID (Token-level Late Interaction (词级后期交互))
 
 ##### 模型信息
 - 论文: Stanford Khattab 2022 ColBERT-v2 + 2023 PLAID 优化
@@ -7023,86 +7099,199 @@ RAG 工业标准是**三存储架构** (vector + inverted + doc, 详见 §0.1.4 
 - Reranker: Cohere Rerank 3.5 (英文为主)
 - 简化版 (不上 Cascade): 延迟 200ms 满足产品要求
 
-### 6.5 Query Transformation (查询改写) (查询改写) (6 种)
+### 6.5 Query Transformation (查询改写) (6 种)
 
-#### 6.5.1 HyDE (假设性文档嵌入) 读流程
+#### 6.5.1 HyDE (Hypothetical Document Embeddings 假设文档嵌入)
 
-##### 思想
-- 用户 query 短 + 抽象, 文档长 + 具体, 向量空间有 gap
-- LLM 生成"假设答案", 用假设答案的向量去检索
+##### 解决什么问题
+- 用户 query 通常短而抽象 (e.g. "退款多久"), 文档通常长而具体 (e.g. "退款流程: 用户提交申请 → 风控审核 (24h) → 财务打款 (3-5 工作日)...")
+- 短 query 跟长文档在向量空间有 **gap**: query embedding 不在文档密集区, 检索召回差
+- HyDE 解法: **让 LLM 先写一个假设答案 (跟真文档形态相似的长文本), 用假设答案的向量去检索**
+- 价值: hypothesis 跟真文档同分布, 检索召回率显著提升
 
-##### 流程
-- 步 1: LLM 生成 hypothesis (Haiku $0.0001)
-  - Prompt: "Write a passage that answers: {query}"
-- 步 2: embed hypothesis (而非原 query)
-- 步 3: 用 hypothesis_vector 在向量库检索
-- 步 4: 返 top-K chunks
+##### 业务场景
+- ✅ 短 query 场景 (FAQ 客服 / 搜索建议)
+- ✅ 用户表达抽象 ("怎么退款" vs 文档"退款流程: 第一步...")
+- ✅ Embedder 召回率不够 (Recall@10 < 0.7) 时增强
+- ❌ 已经长 query (用户写完整描述, 不需要假设)
+- ❌ 极致低延迟场景 (HyDE 加 500ms-2s, 不能用)
+- ❌ 高 QPS + 成本敏感 (每 query 多 1 次 LLM 调用)
 
-##### 性能
-- 多 1 次 LLM 调用, +500ms-2s
-- 召回 +10%
+##### 算法 (3 步)
+- 步 1: LLM (Haiku 4.5 / GPT-5-mini) 接 query 生成 hypothesis (假设答案)
+  - Prompt: "Write a passage that answers the following question. Question: {query}\nPassage:"
+- 步 2: embed hypothesis 而非原 query
+- 步 3: 用 hypothesis_vector 在向量库做 ANN 检索, 返 top-K chunks
 
-##### 关键认知
-- LLM 不需要答对 (hypothesis 可以是幻觉)
-- 只需要语义相关 → 接近真实文档向量空间
+##### 关键认知 (面试加分)
+- LLM 不需要"答对" — hypothesis 可以是幻觉, 内容错没关系
+- 只需要"形态相似" — 长度 / 风格 / 关键词分布 跟真文档接近就行
+- HyDE 的本质: 把 query embedding 从"问题空间" 映射到"答案空间", 缩小 gap
 
-#### 6.5.2 Multi-Query (多查询分解) 读流程
+##### 关键参数
+- LLM 选型: Haiku 4.5 ($0.001/query) — 不必用 Sonnet 浪费
+- hypothesis 长度: 200-500 字 (跟 chunk 长度匹配)
+- temperature: 0.3-0.5 (不要太高, 避免 hypothesis 太随意)
 
-##### 思想
-- 一个 query 表达单一, LLM 生成多个变体
-- 多角度检索合并
+##### 反模式
+- ❌ 用 Sonnet 4.5 生成 hypothesis — 单 query 多花 $0.05, ROI 差
+- ❌ hypothesis prompt 复杂 — 越简单越好, 让 LLM 自由生成
+- ❌ temperature=1.0 — 生成出离谱 hypothesis 反而拉远空间
+- ✅ Haiku + temperature=0.3 + 简单 prompt 是标配
 
-##### 流程
-- 步 1: LLM 生成 3-5 个相似 query
-  - Prompt: "Generate 3 different versions of: {query}"
-- 步 2: 并行检索每个 query
-- 步 3: 结果合并去重
-- 步 4: RRF 融合
+##### 性能 / 成本
+- 延迟: +500ms-2s (Haiku 调用)
+- 成本: +$0.001/query (Haiku)
+- 召回提升: +10-15% NDCG (实测)
 
 ##### 工具
-- LangChain MultiQueryRetriever
+- LangChain HypotheticalDocumentEmbedder
+- LlamaIndex HyDEQueryTransform
+- 自实现 5 行 Python
 
-##### 性能
-- 多 3-5 次 LLM 调用
-- 召回 +15-20%
+##### 论文出处
+- Gao et al. 2022 "Precise Zero-Shot Dense Retrieval without Relevance Labels"
 
-##### 适合
-- 复杂查询 / 用户表达多样
+#### 6.5.2 Multi-Query (多查询分解)
 
-#### 6.5.3 Step-Back Prompting (退步提示) 读流程
+##### 解决什么问题
+- 单个 query 表达单一, 可能漏掉相关文档 (因为用户用了某个特定词, 文档用了另一个词)
+- e.g. query "退款政策" 可能漏掉文档里只说"返金条款" / "refund policy"
+- Multi-Query 解法: **LLM 生成 3-5 个 query 变体, 多角度检索, 合并去重**
 
-##### 思想
-- 先抽象出更高层概念
-- 答完抽象问题再代入具体
+##### 业务场景
+- ✅ 复杂查询 (多义词 / 同义词多)
+- ✅ 用户表达多样化场景 (新手 vs 专家用词不同)
+- ✅ 多语言场景 (一个变体英文, 一个中文)
+- ❌ 简单 FAQ (单一表达就够)
+- ❌ 极致低延迟 (并行 5 路 + 合并慢)
+- ❌ 成本敏感 (每 query 多 5x 检索成本)
 
-##### 流程
-- 步 1: LLM 生成 step-back question
-  - 例: 原"理想气体温度2倍体积8倍压力变?" → 退步"PV=nRT 是什么?"
-- 步 2: 检索 step-back 问题
-- 步 3: 拿到通用知识 (PV=nRT)
-- 步 4: 代入原问题推理
+##### 算法 (4 步)
+- 步 1: LLM 生成 3-5 个 query 变体
+  - Prompt: "Generate 3 different versions of the user's question to retrieve relevant documents from a knowledge base. Question: {query}"
+- 步 2: 并行检索每个变体 (asyncio.gather, 总延迟 = max 单路)
+- 步 3: 合并所有结果, 按 chunk_id 去重 (同一 chunk 可能被多变体召回)
+- 步 4: RRF 融合 (每变体的检索结果当一个 ranked list 输入 RRF)
 
-##### 出处
-- Google DeepMind 2023
+##### 关键参数
+- 变体数: 3-5 个 (太多 LLM 生成质量塌, 太少效果不显)
+- LLM: Haiku 4.5 / GPT-5-mini ($0.001/query)
+- 合并方式: RRF 融合 (跟 Hybrid 融合用同一公式 §6.3)
 
-#### 6.5.4 Decomposition (问题分解) 读流程
+##### 反模式
+- ❌ 变体生成 10+ — LLM 开始生成重复变体, 浪费 token
+- ❌ 不去重直接合并 — 同一 chunk 出现 N 次, 排序失真
+- ❌ 用 Sonnet 生成变体 — Haiku 已够用, 浪费成本
+- ✅ Haiku + 3-5 变体 + RRF 合并 是标配
 
-##### 思想
-- 多跳问题拆成线性子查询
+##### 性能 / 成本
+- 延迟: +200-500ms (Haiku 生成 + 并行检索)
+- 成本: +$0.001 LLM + 5x 检索 (向量库 / Elasticsearch 调用)
+- 召回提升: +15-20% NDCG (实测)
 
-##### 流程
-- 例: "刘慈欣对 AI 的看法?"
-- 子问题 1: "刘慈欣有哪些作品?"
-- 子问题 2: "每部作品中 AI 元素?"
-- 子问题 3: "刘慈欣的访谈/演讲?"
-- 综合答
+##### 工具
+- LangChain MultiQueryRetriever (官方)
+- LlamaIndex 暂无对应组件 (需自实现)
 
-##### 适合
-- 多跳推理
+#### 6.5.3 Step-Back Prompting (退步提示, Google 2023.10)
 
-##### 性能
-- 多次 LLM 调用 + 检索
-- 多跳准确率 +40%
+##### 解决什么问题
+- 用户问具体问题 (e.g. "我的 RF12345 退款多久?"), 但具体数据不在 KB (KB 没存"我的退款"信息)
+- KB 存的是抽象规则 (e.g. "退款流程: 风控审核 24h + 财务打款 3-5 工作日")
+- 直接用具体 query 检索抽象规则, 召回率差
+- Step-Back 解法: **先抽象出更高层概念问题, 用抽象 query 检索抽象规则, 再代入具体**
+
+##### 业务场景
+- ✅ 用户问具体实例, KB 存抽象规则 (客服 / 法律 / 政策)
+- ✅ 数学 / 物理类 (具体题目检索原理)
+- ❌ KB 已存大量具体实例 (反而抽象 query 漏召回)
+- ❌ 简单单点查询 (没必要抽象)
+
+##### 算法 (3 步)
+- 步 1: LLM 生成"退步" 问题 (一个更抽象的版本)
+  - Prompt: "Original Question: {query}\nStep-Back Question (a more general / abstract version):"
+- 步 2: 用 step-back query 检索 → 拿到抽象规则
+- 步 3: LLM 综合抽象规则 + 原具体 query 给最终答案
+
+##### 退款例子
+- 原 query: "我的 RF12345 退款多久?"
+- Step-Back: "退款流程一般需要多久?" (抽象)
+- 检索: 用 step-back query 找到 "退款政策: 风控 24h + 打款 3-5 工作日" chunk
+- 综合: 把 chunk 内容 + 原 query 喂 LLM → "您的 RF12345 退款根据政策需 4-6 工作日"
+
+##### 关键参数
+- LLM: Haiku 4.5 (低成本)
+- 抽象层级: 1 层 (不要 2 层, 太抽象会漏)
+
+##### 反模式
+- ❌ 抽象太狠 ("退款" → "金融服务" → "服务") — 检索召回完全无关
+- ❌ 不保留原 query — 综合时丢失"具体性"
+- ✅ Step-Back 1 层 + 综合时带原 query
+
+##### 性能 / 成本
+- 延迟: +300-800ms (LLM 抽象 + 检索 + 综合)
+- 成本: +2 次 Haiku 调用
+- 召回提升: 特定场景 +20-30% (具体问题 → 抽象 KB 时显著)
+
+##### 工具
+- LangChain StepBackRetriever (社区实现)
+- 自实现简单 (2 个 prompt + 1 次检索)
+
+##### 论文出处
+- Zheng et al. 2023.10 "Take a Step Back: Evoking Reasoning via Abstraction"
+
+#### 6.5.4 Decomposition (问题分解, 子问题拆解)
+
+##### 解决什么问题
+- 复杂多跳问题 (multi-hop) 单次检索答不全
+- e.g. "Klarna 退款流程跟 PayPal 比有什么差异?" — 单次检索召回的可能只有一家的政策
+- Decomposition 解法: **LLM 把问题拆成多个独立子问题, 各自检索 + 综合**
+
+##### 业务场景
+- ✅ 多跳推理 (多家公司对比 / 多步骤诊断)
+- ✅ 复杂问题 (含多个独立子问题)
+- ✅ 法律 / 学术研究 (问题需要分模块)
+- ❌ 简单单点查询 (拆了反而碎片化)
+- ❌ 子问题相互依赖 (一个子问题答案影响另一个 — 用 Iterative 模式)
+
+##### 算法 (4 步)
+- 步 1: LLM 把原 query 拆成 N 个独立子问题
+  - Prompt: "Decompose the following question into independent sub-questions that can be answered separately:\nQuestion: {query}"
+- 步 2: 并行检索每个子问题
+- 步 3: 各子问题分别让 LLM 回答 (基于检索的 chunks)
+- 步 4: LLM 综合所有子答案 → 最终答案
+
+##### Klarna vs PayPal 例子
+- 原 query: "Klarna 退款流程跟 PayPal 比有什么差异?"
+- 子问题:
+  - "Klarna 退款流程是什么?"
+  - "PayPal 退款流程是什么?"
+- 并行检索 + 各自答 + 综合对比 → "Klarna 5-7 天, PayPal 3-5 天, 主要差异在风控审核环节..."
+
+##### 关键参数
+- 子问题数: 2-5 (太多 LLM 拆碎, 太少不够用)
+- LLM: 拆问题用 Haiku, 综合用 Haiku 也够
+- 并行: asyncio.gather 必上
+
+##### 反模式
+- ❌ 让 LLM 拆 10+ 子问题 — 子问题碎片化, 质量塌
+- ❌ 子问题之间有依赖 — Decomposition 假设独立, 有依赖应用 Iterative
+- ❌ 串行执行 — 慢 5 倍, 必须并行
+- ✅ 2-5 独立子问题 + 并行 + 综合
+
+##### 性能 / 成本
+- 延迟: +1-3s (拆问题 + 并行检索 + 综合)
+- 成本: +N 次 Haiku 调用
+- 召回提升: 多跳问题 +25-40%
+
+##### 跟 Multi-Query 区别
+- Multi-Query: 同一问题的多种表达 (变体), 找同样的答案
+- Decomposition: 不同子问题, 各自答完后综合 (找多个答案)
+
+##### 工具
+- LangChain QueryGenerator (社区)
+- 自实现简单 (1 LLM 拆 + N 检索 + 1 综合)
 
 #### 6.5.5 RAG-Fusion 读流程
 
