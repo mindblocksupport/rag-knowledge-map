@@ -606,6 +606,124 @@ Embedding 把一段 500 字的 chunk 压缩成 1024 维 float — **本质是有
 - 这个设计让 RAG 工程上极简洁: 检索系统输出 chunk_id, Doc Store 查原文, 拼成纯文本 messages, LLM 直接处理. 没有跨系统的向量传递, 没有 LLM 重训练成本
 
 
+##### 0.1.5f RAG 维度 vs LLM 维度 — 各用多少 / 为什么 / 谁决定
+
+> 上一节讲了"为什么不喂向量给 LLM". 这一节回答关联问题: RAG 自己的 embedding 用多少维 / LLM 内部用多少维 / 谁来决定.
+
+###### 一句话答案
+
+- **RAG embedding 维度**: 主流 1024 维 (BGE-M3 / Voyage / Cohere), 范围 384-3072. **工程师可选**, 跟 LLM 无关
+- **LLM 隐藏层维度**: 主流 4096-16384 维, **模型厂商训练时定死**, 用户调不动
+- 两套维度**完全独立, 不需要对得上** (因为根本不会把 RAG 向量喂给 LLM, 见 §0.1.5e)
+
+###### 主流 RAG Embedding 模型 + 维度表
+
+| 模型 | 维度 | MTEB 平均分 | 价格 (1M token) | 中文支持 |
+|---|---|---|---|---|
+| BGE-small | 384 | ~62 | 自托管免费 | 强 |
+| BGE-base | 768 | ~64 | 自托管免费 | 强 |
+| **BGE-M3** | **1024** | **~67** | **自托管免费** | **顶级** |
+| BGE-large | 1024 | ~65 | 自托管免费 | 强 |
+| Jina v3 | 1024 | ~66 | 自托管 / $0.02 | 中等 |
+| **Voyage-3** | **1024** | **~68** | **$0.06** | 中等 |
+| Cohere embed-v3 | 1024 | ~66 | $0.10 | 中等 |
+| OpenAI text-embedding-3-small | 1536 (可降至 512) | ~62 | $0.02 | 弱 |
+| **OpenAI text-embedding-3-large** | **3072 (可降至 256)** | **~64** | **$0.13** | **弱** |
+| Voyage-large-2 | 1536 | ~67 | $0.12 | 中等 |
+
+工业默认选: **BGE-M3 (中文/混合) 或 Voyage-3 (英文为主)**, 都是 **1024 维**.
+
+###### 主流 LLM 隐藏层维度表 (hidden_dim, 不是输入维度)
+
+| 模型 | 参数量 | hidden_dim | 公开度 |
+|---|---|---|---|
+| Mistral 7B | 7B | 4096 | 开源 |
+| LLaMA 3 8B | 8B | 4096 | 开源 |
+| Qwen 2.5 7B | 7B | 3584 | 开源 |
+| DeepSeek V3 | 671B (MoE) | 7168 | 开源 |
+| LLaMA 3 70B | 70B | 8192 | 开源 |
+| Qwen 2.5 72B | 72B | 8192 | 开源 |
+| GPT-3 (历史) | 175B | 12288 | 论文公开 |
+| GPT-4 / GPT-5 | 估 1T+ | 估 12288-16384 | 闭源 (推测) |
+| Claude Sonnet 4.5 | 闭源 | 估 8192-16384 | 闭源 (推测) |
+
+LLM 维度规律: **参数量越大 hidden_dim 越大** (大致 hidden_dim ≈ 100 × √(N), N 是层数). 7B 模型 4096 维, 70B 模型 8192 维, 175B+ 12288+ 维.
+
+###### 为什么 RAG 主流用 1024 维 — 4 个原因
+
+**原因 1 — MTEB benchmark 的 sweet spot**
+- MTEB (Massive Text Embedding Benchmark, HuggingFace) 实测: 384 → 768 → 1024 维质量提升明显, 1024 → 3072 提升边际递减
+- 工业经验: 1024 维质量已经够 90% 场景
+
+**原因 2 — 存储成本**
+- 100 万 chunk × 1024 维 × 4 byte (float32) = **4 GB**
+- 100 万 chunk × 3072 维 × 4 byte = **12 GB** (3 倍)
+- 1 亿 chunk × 1024 维 = 400 GB; 3072 维 = 1.2 TB
+- 大规模时存储成本是关键约束
+
+**原因 3 — 检索延迟**
+- ANN 算法 (HNSW / IVF) 的延迟跟维度近似线性相关
+- 1024 维 ANN 查询 ~30ms, 3072 维 ~80ms
+- 高 QPS 场景维度越高瓶颈越明显
+
+**原因 4 — 召回收益递减**
+- 实测 (MTEB): 1024 → 3072 维平均提升 ~2-3 个百分点 NDCG
+- 但成本翻 3 倍, ROI 不划算
+- OpenAI text-embedding-3-large 默认 3072 维, 但官方推荐用 Matryoshka 压到 1024 (同精度更省)
+
+###### 为什么 LLM 用 4096-16384 维 — 4 个原因
+
+**原因 1 — 生成任务比检索复杂得多**
+- RAG embedding 只做一件事: 判断"两段文本是否相关" — 用 1024 维就够了
+- LLM 要做的事: 推理 + 写作 + 翻译 + 编程 + 数学 + ... — 必须更高维度才能容纳多样能力
+- 类比: RAG 是单功能的"相似度比较器", LLM 是多功能的"通用智能引擎"
+
+**原因 2 — Scaling law (Kaplan 2020)**
+- 论文 "Scaling Laws for Neural Language Models" 证明: LLM 性能跟参数量 N 呈幂律
+- N 增长时 hidden_dim 必须同步增, 否则 attention 表达力不够
+- 业界共识: 7B → 4096 维, 70B → 8192 维, 175B+ → 12288+ 维 是经验最优配比
+
+**原因 3 — Multi-head attention 需要够大维度**
+- LLM 用 multi-head attention, hidden_dim 被拆成 N 个 head, 每 head 通常 64-128 维
+- LLaMA 3 70B: 8192 维 / 64 head = 128 维 / head
+- 如果 hidden_dim 太小 (e.g. 1024), 拆出来每 head 只有 16 维, attention 退化, 模型能力塌
+
+**原因 4 — Emergent capabilities (能力涌现)**
+- 论文 "Emergent Abilities of LLMs" (Wei 2022): 推理 / 多步逻辑 / 算术 等能力在某个规模门槛后突然出现
+- 小维度 LLM 跨不过这个门槛, 大维度才有
+- 实测: 7B 模型基本不会做 8 位数字加减, 70B+ 才稳定能做
+
+###### 谁来决定 — RAG 工程师可选, LLM 用户调不动
+
+**RAG embedding 维度 — 工程师选**
+- 你按 MTEB 评测 + 自有 benchmark, 选 BGE-M3 1024 维 / OpenAI 3072 维 / Voyage 1024 维
+- 不满意可以重 embed 全库 (TB 级数据要双写过渡, 见 §13.13 OpenAI v2→v3 集体迁移)
+- Matryoshka embedding (OpenAI text-embedding-3) 让你**同一模型按需降维**
+
+**LLM 维度 — 用户根本调不动**
+- LLM 厂商训练时就把 hidden_dim 写死了 (LLaMA 3 8B 永远 4096 维)
+- 用户切换 LLM 模型 (GPT-4 → Claude → Qwen) 等于换隐藏维度, 但 API 不暴露这个数字
+- 你的 RAG 系统跟 LLM 维度**完全无关** — 你换 LLM 不需要重 embed 知识库
+
+###### 决定 RAG 维度的 5 个因素 (工程选型实战)
+
+按优先级排序:
+
+- **因素 1 — 召回质量** (最重要): 跑 MTEB 或自有 eval, 选 NDCG@10 最高的
+- **因素 2 — 数据规模**: 100 万 chunk 内随便选, 上亿 chunk 必须算存储成本
+- **因素 3 — 中英文需求**: 中文优先 BGE-M3 (1024) / 中英文混合也优先 BGE-M3 / 纯英文可用 Voyage-3
+- **因素 4 — 是否自托管**: 自托管首选 BGE-M3 (开源免费); 不自托管选 Voyage / OpenAI / Cohere
+- **因素 5 — 是否 fine-tune**: 想 fine-tune 必须自托管, 选 BGE / E5 (开源)
+
+###### 关键认知
+
+- ✅ RAG 主流 1024 维, LLM 主流 4096-16384 维, 两套维度独立
+- ✅ RAG 维度选择是**工程权衡** (质量 vs 成本 vs 延迟), 1024 是工业 sweet spot
+- ✅ LLM 维度是**模型厂商训练时定死的**, 跟 RAG 无关, 用户调不动
+- ✅ 换 LLM 不需要重 embed 知识库; 换 embedding 模型 (e.g. BGE-M3 → text-3-large) 才需要重 embed 全库
+- ✅ 业界最佳实践: BGE-M3 (中文 / 混合) 或 Voyage-3 (英文), 都是 1024 维
+
+
 #### 0.1.6 5 个最容易被忽略的事实 (面试高频)
 - 事实 1: **真实工业 RAG 是三存储, 不是双存储**
   - 误区: "RAG = 向量库 + LLM, 两个组件够了"
