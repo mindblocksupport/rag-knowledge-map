@@ -707,30 +707,41 @@ h3:hover::before, h4:hover::before {
 <h2 id="_1">〇. 速览 + 读者地图</h2>
 <h3 id="00-0">0.0 §0 速览思维导图 ⭐</h3>
 <figure class="mermaid-figure">
-<pre class="mermaid">mindmap
-  root((速览))
-    核心概念
-      RAG 定义
-      Dense Sparse Hybrid
-      三阶段架构
-      喂 LLM 真相
-      数据流
-    架构层级
-      L1 数据治理
-      L2 索引
-      L3 检索
-      L4 Router
-      L5 Agent
-    演进四代
-      Naive
-      Advanced
-      Modular
-      Agent
-    决策原则
-      Anthropic 三层
-      流量分流
-      Hybrid 必选
-      术语速查</pre>
+<pre class="mermaid">flowchart LR
+    R(("速览"))
+    R --> A["核心概念"]
+    R --> B["架构层级"]
+    R --> C["演进四代"]
+    R --> D["决策原则"]
+
+    A --> A1["RAG 定义"]
+    A --> A2["Dense / Sparse / Hybrid"]
+    A --> A3["三阶段架构"]
+    A --> A4["喂 LLM 真相"]
+    A --> A5["数据流"]
+
+    B --> B1["L1 数据治理"]
+    B --> B2["L2 索引"]
+    B --> B3["L3 检索"]
+    B --> B4["L4 Router"]
+    B --> B5["L5 Agent"]
+
+    C --> C1["Naive"]
+    C --> C2["Advanced"]
+    C --> C3["Modular"]
+    C --> C4["Agent"]
+
+    D --> D1["Anthropic 三层"]
+    D --> D2["流量分流"]
+    D --> D3["Hybrid 必选"]
+    D --> D4["术语速查"]
+
+    classDef root fill:#3B82F6,color:#fff,stroke:#1e40af,stroke-width:2px
+    classDef cat fill:#A855F7,color:#fff,stroke:#6b21a8,stroke-width:1px
+    classDef leaf fill:#f6f8fa,color:#1f2328,stroke:#d1d9e0
+    class R root
+    class A,B,C,D cat
+    class A1,A2,A3,A4,A5,B1,B2,B3,B4,B5,C1,C2,C3,C4,D1,D2,D3,D4 leaf</pre>
 <figcaption class="mermaid-caption">🗺️ §0 速览全景: 核心概念 / 架构层级 / 演进史 / 决策原则 四大类.</figcaption>
 </figure>
 <blockquote>
@@ -4244,41 +4255,53 @@ h3:hover::before, h4:hover::before {
 </blockquote>
 <h3 id="400-4-l1">4.0.0 §4 L1 数据治理思维导图 ⭐</h3>
 <figure class="mermaid-figure">
-<pre class="mermaid">mindmap
-  root((数据治理))
-    七大职责
-      多源接入
-      解析
-      噪声过滤
-      PII 脱敏
-      去重
-      质量评估
-      元数据丰富
-    七类脏数据
-      重复
-      过时
-      格式破坏
-      噪声
-      多语言
-      PII
-      版本爆炸
-    工具栈
-      LlamaParse
-      Presidio
-      MinHash LSH
-      Haiku 评分
-      Spark Airflow
-    核心指标
-      召回率
-      忠实度
-      重复率
-      PII 漏检率
-      质量分
-    实战 SOP
-      端到端走查
-      Spark Pipeline
-      KB 健康监控
-      Bad case 闭环</pre>
+<pre class="mermaid">flowchart LR
+    R(("数据治理"))
+    R --> A["七大职责"]
+    R --> B["七类脏数据"]
+    R --> C["工具栈"]
+    R --> D["核心指标"]
+    R --> E["实战 SOP"]
+
+    A --> A1["多源接入"]
+    A --> A2["解析"]
+    A --> A3["噪声过滤"]
+    A --> A4["PII 脱敏"]
+    A --> A5["去重"]
+    A --> A6["质量评估"]
+    A --> A7["元数据丰富"]
+
+    B --> B1["重复"]
+    B --> B2["过时"]
+    B --> B3["格式破坏"]
+    B --> B4["噪声"]
+    B --> B5["多语言"]
+    B --> B6["PII"]
+    B --> B7["版本爆炸"]
+
+    C --> C1["LlamaParse"]
+    C --> C2["Presidio"]
+    C --> C3["MinHash LSH"]
+    C --> C4["Haiku 评分"]
+    C --> C5["Spark Airflow"]
+
+    D --> D1["召回率"]
+    D --> D2["忠实度"]
+    D --> D3["重复率"]
+    D --> D4["PII 漏检率"]
+    D --> D5["质量分"]
+
+    E --> E1["端到端走查"]
+    E --> E2["Spark Pipeline"]
+    E --> E3["KB 健康监控"]
+    E --> E4["Bad case 闭环"]
+
+    classDef root fill:#3B82F6,color:#fff,stroke:#1e40af,stroke-width:2px
+    classDef cat fill:#A855F7,color:#fff,stroke:#6b21a8,stroke-width:1px
+    classDef leaf fill:#f6f8fa,color:#1f2328,stroke:#d1d9e0
+    class R root
+    class A,B,C,D,E cat
+    class A1,A2,A3,A4,A5,A6,A7,B1,B2,B3,B4,B5,B6,B7,C1,C2,C3,C4,C5,D1,D2,D3,D4,D5,E1,E2,E3,E4 leaf</pre>
 <figcaption class="mermaid-caption">🛡️ §4 L1 数据治理全景: 七大职责 / 七类脏数据 / 工具栈 / 核心指标 / 实战 SOP.</figcaption>
 </figure>
 <blockquote>
@@ -7361,34 +7384,46 @@ h3:hover::before, h4:hover::before {
 </blockquote>
 <h3 id="50-5-l2">5.0 §5 L2 索引思维导图 ⭐</h3>
 <figure class="mermaid-figure">
-<pre class="mermaid">mindmap
-  root((索引))
-    Chunking 策略
-      固定窗口
-      递归字符
-      父子分块
-      语义分块
-      Late Chunking
-      Contextual
-      AST-aware
-    Embedder 选型
-      BGE-M3
-      Voyage-3
-      OpenAI text-3
-      Cohere v3
-      Qwen3
-    ANN 索引
-      HNSW
-      IVF
-      DiskANN
-    多模态
-      CLIP
-      BLIP
-      ColPali
-    Fine-tune
-      Triple loss
-      InfoNCE
-      Hard negatives</pre>
+<pre class="mermaid">flowchart LR
+    R(("索引"))
+    R --> A["Chunking 策略"]
+    R --> B["Embedder 选型"]
+    R --> C["ANN 索引"]
+    R --> D["多模态"]
+    R --> E["Fine-tune"]
+
+    A --> A1["固定窗口"]
+    A --> A2["递归字符"]
+    A --> A3["父子分块"]
+    A --> A4["语义分块"]
+    A --> A5["Late Chunking"]
+    A --> A6["Contextual"]
+    A --> A7["AST-aware"]
+
+    B --> B1["BGE-M3"]
+    B --> B2["Voyage-3"]
+    B --> B3["OpenAI text-3"]
+    B --> B4["Cohere v3"]
+    B --> B5["Qwen3"]
+
+    C --> C1["HNSW"]
+    C --> C2["IVF"]
+    C --> C3["DiskANN"]
+
+    D --> D1["CLIP"]
+    D --> D2["BLIP"]
+    D --> D3["ColPali"]
+
+    E --> E1["Triple loss"]
+    E --> E2["InfoNCE"]
+    E --> E3["Hard negatives"]
+
+    classDef root fill:#3B82F6,color:#fff,stroke:#1e40af,stroke-width:2px
+    classDef cat fill:#A855F7,color:#fff,stroke:#6b21a8,stroke-width:1px
+    classDef leaf fill:#f6f8fa,color:#1f2328,stroke:#d1d9e0
+    class R root
+    class A,B,C,D,E cat
+    class A1,A2,A3,A4,A5,A6,A7,B1,B2,B3,B4,B5,C1,C2,C3,D1,D2,D3,E1,E2,E3 leaf</pre>
 <figcaption class="mermaid-caption">📚 §5 L2 索引全景: Chunking 策略 / Embedder 选型 / ANN 索引 / 多模态 / Fine-tune.</figcaption>
 </figure>
 <blockquote>
@@ -8767,32 +8802,44 @@ h3:hover::before, h4:hover::before {
 </blockquote>
 <h3 id="60-6-l3">6.0 §6 L3 检索思维导图 ⭐</h3>
 <figure class="mermaid-figure">
-<pre class="mermaid">mindmap
-  root((检索))
-    Hybrid 三通道
-      Dense ANN
-      Sparse BM25
-      SPLADE 神经
-    融合排序
-      RRF 公式
-      加权融合
-      调参经验
-    Reranker
-      BGE-Reranker
-      Cohere Rerank
-      ColBERT
-      LLM Cascade
-    Query 改写
-      HyDE
-      Multi-Query
-      Step-Back
-      Decomposition
-      RAG-Fusion
-    后处理
-      MMR 多样性
-      LongContextReorder
-      Adaptive K
-      CRAG 兜底</pre>
+<pre class="mermaid">flowchart LR
+    R(("检索"))
+    R --> A["Hybrid 三通道"]
+    R --> B["融合排序"]
+    R --> C["Reranker"]
+    R --> D["Query 改写"]
+    R --> E["后处理"]
+
+    A --> A1["Dense ANN"]
+    A --> A2["Sparse BM25"]
+    A --> A3["SPLADE 神经"]
+
+    B --> B1["RRF 公式"]
+    B --> B2["加权融合"]
+    B --> B3["调参经验"]
+
+    C --> C1["BGE-Reranker"]
+    C --> C2["Cohere Rerank"]
+    C --> C3["ColBERT"]
+    C --> C4["LLM Cascade"]
+
+    D --> D1["HyDE"]
+    D --> D2["Multi-Query"]
+    D --> D3["Step-Back"]
+    D --> D4["Decomposition"]
+    D --> D5["RAG-Fusion"]
+
+    E --> E1["MMR 多样性"]
+    E --> E2["LongContextReorder"]
+    E --> E3["Adaptive K"]
+    E --> E4["CRAG 兜底"]
+
+    classDef root fill:#3B82F6,color:#fff,stroke:#1e40af,stroke-width:2px
+    classDef cat fill:#A855F7,color:#fff,stroke:#6b21a8,stroke-width:1px
+    classDef leaf fill:#f6f8fa,color:#1f2328,stroke:#d1d9e0
+    class R root
+    class A,B,C,D,E cat
+    class A1,A2,A3,B1,B2,B3,C1,C2,C3,C4,D1,D2,D3,D4,D5,E1,E2,E3,E4 leaf</pre>
 <figcaption class="mermaid-caption">🔍 §6 L3 检索全景: Hybrid 三通道 / RRF 融合 / Reranker / Query 改写 / 后处理.</figcaption>
 </figure>
 <blockquote>
@@ -10186,33 +10233,45 @@ h3:hover::before, h4:hover::before {
 </blockquote>
 <h3 id="70-7-l4-router">7.0 §7 L4 Router 思维导图 ⭐</h3>
 <figure class="mermaid-figure">
-<pre class="mermaid">mindmap
-  root((Router))
-    三层路由
-      规则正则
-      语义匹配
-      LLM 兜底
-    Query 分类
-      FAQ 简单
-      编号查询
-      复杂诊断
-      实时状态
-      跨系统
-    路径输出
-      simple_rag
-      enhanced_rag
-      agent
-      text2sql
-      clarification
-      refusal
-    流量分流
-      简单 RAG
-      增强 RAG
-      Agent
-    监控
-      分布偏移
-      准确率
-      延迟</pre>
+<pre class="mermaid">flowchart LR
+    R(("Router"))
+    R --> A["三层路由"]
+    R --> B["Query 分类"]
+    R --> C["路径输出"]
+    R --> D["流量分流"]
+    R --> E["监控"]
+
+    A --> A1["规则正则"]
+    A --> A2["语义匹配"]
+    A --> A3["LLM 兜底"]
+
+    B --> B1["FAQ 简单"]
+    B --> B2["编号查询"]
+    B --> B3["复杂诊断"]
+    B --> B4["实时状态"]
+    B --> B5["跨系统"]
+
+    C --> C1["simple_rag"]
+    C --> C2["enhanced_rag"]
+    C --> C3["agent"]
+    C --> C4["text2sql"]
+    C --> C5["clarification"]
+    C --> C6["refusal"]
+
+    D --> D1["简单 RAG"]
+    D --> D2["增强 RAG"]
+    D --> D3["Agent"]
+
+    E --> E1["分布偏移"]
+    E --> E2["准确率"]
+    E --> E3["延迟"]
+
+    classDef root fill:#3B82F6,color:#fff,stroke:#1e40af,stroke-width:2px
+    classDef cat fill:#A855F7,color:#fff,stroke:#6b21a8,stroke-width:1px
+    classDef leaf fill:#f6f8fa,color:#1f2328,stroke:#d1d9e0
+    class R root
+    class A,B,C,D,E cat
+    class A1,A2,A3,B1,B2,B3,B4,B5,C1,C2,C3,C4,C5,C6,D1,D2,D3,E1,E2,E3 leaf</pre>
 <figcaption class="mermaid-caption">🚦 §7 L4 Router 全景: 三层路由 / Query 分类 / 路径输出 / 流量分流.</figcaption>
 </figure>
 <blockquote>
@@ -10668,35 +10727,47 @@ h3:hover::before, h4:hover::before {
 </blockquote>
 <h3 id="80-8-l5-agent">8.0 §8 L5 Agent 思维导图 ⭐</h3>
 <figure class="mermaid-figure">
-<pre class="mermaid">mindmap
-  root((Agent))
-    Agent 框架
-      LangGraph
-      LlamaIndex
-      AutoGen
-      CrewAI
-      OpenAI SDK
-      Anthropic SDK
-    Tool Calling
-      定义 schema
-      LLM 选工具
-      执行返回
-      多轮迭代
-    Memory 分层
-      L1 Session
-      L2 User Pref
-      L3 Business
-    高级模式
-      Self-RAG
-      CRAG
-      GraphRAG
-      LightRAG
-      Adaptive RAG
-    Agent 代价
-      延迟
-      成本
-      调试难
-      死循环</pre>
+<pre class="mermaid">flowchart LR
+    R(("Agent"))
+    R --> A["Agent 框架"]
+    R --> B["Tool Calling"]
+    R --> C["Memory 分层"]
+    R --> D["高级模式"]
+    R --> E["Agent 代价"]
+
+    A --> A1["LangGraph"]
+    A --> A2["LlamaIndex"]
+    A --> A3["AutoGen"]
+    A --> A4["CrewAI"]
+    A --> A5["OpenAI SDK"]
+    A --> A6["Anthropic SDK"]
+
+    B --> B1["定义 schema"]
+    B --> B2["LLM 选工具"]
+    B --> B3["执行返回"]
+    B --> B4["多轮迭代"]
+
+    C --> C1["L1 Session"]
+    C --> C2["L2 User Pref"]
+    C --> C3["L3 Business"]
+
+    D --> D1["Self-RAG"]
+    D --> D2["CRAG"]
+    D --> D3["GraphRAG"]
+    D --> D4["LightRAG"]
+    D --> D5["Adaptive RAG"]
+
+    E --> E1["延迟"]
+    E --> E2["成本"]
+    E --> E3["调试难"]
+    E --> E4["死循环"]
+
+    classDef root fill:#3B82F6,color:#fff,stroke:#1e40af,stroke-width:2px
+    classDef cat fill:#A855F7,color:#fff,stroke:#6b21a8,stroke-width:1px
+    classDef leaf fill:#f6f8fa,color:#1f2328,stroke:#d1d9e0
+    class R root
+    class A,B,C,D,E cat
+    class A1,A2,A3,A4,A5,A6,B1,B2,B3,B4,C1,C2,C3,D1,D2,D3,D4,D5,E1,E2,E3,E4 leaf</pre>
 <figcaption class="mermaid-caption">🤖 §8 L5 Agent 全景: 框架 / Tool Calling / Memory 分层 / 高级模式 / Agent 代价.</figcaption>
 </figure>
 <blockquote>
@@ -11323,38 +11394,51 @@ Pattern; GraphRAG / LightRAG 接近 Prompt Chaining.
 </blockquote>
 <h3 id="90-9">9.0 §9 横切思维导图 ⭐</h3>
 <figure class="mermaid-figure">
-<pre class="mermaid">mindmap
-  root((横切))
-    权限审计
-      Doc 级 ACL
-      Chunk 级
-      Output 过滤
-      Audit Log
-    缓存策略
-      HTTP
-      Embedding
-      Retrieval
-      Generation
-      Semantic
-    拒答机制
-      阈值调优
-      兜底回复
-      Air Canada
-    可观测
-      LangSmith
-      Phoenix
-      Langfuse
-    部署模式
-      SaaS
-      私有云
-      混合云
-      端侧
-      边缘
-    合规
-      GDPR
-      AI Act
-      个保法
-      HIPAA</pre>
+<pre class="mermaid">flowchart LR
+    R(("横切"))
+    R --> A["权限审计"]
+    R --> B["缓存策略"]
+    R --> C["拒答机制"]
+    R --> D["可观测"]
+    R --> E["部署模式"]
+    R --> F["合规"]
+
+    A --> A1["Doc 级 ACL"]
+    A --> A2["Chunk 级"]
+    A --> A3["Output 过滤"]
+    A --> A4["Audit Log"]
+
+    B --> B1["HTTP"]
+    B --> B2["Embedding"]
+    B --> B3["Retrieval"]
+    B --> B4["Generation"]
+    B --> B5["Semantic"]
+
+    C --> C1["阈值调优"]
+    C --> C2["兜底回复"]
+    C --> C3["Air Canada"]
+
+    D --> D1["LangSmith"]
+    D --> D2["Phoenix"]
+    D --> D3["Langfuse"]
+
+    E --> E1["SaaS"]
+    E --> E2["私有云"]
+    E --> E3["混合云"]
+    E --> E4["端侧"]
+    E --> E5["边缘"]
+
+    F --> F1["GDPR"]
+    F --> F2["AI Act"]
+    F --> F3["个保法"]
+    F --> F4["HIPAA"]
+
+    classDef root fill:#3B82F6,color:#fff,stroke:#1e40af,stroke-width:2px
+    classDef cat fill:#A855F7,color:#fff,stroke:#6b21a8,stroke-width:1px
+    classDef leaf fill:#f6f8fa,color:#1f2328,stroke:#d1d9e0
+    class R root
+    class A,B,C,D,E,F cat
+    class A1,A2,A3,A4,B1,B2,B3,B4,B5,C1,C2,C3,D1,D2,D3,E1,E2,E3,E4,E5,F1,F2,F3,F4 leaf</pre>
 <figcaption class="mermaid-caption">🛠️ §9 横切全景: 权限审计 / 缓存 / 拒答 / 可观测 / 部署 / 合规.</figcaption>
 </figure>
 <blockquote>
@@ -21310,56 +21394,71 @@ class ModularRAG:
 </blockquote>
 <h3 id="200-20-agent-rag">20.0 §20 Agent RAG 思维导图 ⭐</h3>
 <figure class="mermaid-figure">
-<pre class="mermaid">mindmap
-  root((Agent RAG))
-    Anthropic 三层
-      Augmented LLM
-      Workflow
-      Agent
-    Workflow Pattern
-      Prompt Chaining
-      Routing
-      Parallelization
-      Orchestrator
-      Evaluator
-    Agent 5 部件
-      Modular RAG
-      Planner
-      Tool Calling
-      Memory
-      多步推理
-    架构七层
-      Query Understanding
-      Router
-      Planner
-      Tool Loop
-      Memory
-      Synthesizer
-      Validator
-    Agent 形态
-      Plan-and-Execute
-      ReAct
-      Multi-Agent
-      Self-Reflection
-      Iterative
-    主流框架
-      LangGraph
-      LlamaIndex
-      AutoGen
-      CrewAI
-      OpenAI SDK
-      Anthropic SDK
-    死循环防御
-      max_steps
-      timeout
-      budget cap
-      重复检测
-    FinOps 杠杆
-      选对层次
-      流量分流
-      模型分级
-      Prompt Caching
-      Batch API</pre>
+<pre class="mermaid">flowchart LR
+    R(("Agent RAG"))
+    R --> A["Anthropic 三层"]
+    R --> B["Workflow Pattern"]
+    R --> C["Agent 5 部件"]
+    R --> D["架构七层"]
+    R --> E["Agent 形态"]
+    R --> F["主流框架"]
+    R --> G["死循环防御"]
+    R --> H["FinOps 杠杆"]
+
+    A --> A1["Augmented LLM"]
+    A --> A2["Workflow"]
+    A --> A3["Agent"]
+
+    B --> B1["Prompt Chaining"]
+    B --> B2["Routing"]
+    B --> B3["Parallelization"]
+    B --> B4["Orchestrator"]
+    B --> B5["Evaluator"]
+
+    C --> C1["Modular RAG"]
+    C --> C2["Planner"]
+    C --> C3["Tool Calling"]
+    C --> C4["Memory"]
+    C --> C5["多步推理"]
+
+    D --> D1["Query Understanding"]
+    D --> D2["Router"]
+    D --> D3["Planner"]
+    D --> D4["Tool Loop"]
+    D --> D5["Memory"]
+    D --> D6["Synthesizer"]
+    D --> D7["Validator"]
+
+    E --> E1["Plan-and-Execute"]
+    E --> E2["ReAct"]
+    E --> E3["Multi-Agent"]
+    E --> E4["Self-Reflection"]
+    E --> E5["Iterative"]
+
+    F --> F1["LangGraph"]
+    F --> F2["LlamaIndex"]
+    F --> F3["AutoGen"]
+    F --> F4["CrewAI"]
+    F --> F5["OpenAI SDK"]
+    F --> F6["Anthropic SDK"]
+
+    G --> G1["max_steps"]
+    G --> G2["timeout"]
+    G --> G3["budget cap"]
+    G --> G4["重复检测"]
+
+    H --> H1["选对层次"]
+    H --> H2["流量分流"]
+    H --> H3["模型分级"]
+    H --> H4["Prompt Caching"]
+    H --> H5["Batch API"]
+
+    classDef root fill:#3B82F6,color:#fff,stroke:#1e40af,stroke-width:2px
+    classDef cat fill:#A855F7,color:#fff,stroke:#6b21a8,stroke-width:1px
+    classDef leaf fill:#f6f8fa,color:#1f2328,stroke:#d1d9e0
+    class R root
+    class A,B,C,D,E,F,G,H cat
+    class A1,A2,A3,B1,B2,B3,B4,B5,C1,C2,C3,C4,C5,D1,D2,D3,D4,D5,D6,D7,E1,E2,E3,E4,E5,F1,F2,F3,F4,F5,F6,G1,G2,G3,G4,H1,H2,H3,H4,H5 leaf</pre>
 <figcaption class="mermaid-caption">🎯 §20 Agent RAG 全景: 三层模型 / Workflow Pattern / Agent 部件 / 架构层级 / Agent 形态 / 框架 / 防御.</figcaption>
 </figure>
 <blockquote>
