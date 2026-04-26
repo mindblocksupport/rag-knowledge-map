@@ -483,14 +483,7 @@
         </outline>
       </outline>
     </outline>
-    <outline text="0.5 RAG 4 代演进">
-      <outline text="0.5.1 不替代而叠加">
-        <outline text="Gen 1 (2022) Naive RAG: query → embed → search → prompt → LLM (单线)"/>
-        <outline text="Gen 2 (2023) Advanced RAG: + 重排 + 改写 + 父子分块"/>
-        <outline text="Gen 3 (2024) Modular RAG: 拆 7 模块, 微服务化"/>
-        <outline text="Gen 4 (2025-2026) Agent + RAG: Modular 之上加 Planner + Tool Calling + 多步推理"/>
-      </outline>
-    </outline>
+    <outline text="0.5 RAG 4 代演进 (索引)" _note="完整 4 代演进 (Naive / Advanced / Modular / Agent) 详见 §1.4. 此节已合并避免重复."/>
     <outline text="0.6 读者地图 (按角色推荐路径)">
       <outline text="0.6.1 PM / CTO / 销售 / 运营 (业务视角)">
         <outline text="必读: §〇 + §一 + §二 (业务流程图解) + §十二 (场景案例)"/>
@@ -1878,7 +1871,7 @@ LongContextReorder | 自研 | 5ms | $0
             <outline text="Qwen3-235B / DeepSeek-V3 (中文): 国产 SOTA, $1-2/1M"/>
             <outline text="成本: $0.005-0.05/query"/>
             <outline text="####### 性价比场景 (FAQ / 客服 80% 流量)"/>
-            <outline text="Claude Haiku 4 (国际): [0.25/]1.25 per 1M"/>
+            <outline text="Claude Haiku 4.5 (国际): [0.25/]1.25 per 1M"/>
             <outline text="GPT-4o-mini: [0.15/]0.6"/>
             <outline text="Gemini Flash: [0.075/]0.3"/>
             <outline text="DeepSeek-V3: [1/]2 (中文性价比)"/>
@@ -6710,7 +6703,8 @@ OpenAI 生态 + 学习 | Swarm
       </outline>
     </outline>
     <outline text="8.5 5 种高级 RAG-Agent 模式 (每种完整流程详解)">
-      <outline text="注: 本节 7 种按"检索策略创新"分类 (Self-RAG / CRAG / GraphRAG / LightRAG / FRAG / GraphIRAG / Adaptive RAG)"/>
+      <outline text="注: 本节 5 种按"检索策略创新"分类 (Self-RAG / CRAG / GraphRAG / LightRAG / Adaptive RAG)"/>
+      <outline text="已删除 FRAG / GraphIRAG (业界尚无定论, 2025 推测构想, 无公认定义和生产实现)"/>
       <outline text="§20.2 的 5 种按"Agent 执行范式"分类 (Plan-and-Execute / ReAct / Multi-Agent / Self-Reflection / Iterative)"/>
       <outline text="两者是不同分类维度, 可叠加: 例如 GraphRAG (本节) 可用 Plan-and-Execute 范式 (§20.2) 执行"/>
       <outline text="Self-RAG (本节) ≈ Self-Reflection (§20.2); CRAG (本节) ≈ Iterative (§20.2)"/>
@@ -6720,8 +6714,6 @@ OpenAI 生态 + 学习 | Swarm
         <outline text="CRAG: 检索后用 Evaluator 评分, 不行就 web search 兜底 (prompt-based, 轻量)"/>
         <outline text="GraphRAG: 用图数据库存实体关系, Leiden 社区检测做层次摘要, 全局问题强 (重)"/>
         <outline text="LightRAG: GraphRAG 轻量版, 双层检索 (entity + relation), 不做完整社区检测"/>
-        <outline text="FRAG: 简单 query 走 Naive RAG, 复杂 query 走 GraphRAG, 自适应分流"/>
-        <outline text="GraphIRAG: GraphRAG + 迭代多轮, 用信息增益准则决定停止"/>
         <outline text="Adaptive RAG: 按 query 复杂度三档分流 (No-RAG / Single-step / Multi-step)"/>
       </outline>
       <outline text="8.5.1 Self-RAG (Asai et al. 2023, arXiv:2310.16622)">
@@ -6867,7 +6859,6 @@ OpenAI 生态 + 学习 | Swarm
         <outline text="核心思想">
           <outline text="用一个分类器 (T5-large 微调) 判断 query 复杂度"/>
           <outline text="三档分流: A (No-RAG) / B (Single-step RAG) / C (Multi-step RAG)"/>
-          <outline text="比 FRAG 更精细, 论文化更严谨"/>
         </outline>
         <outline text="完整执行流程">
           <outline text="步 1: query 输入"/>
@@ -6898,8 +6889,8 @@ OpenAI 生态 + 学习 | Swarm
 通用 FAQ / 客服 | CRAG | 轻量 prompt-based, web search 兜底
 全局问题 (跨文档总结) | GraphRAG | 唯一能解全局问题的
 资源受限 + 需图能力 | LightRAG | GraphRAG 轻量版
-高频 query 混合复杂度 | Adaptive RAG / FRAG | 自适应分流, 省钱
-多跳推理为主 | GraphIRAG | 迭代检索
+高频 query 混合复杂度 | Adaptive RAG | 自适应三档分流, 省钱
+多跳推理为主 | CRAG | Iterative + Evaluator
 极致精度 + 能 fine-tune | Self-RAG | reflection token 自反思
 快速 PoC 起步 | CRAG | 最低门槛"/>
     </outline>
@@ -8460,7 +8451,7 @@ PoC / 个人 | ChromaDB
     </outline>
     <outline text="12.3 客户服务 (CS)">
       <outline text="12.3.1 典型公司">
-        <outline text="Klarna AI 客服 (替代 700 人, 年省 $40M)"/>
+        <outline text="Klarna AI 客服 (替代 700 人, 年省 $40M; 2025.05 部分 rollback, 详 §13.8)"/>
         <outline text="Intercom Fin (45% 自动化率)"/>
         <outline text="Salesforce Einstein"/>
         <outline text="Ada (估值 $1.2B)"/>
@@ -8664,6 +8655,16 @@ PoC / 个人 | ChromaDB
       <outline text="一手来源:">
         <outline text="Klarna 官方新闻稿: klarna.com/international/press/klarna-ai-assistant-handles-two-thirds-of-customer-service-chats-in-its-first-month/ (2024.02.27)"/>
         <outline text="OpenAI 联合发布: openai.com/index/klarna/ (含具体数字)"/>
+      </outline>
+      <outline text="2025 后续 — 部分 rollback (重要更新)">
+        <outline text="2025.05 Klarna CEO 公开承认: AI 客服体验在某些场景下 "lower quality than human agents""/>
+        <outline text="公司开始重新雇人, 不再追求 100% AI 替代, 而是 hybrid (AI 80% + 人工 20% 处理高复杂度)"/>
+        <outline text="教训:">
+          <outline text="AI 替代率不能推到极限 (700 → 0 客服), 95% 自动化更稳, 留 5-20% 人工处理边缘 case"/>
+          <outline text="用户对 AI 客服的"机械感" / 同理心缺失 长期会拉低 NPS, 短期看不到"/>
+          <outline text="FinOps 数字诱人 ($40M/年) 但 NPS 才是真 KPI"/>
+        </outline>
+        <outline text="引用: Bloomberg 2025.05 Klarna AI 反思报道 / FT 同期评论"/>
       </outline>
     </outline>
     <outline text="13.9 Notion 早期 ACL 越权 (2023)">
@@ -10992,63 +10993,32 @@ Fine-tune 需求 | 必须 (训练 reflection token) | 不需
     <outline text="15.4 L4 Router (5 题, 完整答案版)">
       <outline text="Q4.1 Modular RAG 是什么?">
         <outline text="考察点">
-          <outline text="Gen 3 RAG 演进"/>
-          <outline text="7 模块设计"/>
-          <outline text="微服务化思想"/>
+          <outline text="Modular RAG vs Naive RAG 区别"/>
+          <outline text="7 模块定义 + 数据流"/>
+          <outline text="何时进化为 Agent"/>
         </outline>
-        <outline text="完整高分答案">
-          <outline text="Modular RAG 是 RAG 第 3 代 (2024), 学界共识 (Yunfan Gao et al. 2024 综述)."/>
-          <outline text="vs 上一代:"/>
-          <outline text="Naive RAG (Gen 1, 2022): 一条流水线 query→embed→search→prompt→LLM"/>
-          <outline text="Advanced RAG (Gen 2, 2023): + 重排 + 改写 + 父子分块, 仍是单线"/>
-          <outline text="Modular RAG (Gen 3, 2024): 拆成可替换 / 插拔 / 扩展的 7 模块, 微服务化思想"/>
-          <outline text="7 大模块:"/>
-          <outline text="Query Understanding (查询理解 + 改写)"/>
-          <outline text="Router (按问题类型分流)"/>
-          <outline text="Retriever(s) (多通道检索)"/>
-          <outline text="Reranker (重排)"/>
-          <outline text="Context Builder (上下文组装)"/>
-          <outline text="Generator (LLM 答案)"/>
-          <outline text="Validator (引用 / 事实校验)"/>
-          <outline text="核心价值 (类比 Java 微服务治理):"/>
-          <outline text="召回差: 只调 Retriever, 不重写系统"/>
-          <outline text="幻觉高: 加 Validator"/>
-          <outline text="成本高: 换小模型 Generator"/>
-          <outline text="单点优化, 不动全局"/>
-          <outline text="工业实现:"/>
-          <outline text="LangChain (LCEL + RouterChain + LangGraph)"/>
-          <outline text="LlamaIndex (RouterQueryEngine + RAG Pipelines)"/>
-          <outline text="Vercel AI SDK"/>
-          <outline text="自研 (大厂主流)"/>
-          <outline text="学界共识:"/>
-          <outline text="Yunfan Gao et al. 2024 "Retrieval-Augmented Generation for Large Language Models: A Survey""/>
-          <outline text="把 Modular RAG 作为现代 RAG 核心范式"/>
-          <outline text="挑战:"/>
-          <outline text="系统复杂度高 (7 模块协作)"/>
-          <outline text="评估难 (每模块独立评估)"/>
-          <outline text="调试难 (问题在哪层)"/>
+        <outline text="完整高分答案 (索引版)">
+          <outline text="详见 §19 Modular RAG 深度详解 (Gen 3 范式) 完整章节"/>
+          <outline text="一句话: Modular RAG = 7 模块化的 RAG 管道 (Indexing/Pre-Retrieval/Retrieval/Post-Retrieval/Generation/Routing/Orchestration), 每模块独立可替换, vs Naive RAG 的"刚性 3 段管道""/>
+          <outline text="关键差异: 加 Routing (按 query 分流) + Orchestration (跨模块编排) — 这两块是 Naive RAG 没有的"/>
+          <outline text="与 Agent RAG 关系: 详见 §20.1.2 (Agent 不替代 Modular, 是叠加)"/>
         </outline>
         <outline text="加分项">
-          <outline text="Yunfan Gao 2024 综述"/>
-          <outline text="Java 微服务治理类比"/>
-          <outline text="7 模块完整列举"/>
+          <outline text="引用 Yunfan Gao 2024 综述 (arXiv:2407.21059) "Modular RAG: Transforming RAG Systems""/>
+          <outline text="提到 Glean / Microsoft Copilot 都是 Modular RAG 工业实现"/>
+          <outline text="给数字: Modular vs Naive 召回率提升 +20-40% (Hybrid + Reranker)"/>
         </outline>
-        <outline text="第二轮追问 Q: 7 模块每个职责?">
-          <outline text="A: 完整接口契约:"/>
-          <outline text="Query Understanding: raw_query → enriched (intent, entities, language, complexity)"/>
-          <outline text="Router: enriched → route + fallback"/>
-          <outline text="Retriever(s): query → ranked candidates"/>
-          <outline text="Reranker: candidates → top-K"/>
-          <outline text="Context Builder: top-K + query → messages (system + user + context)"/>
-          <outline text="Generator: messages → answer"/>
-          <outline text="Validator: answer → validated (含 faithfulness, citations)"/>
+        <outline text="第二轮追问 Q: 7 模块缺哪个最致命?">
+          <outline text="Indexing — 没有索引, 后续 6 模块全废"/>
+          <outline text="Generation — 没有 LLM 综合, 检索结果用户看不懂"/>
         </outline>
-        <outline text="第三轮追问 Q: 我项目要不要全 7 模块?">
-          <outline text="A: 不一定. 简单场景 5 个就够 (Query Understanding + Retriever + Reranker + Generator + Validator). Router 在多检索源 (vec + sql + api) 才需要. Context Builder 简单时可省 (直接拼).."/>
+        <outline text="第三轮追问 Q: Modular RAG 怎么演化到 Agent RAG?">
+          <outline text="加一个 Loop + Planner + Memory + 终止条件 = Agent RAG (详见 §20.1.3 公式拆解)"/>
+          <outline text="实操路径: §20.1.7 4 阶段渐进 (Modular → Tool Calling → Plan-and-Execute → Multi-Agent)"/>
         </outline>
         <outline text="反例">
-          <outline text="❌ "Modular RAG = LangChain" — 是思想, 不是实现"/>
-          <outline text="❌ "全 7 模块上才高级" — 看场景"/>
+          <outline text="❌ "Modular RAG 就是用 LangChain" — LangChain 是工具不是范式; 用 LangChain 也能写出 Naive 风格"/>
+          <outline text="❌ "Modular = 微服务" — Modular 强调"接口可替换", 不是部署架构; 单进程也能 Modular"/>
         </outline>
       </outline>
       <outline text="Q4.2 Router 怎么实现?">
@@ -11461,72 +11431,34 @@ Fine-tune 需求 | 必须 (训练 reflection token) | 不需
       </outline>
       <outline text="Q5.4 Memory 三层?">
         <outline text="考察点">
-          <outline text="三层定位"/>
-          <outline text="实现工具"/>
-          <outline text="Token 预算分配"/>
+          <outline text="Memory 三层架构定位"/>
+          <outline text="跨步 / 跨会话 / 跨用户 区别"/>
+          <outline text="容量限制 / 摘要策略"/>
         </outline>
-        <outline text="完整高分答案">
-          <outline text="Agent Memory 三层架构:"/>
-          <outline text="L1 — Session Memory (短期, Redis)"/>
-          <outline text="用途: 本次会话历史"/>
-          <outline text="跨多轮 (用户上下文连续)"/>
-          <outline text="Schema:">
-            <outline text="key: session:{session_id}"/>
-            <outline text="value: List of messages [{role, content, timestamp, tool_calls}]"/>
-          </outline>
-          <outline text="TTL: 6 小时"/>
-          <outline text="容量: 单 session 20 messages × 2KB = 40KB; 1 万活跃 session = 400MB Redis"/>
-          <outline text="L2 — User Preference (长期, PostgreSQL)"/>
-          <outline text="用途: 跨会话用户偏好 (语气 / 角色 / 兴趣)"/>
-          <outline text="LLM 个性化"/>
-          <outline text="Schema (JSONB):">
-            <outline text="user_id (PK)"/>
-            <outline text="preferences: {language, tone, expert_level}"/>
-            <outline text="favorite_skills: list"/>
-            <outline text="learned_facts: ["user works at Acme", "prefers concise answers"]"/>
-          </outline>
-          <outline text="异步更新 (LLM 提取 facts → 存)"/>
-          <outline text="大小: 单 user ~5KB; 10 万 user = 500MB DB"/>
-          <outline text="L3 — Business Memory (业务上下文, VectorDB)"/>
-          <outline text="用途: 客户 / 项目 / 任务相关上下文"/>
-          <outline text="跨用户共享"/>
-          <outline text="Schema (Vector DB):">
-            <outline text="每条 memory 一个 embedding"/>
-            <outline text="metadata: projectid / clientid / topic / created_at"/>
-            <outline text="检索: query embedding → 找相关 memory"/>
-          </outline>
-          <outline text="实现: pgvector / Milvus, 类似 chunks 但不同 namespace"/>
-          <outline text="容量: 10 万 memory × 5KB = 500MB"/>
-          <outline text="三层组合 Prompt 拼接顺序:"/>
-          <outline text="system (skill prompt)"/>
-          <outline text="user_preferences (压缩成 1-2 行)"/>
-          <outline text="relevantbusinessmemories (top-3 检索)"/>
-          <outline text="session_history (最近 20 条)"/>
-          <outline text="current_query"/>
-          <outline text="(RAG context 单独区块)"/>
-          <outline text="Token 预算分配 (假设 16K context):"/>
-          <outline text="system: 1K"/>
-          <outline text="user_preference: 0.5K"/>
-          <outline text="business_memory: 2K"/>
-          <outline text="session_history: 2K"/>
-          <outline text="RAG context: 8K"/>
-          <outline text="current query: 1K"/>
-          <outline text="留 1.5K 给 LLM 输出"/>
+        <outline text="完整高分答案 (索引版)">
+          <outline text="完整 schema + sync/async 写入策略 + 容量回收 详见 §20.5 Memory 三层架构 (含 Redis / Postgres / pgvector 实际表结构)"/>
+          <outline text="一句话: L1 Session (Redis 6h, 跨步必需) / L2 User Preference (Postgres JSONB, 跨会话累积) / L3 Business (Vector DB, 跨用户共享)"/>
+          <outline text="容量约束: Memory 占 context window ≤ 6K (16K budget 内)"/>
+          <outline text="摘要策略: 超容量时调 LLM 摘旧 message 成 200 字"/>
         </outline>
         <outline text="加分项">
-          <outline text="三层完整 schema + 实现"/>
-          <outline text="Token 预算分配数字"/>
-          <outline text="容量规划"/>
+          <outline text="提到 Anthropic Claude Memory tool (2025) / OpenAI Memory in ChatGPT"/>
+          <outline text="给数字: L1 Redis 单 user 平均 5KB / L2 单 user 1-50KB / L3 全公司可达 GB"/>
+          <outline text="引用 LangChain ConversationBufferMemory / ConversationSummaryMemory 区别"/>
         </outline>
-        <outline text="第二轮追问 Q: 长 session 怎么处理?">
-          <outline text="A: 滑动窗口 + 摘要. 最近 20 条原文 + 早期对话 LLM 摘要 (1-2 句). LangChain ConversationBufferWindowMemory + ConversationSummaryMemory 组合. 100+ 轮长 session 用 vector memory 语义检索相关历史."/>
+        <outline text="第二轮追问 Q: 三层为什么是 Redis / Postgres / Vector DB?">
+          <outline text="L1 短期高频读写 → Redis (in-memory, 6h TTL)"/>
+          <outline text="L2 结构化查询 + 长期 → Postgres JSONB (索引快, JSON 灵活)"/>
+          <outline text="L3 语义检索跨用户 → Vector DB (cosine 找相似 case)"/>
         </outline>
-        <outline text="第三轮追问 Q: User Preference 怎么自动学?">
-          <outline text="A: Bg job: 每次会话结束, LLM 分析 (过滤敏感) → 提取 user facts → 写入 preferences. 关键: 用户可见 + 可删除 (隐私). e.g. "用户偏好简洁回答" / "用户在金融行业"."/>
+        <outline text="第三轮追问 Q: 跨用户 Memory 隐私怎么保证?">
+          <outline text="L3 schema 强制 (tenantid, sensitivitylevel)"/>
+          <outline text="读取必带 ACL 校验 (详见 §16.1.7 子类 5 Memory Leak)"/>
+          <outline text="反模式: 用 LLM context 当跨用户共享 cache — 必出 PII 泄露"/>
         </outline>
         <outline text="反例">
-          <outline text="❌ "Memory 全塞 prompt" — token 爆炸"/>
-          <outline text="❌ "不用 Memory 每次 0 上下文" — 用户体验差"/>
+          <outline text="❌ "全用 Redis" — L2 长期偏好 Redis 不适合, Postgres 更好"/>
+          <outline text="❌ "Memory 永久不清理" — 100 query 后塞满拖慢检索, 必上 LRU + TTL"/>
         </outline>
       </outline>
       <outline text="Q5.5 LangGraph vs LlamaIndex Agents vs AutoGen?">
@@ -11625,27 +11557,6 @@ OpenAI 生态 + 学习 | Swarm
           <outline text="一次抽 entity 不分层"/>
           <outline text="优: 比 GraphRAG 快 5-10× / 实现简单 (&lt; 1000 行)"/>
           <outline text="劣: 不如 GraphRAG 全景"/>
-          <outline text="FRAG (Flexible RAG, 2025, arXiv:2501.09957):"/>
-          <outline text="简单走简单 RAG, 复杂走 GraphRAG"/>
-          <outline text="自适应分流"/>
-          <outline text="优: 平均延迟低 + 复杂场景仍有 GraphRAG 能力"/>
-          <outline text="适合混合复杂度场景"/>
-          <outline text="GraphIRAG (Iterative, 2025):"/>
-          <outline text="多轮检索 (vs 单次)"/>
-          <outline text="控制器在生成中决定是否继续"/>
-          <outline text="信息增益准则停止"/>
-          <outline text="适合时间敏感 + 多跳推理"/>
-          <outline text="Adaptive RAG (Jeong et al. 2024):"/>
-          <outline text="按 query 复杂度选 RAG 策略"/>
-          <outline text="简单: 直接 RAG"/>
-          <outline text="中: HyDE / Multi-Query"/>
-          <outline text="复杂: 多步 + 自校正"/>
-          <outline text="选型:"/>
-          <outline text="资源充足 + 极致质量: Self-RAG (需 fine-tune)"/>
-          <outline text="资源紧 + 工程友好: CRAG (主流)"/>
-          <outline text="跨文档关系挖掘: GraphRAG (重量)"/>
-          <outline text="GraphRAG 轻量: LightRAG"/>
-          <outline text="自适应: Adaptive RAG / FRAG"/>
         </outline>
         <outline text="加分项">
           <outline text="7 模式完整 + 论文 arXiv"/>
@@ -13118,7 +13029,7 @@ K8s | 阿里 ACK / 腾讯 TKE / KubeSphere">
           <outline text="替代客服人月 (替代 N 人) → 省 $N × 5K/月"/>
           <outline text="用户满意度 NPS &gt; 60"/>
           <outline text="工单解决时间 (&lt; X 分钟)"/>
-          <outline text="Klarna 真实: 替代 700 人 / 年省 $40M / NPS +5pt / 时间 11min → 2min"/>
+          <outline text="Klarna 真实 (2024): 替代 700 人 / 年省 $40M / NPS +5pt (注: 2025.05 部分 rollback, 详见 §13.8)"/>
           <outline text="场景 2 — 内部 KB (Glean 模式):"/>
           <outline text="员工每天省时间 (找信息从 30 分钟 → 30 秒)"/>
           <outline text="跨部门信息流通 (减少重复造轮子)"/>
@@ -13501,11 +13412,28 @@ K8s | 阿里 ACK / 腾讯 TKE / KubeSphere">
       </outline>
     </outline>
     <outline text="16.2 诊断决策树"/>
-    <outline text="16.3 排错优先级" _note="优先级 | 现象 | 第一反应 | 工具
-P0 (5min) | 大面积错答 / 法律风险 | 关闭 + 转人工 | Feature flag
-P1 (1h) | 拒答率突增 &gt; 20% | metric + log | Phoenix / Langfuse
-P2 (24h) | 单类 query 答不好 | 标 bad case | RAGAS
-P3 (1 周) | 长尾 query 拒答 | 加 KB / 优化 prompt | KB Health"/>
+    <outline text="16.3 排错优先级 (运维 runbook)" _note="出问题时按这张表查: 哪类问题先看 / 多久必修 / 谁负责 / 是否上 P0 review.
+
+失败类型 | P 级 | 影响 SLA | 持续时长容忍 | 责任人 | 修复 ETA | 复盘要求
+Type A 检索失败 (Recall &lt; 0.7) | P1 | 是 (满意度跌) | &lt; 4h | 算法 + 数据 | 24h | RCA + Golden Set 加例
+Type B 版本错 (旧文档召回) | P0 | 是 (法律风险) | &lt; 1h | 数据治理 | 4h | 必 P0 review + 流程改进
+Type C 信息不全 (多跳缺) | P2 | 否 (拒答即可) | 1d | 算法 | 1 周 | 加 Multi-Query / GraphRAG 评估
+Type D 幻觉 (Faithfulness 跌) | P0 | 是 (品牌风险) | &lt; 1h | 算法 + Validator | 4h | 必 P0 + 通报 + Validator 阈值复审
+Type E 引用错 | P1 | 是 (信任) | &lt; 4h | 算法 | 1d | 引用对齐机制改进
+Type F 拒答错 (该答的拒了) | P1 | 否 (UX 差) | &lt; 8h | 算法 | 1 周 | 拒答阈值调优
+Type G 安全 (Prompt Injection / KB Poisoning) | P0 | 是 (合规 + 安全) | 立即 | 安全 + 算法 | 立即 (热修) + 1 周根治 | 必 P0 review + 安全演练">
+      <outline text="升级路径 (何时拉警报)">
+        <outline text="P0 (1h 内不修) → 拉总监 + 业务 VP"/>
+        <outline text="P1 (4h 内不修) → 拉 leader"/>
+        <outline text="P2 (1d 内不修) → 进 backlog 排期"/>
+      </outline>
+      <outline text="自动化告警">
+        <outline text="Faithfulness &lt; 0.85 持续 5min → P0 PagerDuty"/>
+        <outline text="Recall@10 &lt; 0.7 持续 30min → P1 Slack"/>
+        <outline text="拒答率 &gt; 30% 持续 1h → P1 Slack"/>
+        <outline text="Cost P99 &gt; $5 / query → P2 review queue"/>
+      </outline>
+    </outline>
     <outline text="16.4 静默失败检测 (Silent Failure Detection)">
       <outline text="16.4.1 为什么需要">
         <outline text="大部分 bad case 是"沉默的" — 用户没报错但答案确实错了"/>
@@ -14553,7 +14481,7 @@ LLM 调用次数 | 1 | 1-3 (含 Query Transform) | 5-50
     <outline text="20.2 Agent RAG 5 大形态 (每种算法循环 + 完整流程)">
       <outline text="20.2.0 与 §8.5 七模式的关系 — 两维正交分类">
         <outline text="两套分类是什么">
-          <outline text="§8.5 七模式: 按检索策略创新分 (Self-RAG / CRAG / GraphRAG / LightRAG / FRAG / GraphIRAG / Adaptive RAG)"/>
+          <outline text="§8.5 五模式: 按检索策略创新分 (Self-RAG / CRAG / GraphRAG / LightRAG / Adaptive RAG)"/>
           <outline text="§20.2 五形态: 按Agent 执行范式分 (Plan-and-Execute / ReAct / Multi-Agent / Self-Reflection / Iterative)"/>
           <outline text="两者正交, 可叠加: 例如用 GraphRAG (检索策略) + Plan-and-Execute (执行范式) 组合"/>
         </outline>
@@ -14787,7 +14715,7 @@ Adaptive RAG | ✅ 可用 | ✅ 可用 | — | — | —"/>
           <outline text="Reflexion: AlphaCode (推测), 编程 Agent"/>
         </outline>
       </outline>
-      <outline text="20.2.5 形态 5: Iterative RAG (CRAG / GraphIRAG)">
+      <outline text="20.2.5 形态 5: Iterative RAG (CRAG)">
         <outline text="核心思想">
           <outline text="单次检索可能召回不全, 多轮检索补足"/>
           <outline text="每轮根据已检索内容, 决定下一轮检索什么"/>
@@ -14832,7 +14760,7 @@ Adaptive RAG | ✅ 可用 | ✅ 可用 | — | — | —"/>
         </outline>
         <outline text="真实采用">
           <outline text="CRAG (Yan et al. 2024) — 见 §8.5.2"/>
-          <outline text="GraphIRAG (2025 推测) — 见 §8.5.6"/>
+          <outline text="GraphRAG 加迭代 — 工业实现详见 §19.5 Glean / Microsoft GraphRAG 案例"/>
           <outline text="LangGraph 官方 Iterative RAG 示例"/>
         </outline>
       </outline>
@@ -15384,8 +15312,6 @@ MCP 支持 | 原生 (Anthropic 主导) | 2025.Q2+ (Agents SDK) | 2025.Q3+
       <outline text="Step-Back: Google DeepMind 2023 (arXiv:2310.06117)"/>
       <outline text="GraphRAG: Microsoft 2024 (arXiv:2404.16130)"/>
       <outline text="LightRAG: HKUDS 2024 (arXiv:2410.05779)"/>
-      <outline text="FRAG: 2025 (arXiv:2501.09957)"/>
-      <outline text="GraphIRAG: 2025 (arXiv:2503.14234)"/>
       <outline text="Modular RAG 综述: Yunfan Gao et al. 2024"/>
       <outline text="Contextual Retrieval: Anthropic Blog 2024.09"/>
       <outline text="BERT Passage Re-ranking: Nogueira &amp; Cho 2019"/>

@@ -422,13 +422,9 @@
   - 50% 走 Agent → 成本爆炸 (Klarna 早期事故)
   - 90% 拒答 → 检索退化
 
-### 0.5 RAG 4 代演进
+### 0.5 RAG 4 代演进 (索引)
 
-#### 0.5.1 不替代而叠加
-- Gen 1 (2022) Naive RAG: query → embed → search → prompt → LLM (单线)
-- Gen 2 (2023) Advanced RAG: + 重排 + 改写 + 父子分块
-- Gen 3 (2024) Modular RAG: 拆 7 模块, 微服务化
-- Gen 4 (2025-2026) Agent + RAG: Modular 之上加 Planner + Tool Calling + 多步推理
+> 完整 4 代演进 (Naive / Advanced / Modular / Agent) 详见 §1.4. 此节已合并避免重复.
 
 ### 0.6 读者地图 (按角色推荐路径)
 
@@ -1860,7 +1856,7 @@ User:
 - 成本: $0.005-0.05/query
 
 ####### 性价比场景 (FAQ / 客服 80% 流量)
-- Claude Haiku 4 (国际): $0.25/$1.25 per 1M
+- Claude Haiku 4.5 (国际): $0.25/$1.25 per 1M
 - GPT-4o-mini: $0.15/$0.6
 - Gemini Flash: $0.075/$0.3
 - DeepSeek-V3: $1/$2 (中文性价比)
@@ -6656,7 +6652,8 @@ START
 
 ### 8.5 5 种高级 RAG-Agent 模式 (每种完整流程详解)
 
-- 注: 本节 7 种按"检索策略创新"分类 (Self-RAG / CRAG / GraphRAG / LightRAG / FRAG / GraphIRAG / Adaptive RAG)
+- 注: 本节 5 种按"检索策略创新"分类 (Self-RAG / CRAG / GraphRAG / LightRAG / Adaptive RAG)
+- 已删除 FRAG / GraphIRAG (业界尚无定论, 2025 推测构想, 无公认定义和生产实现)
 - §20.2 的 5 种按"Agent 执行范式"分类 (Plan-and-Execute / ReAct / Multi-Agent / Self-Reflection / Iterative)
 - 两者是不同分类维度, 可叠加: 例如 GraphRAG (本节) 可用 Plan-and-Execute 范式 (§20.2) 执行
 - Self-RAG (本节) ≈ Self-Reflection (§20.2); CRAG (本节) ≈ Iterative (§20.2)
@@ -6669,8 +6666,6 @@ START
 - CRAG: 检索后用 Evaluator 评分, 不行就 web search 兜底 (prompt-based, 轻量)
 - GraphRAG: 用图数据库存实体关系, Leiden 社区检测做层次摘要, 全局问题强 (重)
 - LightRAG: GraphRAG 轻量版, 双层检索 (entity + relation), 不做完整社区检测
-- FRAG: 简单 query 走 Naive RAG, 复杂 query 走 GraphRAG, 自适应分流
-- GraphIRAG: GraphRAG + 迭代多轮, 用信息增益准则决定停止
 - Adaptive RAG: 按 query 复杂度三档分流 (No-RAG / Single-step / Multi-step)
 
 #### 8.5.1 Self-RAG (Asai et al. 2023, arXiv:2310.16622)
@@ -6811,7 +6806,6 @@ START
 ##### 核心思想
 - 用一个分类器 (T5-large 微调) 判断 query 复杂度
 - 三档分流: A (No-RAG) / B (Single-step RAG) / C (Multi-step RAG)
-- 比 FRAG 更精细, 论文化更严谨
 
 ##### 完整执行流程
 - 步 1: query 输入
@@ -6843,8 +6837,8 @@ START
 | 通用 FAQ / 客服 | CRAG | 轻量 prompt-based, web search 兜底 |
 | 全局问题 (跨文档总结) | GraphRAG | 唯一能解全局问题的 |
 | 资源受限 + 需图能力 | LightRAG | GraphRAG 轻量版 |
-| 高频 query 混合复杂度 | Adaptive RAG / FRAG | 自适应分流, 省钱 |
-| 多跳推理为主 | GraphIRAG | 迭代检索 |
+| 高频 query 混合复杂度 | Adaptive RAG | 自适应三档分流, 省钱 |
+| 多跳推理为主 | CRAG | Iterative + Evaluator |
 | 极致精度 + 能 fine-tune | Self-RAG | reflection token 自反思 |
 | 快速 PoC 起步 | CRAG | 最低门槛 |
 
@@ -8420,7 +8414,7 @@ START
 ### 12.3 客户服务 (CS)
 
 #### 12.3.1 典型公司
-- Klarna AI 客服 (替代 700 人, 年省 $40M)
+- Klarna AI 客服 (替代 700 人, 年省 $40M; 2025.05 部分 rollback, 详 §13.8)
 - Intercom Fin (45% 自动化率)
 - Salesforce Einstein
 - Ada (估值 $1.2B)
@@ -8626,6 +8620,15 @@ START
 - 一手来源:
   - Klarna 官方新闻稿: klarna.com/international/press/klarna-ai-assistant-handles-two-thirds-of-customer-service-chats-in-its-first-month/ (2024.02.27)
   - OpenAI 联合发布: openai.com/index/klarna/ (含具体数字)
+
+##### 2025 后续 — 部分 rollback (重要更新)
+- 2025.05 Klarna CEO 公开承认: AI 客服体验在某些场景下 "lower quality than human agents"
+- 公司开始重新雇人, 不再追求 100% AI 替代, 而是 hybrid (AI 80% + 人工 20% 处理高复杂度)
+- 教训:
+  - AI 替代率不能推到极限 (700 → 0 客服), 95% 自动化更稳, 留 5-20% 人工处理边缘 case
+  - 用户对 AI 客服的"机械感" / 同理心缺失 长期会拉低 NPS, 短期看不到
+  - FinOps 数字诱人 ($40M/年) 但 NPS 才是真 KPI
+- 引用: Bloomberg 2025.05 Klarna AI 反思报道 / FT 同期评论
 
 ### 13.9 Notion 早期 ACL 越权 (2023)
 - 标签: [横切 / ACL] [高]
@@ -11145,69 +11148,32 @@ A: 用 Haiku 评估准确率 ~85% (跟人工标注比). 用 Sonnet 90%+. 但 eva
 #### Q4.1 Modular RAG 是什么?
 
 ##### 考察点
-- Gen 3 RAG 演进
-- 7 模块设计
-- 微服务化思想
+- Modular RAG vs Naive RAG 区别
+- 7 模块定义 + 数据流
+- 何时进化为 Agent
 
-##### 完整高分答案
-Modular RAG 是 RAG 第 3 代 (2024), 学界共识 (Yunfan Gao et al. 2024 综述).
-
-vs 上一代:
-- Naive RAG (Gen 1, 2022): 一条流水线 query→embed→search→prompt→LLM
-- Advanced RAG (Gen 2, 2023): + 重排 + 改写 + 父子分块, 仍是单线
-- Modular RAG (Gen 3, 2024): 拆成可替换 / 插拔 / 扩展的 7 模块, 微服务化思想
-
-7 大模块:
-- Query Understanding (查询理解 + 改写)
-- Router (按问题类型分流)
-- Retriever(s) (多通道检索)
-- Reranker (重排)
-- Context Builder (上下文组装)
-- Generator (LLM 答案)
-- Validator (引用 / 事实校验)
-
-核心价值 (类比 Java 微服务治理):
-- 召回差: 只调 Retriever, 不重写系统
-- 幻觉高: 加 Validator
-- 成本高: 换小模型 Generator
-- 单点优化, 不动全局
-
-工业实现:
-- LangChain (LCEL + RouterChain + LangGraph)
-- LlamaIndex (RouterQueryEngine + RAG Pipelines)
-- Vercel AI SDK
-- 自研 (大厂主流)
-
-学界共识:
-- Yunfan Gao et al. 2024 "Retrieval-Augmented Generation for Large Language Models: A Survey"
-- 把 Modular RAG 作为现代 RAG 核心范式
-
-挑战:
-- 系统复杂度高 (7 模块协作)
-- 评估难 (每模块独立评估)
-- 调试难 (问题在哪层)
+##### 完整高分答案 (索引版)
+- 详见 §19 Modular RAG 深度详解 (Gen 3 范式) 完整章节
+- 一句话: Modular RAG = 7 模块化的 RAG 管道 (Indexing/Pre-Retrieval/Retrieval/Post-Retrieval/Generation/Routing/Orchestration), 每模块独立可替换, vs Naive RAG 的"刚性 3 段管道"
+- 关键差异: 加 Routing (按 query 分流) + Orchestration (跨模块编排) — 这两块是 Naive RAG 没有的
+- 与 Agent RAG 关系: 详见 §20.1.2 (Agent 不替代 Modular, 是叠加)
 
 ##### 加分项
-- Yunfan Gao 2024 综述
-- Java 微服务治理类比
-- 7 模块完整列举
+- 引用 Yunfan Gao 2024 综述 (arXiv:2407.21059) "Modular RAG: Transforming RAG Systems"
+- 提到 Glean / Microsoft Copilot 都是 Modular RAG 工业实现
+- 给数字: Modular vs Naive 召回率提升 +20-40% (Hybrid + Reranker)
 
-##### 第二轮追问 Q: 7 模块每个职责?
-A: 完整接口契约:
-- Query Understanding: raw_query → enriched (intent, entities, language, complexity)
-- Router: enriched → route + fallback
-- Retriever(s): query → ranked candidates
-- Reranker: candidates → top-K
-- Context Builder: top-K + query → messages (system + user + context)
-- Generator: messages → answer
-- Validator: answer → validated (含 faithfulness, citations)
+##### 第二轮追问 Q: 7 模块缺哪个最致命?
+- Indexing — 没有索引, 后续 6 模块全废
+- Generation — 没有 LLM 综合, 检索结果用户看不懂
 
-##### 第三轮追问 Q: 我项目要不要全 7 模块?
-A: 不一定. 简单场景 5 个就够 (Query Understanding + Retriever + Reranker + Generator + Validator). Router 在多检索源 (vec + sql + api) 才需要. Context Builder 简单时可省 (直接拼)..
+##### 第三轮追问 Q: Modular RAG 怎么演化到 Agent RAG?
+- 加一个 Loop + Planner + Memory + 终止条件 = Agent RAG (详见 §20.1.3 公式拆解)
+- 实操路径: §20.1.7 4 阶段渐进 (Modular → Tool Calling → Plan-and-Execute → Multi-Agent)
 
 ##### 反例
-- ❌ "Modular RAG = LangChain" — 是思想, 不是实现
-- ❌ "全 7 模块上才高级" — 看场景
+- ❌ "Modular RAG 就是用 LangChain" — LangChain 是工具不是范式; 用 LangChain 也能写出 Naive 风格
+- ❌ "Modular = 微服务" — Modular 强调"接口可替换", 不是部署架构; 单进程也能 Modular
 
 #### Q4.2 Router 怎么实现?
 
@@ -11663,74 +11629,34 @@ A: 分层路由. 第一层先 LLM 选大类 (订单类 / 支付类 / 客服类),
 #### Q5.4 Memory 三层?
 
 ##### 考察点
-- 三层定位
-- 实现工具
-- Token 预算分配
+- Memory 三层架构定位
+- 跨步 / 跨会话 / 跨用户 区别
+- 容量限制 / 摘要策略
 
-##### 完整高分答案
-Agent Memory 三层架构:
-
-L1 — Session Memory (短期, Redis)
-- 用途: 本次会话历史
-- 跨多轮 (用户上下文连续)
-- Schema:
-  - key: session:{session_id}
-  - value: List of messages [{role, content, timestamp, tool_calls}]
-- TTL: 6 小时
-- 容量: 单 session 20 messages × 2KB = 40KB; 1 万活跃 session = 400MB Redis
-
-L2 — User Preference (长期, PostgreSQL)
-- 用途: 跨会话用户偏好 (语气 / 角色 / 兴趣)
-- LLM 个性化
-- Schema (JSONB):
-  - user_id (PK)
-  - preferences: {language, tone, expert_level}
-  - favorite_skills: list
-  - learned_facts: ["user works at Acme", "prefers concise answers"]
-- 异步更新 (LLM 提取 facts → 存)
-- 大小: 单 user ~5KB; 10 万 user = 500MB DB
-
-L3 — Business Memory (业务上下文, VectorDB)
-- 用途: 客户 / 项目 / 任务相关上下文
-- 跨用户共享
-- Schema (Vector DB):
-  - 每条 memory 一个 embedding
-  - metadata: project_id / client_id / topic / created_at
-  - 检索: query embedding → 找相关 memory
-- 实现: pgvector / Milvus, 类似 chunks 但不同 namespace
-- 容量: 10 万 memory × 5KB = 500MB
-
-三层组合 Prompt 拼接顺序:
-- system (skill prompt)
-- user_preferences (压缩成 1-2 行)
-- relevant_business_memories (top-3 检索)
-- session_history (最近 20 条)
-- current_query
-- (RAG context 单独区块)
-
-Token 预算分配 (假设 16K context):
-- system: 1K
-- user_preference: 0.5K
-- business_memory: 2K
-- session_history: 2K
-- RAG context: 8K
-- current query: 1K
-- 留 1.5K 给 LLM 输出
+##### 完整高分答案 (索引版)
+- 完整 schema + sync/async 写入策略 + 容量回收 详见 §20.5 Memory 三层架构 (含 Redis / Postgres / pgvector 实际表结构)
+- 一句话: L1 Session (Redis 6h, 跨步必需) / L2 User Preference (Postgres JSONB, 跨会话累积) / L3 Business (Vector DB, 跨用户共享)
+- 容量约束: Memory 占 context window ≤ 6K (16K budget 内)
+- 摘要策略: 超容量时调 LLM 摘旧 message 成 200 字
 
 ##### 加分项
-- 三层完整 schema + 实现
-- Token 预算分配数字
-- 容量规划
+- 提到 Anthropic Claude Memory tool (2025) / OpenAI Memory in ChatGPT
+- 给数字: L1 Redis 单 user 平均 5KB / L2 单 user 1-50KB / L3 全公司可达 GB
+- 引用 LangChain ConversationBufferMemory / ConversationSummaryMemory 区别
 
-##### 第二轮追问 Q: 长 session 怎么处理?
-A: 滑动窗口 + 摘要. 最近 20 条原文 + 早期对话 LLM 摘要 (1-2 句). LangChain ConversationBufferWindowMemory + ConversationSummaryMemory 组合. 100+ 轮长 session 用 vector memory 语义检索相关历史.
+##### 第二轮追问 Q: 三层为什么是 Redis / Postgres / Vector DB?
+- L1 短期高频读写 → Redis (in-memory, 6h TTL)
+- L2 结构化查询 + 长期 → Postgres JSONB (索引快, JSON 灵活)
+- L3 语义检索跨用户 → Vector DB (cosine 找相似 case)
 
-##### 第三轮追问 Q: User Preference 怎么自动学?
-A: Bg job: 每次会话结束, LLM 分析 (过滤敏感) → 提取 user facts → 写入 preferences. 关键: 用户可见 + 可删除 (隐私). e.g. "用户偏好简洁回答" / "用户在金融行业".
+##### 第三轮追问 Q: 跨用户 Memory 隐私怎么保证?
+- L3 schema 强制 (tenant_id, sensitivity_level)
+- 读取必带 ACL 校验 (详见 §16.1.7 子类 5 Memory Leak)
+- 反模式: 用 LLM context 当跨用户共享 cache — 必出 PII 泄露
 
 ##### 反例
-- ❌ "Memory 全塞 prompt" — token 爆炸
-- ❌ "不用 Memory 每次 0 上下文" — 用户体验差
+- ❌ "全用 Redis" — L2 长期偏好 Redis 不适合, Postgres 更好
+- ❌ "Memory 永久不清理" — 100 query 后塞满拖慢检索, 必上 LRU + TTL
 
 #### Q5.5 LangGraph vs LlamaIndex Agents vs AutoGen?
 
@@ -11844,30 +11770,6 @@ LightRAG (HKUDS 2024, arXiv:2410.05779):
 - 优: 比 GraphRAG 快 5-10× / 实现简单 (< 1000 行)
 - 劣: 不如 GraphRAG 全景
 
-FRAG (Flexible RAG, 2025, arXiv:2501.09957):
-- 简单走简单 RAG, 复杂走 GraphRAG
-- 自适应分流
-- 优: 平均延迟低 + 复杂场景仍有 GraphRAG 能力
-- 适合混合复杂度场景
-
-GraphIRAG (Iterative, 2025):
-- 多轮检索 (vs 单次)
-- 控制器在生成中决定是否继续
-- 信息增益准则停止
-- 适合时间敏感 + 多跳推理
-
-Adaptive RAG (Jeong et al. 2024):
-- 按 query 复杂度选 RAG 策略
-- 简单: 直接 RAG
-- 中: HyDE / Multi-Query
-- 复杂: 多步 + 自校正
-
-选型:
-- 资源充足 + 极致质量: Self-RAG (需 fine-tune)
-- 资源紧 + 工程友好: CRAG (主流)
-- 跨文档关系挖掘: GraphRAG (重量)
-- GraphRAG 轻量: LightRAG
-- 自适应: Adaptive RAG / FRAG
 
 ##### 加分项
 - 7 模式完整 + 论文 arXiv
@@ -13511,7 +13413,7 @@ A: 三招乘法叠加 (不是加法): (1) 缓存命中 60% → 只有 40% 走 LL
 - 替代客服人月 (替代 N 人) → 省 $N × 5K/月
 - 用户满意度 NPS > 60
 - 工单解决时间 (< X 分钟)
-- Klarna 真实: 替代 700 人 / 年省 $40M / NPS +5pt / 时间 11min → 2min
+- Klarna 真实 (2024): 替代 700 人 / 年省 $40M / NPS +5pt (注: 2025.05 部分 rollback, 详见 §13.8)
 
 场景 2 — 内部 KB (Glean 模式):
 - 员工每天省时间 (找信息从 30 分钟 → 30 秒)
@@ -13944,14 +13846,30 @@ Step 6: LLM 出错类型?
             └─ 修: 动态阈值 + per-场景 + Guardrail
 ```
 
-### 16.3 排错优先级
+### 16.3 排错优先级 (运维 runbook)
 
-| 优先级 | 现象 | 第一反应 | 工具 |
-|---|---|---|---|
-| P0 (5min) | 大面积错答 / 法律风险 | 关闭 + 转人工 | Feature flag |
-| P1 (1h) | 拒答率突增 > 20% | metric + log | Phoenix / Langfuse |
-| P2 (24h) | 单类 query 答不好 | 标 bad case | RAGAS |
-| P3 (1 周) | 长尾 query 拒答 | 加 KB / 优化 prompt | KB Health |
+> 出问题时按这张表查: 哪类问题先看 / 多久必修 / 谁负责 / 是否上 P0 review.
+
+| 失败类型 | P 级 | 影响 SLA | 持续时长容忍 | 责任人 | 修复 ETA | 复盘要求 |
+|---|---|---|---|---|---|---|
+| Type A 检索失败 (Recall < 0.7) | P1 | 是 (满意度跌) | < 4h | 算法 + 数据 | 24h | RCA + Golden Set 加例 |
+| Type B 版本错 (旧文档召回) | P0 | 是 (法律风险) | < 1h | 数据治理 | 4h | 必 P0 review + 流程改进 |
+| Type C 信息不全 (多跳缺) | P2 | 否 (拒答即可) | 1d | 算法 | 1 周 | 加 Multi-Query / GraphRAG 评估 |
+| Type D 幻觉 (Faithfulness 跌) | P0 | 是 (品牌风险) | < 1h | 算法 + Validator | 4h | 必 P0 + 通报 + Validator 阈值复审 |
+| Type E 引用错 | P1 | 是 (信任) | < 4h | 算法 | 1d | 引用对齐机制改进 |
+| Type F 拒答错 (该答的拒了) | P1 | 否 (UX 差) | < 8h | 算法 | 1 周 | 拒答阈值调优 |
+| Type G 安全 (Prompt Injection / KB Poisoning) | P0 | 是 (合规 + 安全) | 立即 | 安全 + 算法 | 立即 (热修) + 1 周根治 | 必 P0 review + 安全演练 |
+
+##### 升级路径 (何时拉警报)
+- P0 (1h 内不修) → 拉总监 + 业务 VP
+- P1 (4h 内不修) → 拉 leader
+- P2 (1d 内不修) → 进 backlog 排期
+
+##### 自动化告警
+- Faithfulness < 0.85 持续 5min → P0 PagerDuty
+- Recall@10 < 0.7 持续 30min → P1 Slack
+- 拒答率 > 30% 持续 1h → P1 Slack
+- Cost P99 > $5 / query → P2 review queue
 
 ### 16.4 静默失败检测 (Silent Failure Detection)
 
@@ -16168,7 +16086,7 @@ class ModularRAG:
 #### 20.2.0 与 §8.5 七模式的关系 — 两维正交分类
 
 ##### 两套分类是什么
-- §8.5 七模式: 按**检索策略创新**分 (Self-RAG / CRAG / GraphRAG / LightRAG / FRAG / GraphIRAG / Adaptive RAG)
+- §8.5 五模式: 按**检索策略创新**分 (Self-RAG / CRAG / GraphRAG / LightRAG / Adaptive RAG)
 - §20.2 五形态: 按**Agent 执行范式**分 (Plan-and-Execute / ReAct / Multi-Agent / Self-Reflection / Iterative)
 - 两者正交, 可叠加: 例如用 GraphRAG (检索策略) + Plan-and-Execute (执行范式) 组合
 
@@ -16388,7 +16306,7 @@ class ModularRAG:
 - Self-RAG: Asai 2023 (Llama-2 fine-tune), 学术界参考
 - Reflexion: AlphaCode (推测), 编程 Agent
 
-#### 20.2.5 形态 5: Iterative RAG (CRAG / GraphIRAG)
+#### 20.2.5 形态 5: Iterative RAG (CRAG)
 
 ##### 核心思想
 - 单次检索可能召回不全, 多轮检索补足
@@ -16429,7 +16347,7 @@ class ModularRAG:
 
 ##### 真实采用
 - CRAG (Yan et al. 2024) — 见 §8.5.2
-- GraphIRAG (2025 推测) — 见 §8.5.6
+- GraphRAG 加迭代 — 工业实现详见 §19.5 Glean / Microsoft GraphRAG 案例
 - LangGraph 官方 Iterative RAG 示例
 
 #### 20.2.6 5 形态 + 真实流程对照表
@@ -16640,7 +16558,7 @@ messages.append({
 ##### Anthropic Tool Use
 ```python
 response = anthropic.messages.create(
-    model="claude-sonnet-4-20250514",
+    model="claude-sonnet-4-5-20250929",
     messages=messages,
     tools=[{
         "name": "get_order",
@@ -17275,8 +17193,6 @@ async def build_agent_prompt(
 - Step-Back: Google DeepMind 2023 (arXiv:2310.06117)
 - GraphRAG: Microsoft 2024 (arXiv:2404.16130)
 - LightRAG: HKUDS 2024 (arXiv:2410.05779)
-- FRAG: 2025 (arXiv:2501.09957)
-- GraphIRAG: 2025 (arXiv:2503.14234)
 - Modular RAG 综述: Yunfan Gao et al. 2024
 - Contextual Retrieval: Anthropic Blog 2024.09
 - BERT Passage Re-ranking: Nogueira & Cho 2019
