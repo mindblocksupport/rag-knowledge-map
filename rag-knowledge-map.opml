@@ -1668,1051 +1668,205 @@ Claude Sonnet 4.5 | 闭源 | 估 8192-16384 | 闭源 (推测)">
       </outline>
     </outline>
   </outline>
-  <outline text="二. 业务流程图解" _note="给 PM / CTO / 销售 / 运营看. 关键术语保留英文 + 中文专业词汇.">
+  <outline text="二. 业务流程图解 — 技术原理 + 业务场景 + 问题 + 决策" _note="4 块结构: 每个流程讲清 (1) 技术原理是什么 / (2) 在什么业务场景用 / (3) 常见问题 / (4) 何时用何时不用的决策. 工程细节链 §4-§9, 真实事故链 §13.">
     <outline text="2.1 RAG 整体业务流程">
-      <outline text="2.1.1 5 个核心环节">
-        <outline text="用户提问 (Query)"/>
-        <outline text="系统找资料 (Retrieve)"/>
-        <outline text="整理资料 (Rerank + Context Build)"/>
-        <outline text="LLM 生成答案 (Generate)"/>
-        <outline text="给用户看 (Render + Cite)"/>
-      </outline>
+      <outline text="2.1.1 5 个核心流程" _note="流程 | 一句话 | 详见
+1. Ingestion 文档入库 | 离线把企业文档变成可检索 KB | §2.2
+2. Retrieval 检索 | 在线从 KB 找最相关 5-20 chunk | §2.3
+3. Generation 生成 | LLM 看着检索资料写答案 | §2.4
+4. Router 路由分流 | 判断 query 走哪条路径 (简单 / Agent) | §2.5
+5. Agent 多步推理 | 复杂 query 多步规划 + 工具调用 | §2.6"/>
       <outline text="2.1.2 3 个支撑系统">
-        <outline text="文档入库 (Ingestion)"/>
-        <outline text="权限审计 (ACL + Audit)"/>
-        <outline text="监控评估 (Observability + Eval)"/>
+        <outline text="权限审计 (ACL + Audit, §9)"/>
+        <outline text="监控评估 (Observability + Eval, §10 + §14)"/>
+        <outline text="缓存与成本控制 (Cache + FinOps, §10 + §20.8)"/>
+      </outline>
+      <outline text="2.1.3 整体决策图 (我的业务该走哪条路径)" _note="业务问 | 决策
+数据从哪来? | 用户上传 → 简单 / Connector 自动同步 → 企业级 (§2.2 步 1)
+文档要不要数据治理? | 内部 KB 5 道治理 / 客户场景 6 道全做 + PII 严格 (§2.2 步 3)
+检索用 Dense 还是 Hybrid? | 字面命中 (SKU/编号) 多 → 必 Hybrid (§2.3 + §6)
+要不要 Reranker? | 候选 30+ 且对延迟不敏感 → 上; 候选 &lt; 30 → 不上 (§6.4)
+query 走 RAG 还是 Agent? | 80/15/5 Router 分流: 简单 RAG / 中等增强 / 复杂 Agent (§2.5)
+上 Workflow 还是 Agent? | Anthropic 三层模型: 单 LLM / Workflow 5 Pattern / Agent (§20.1.2)
+LLM 选 Sonnet 还是 Haiku? | Planner 用 Sonnet 4.5 / Executor 用 Haiku 4.5 (§20.8.5)"/>
+    </outline>
+    <outline text="2.2 流程 1: 文档入库 (Ingestion)">
+      <outline text="2.2.1 技术原理 (6 步)">
+        <outline text="步 1 — 上传 / 同步: 用户主动上传 / Connector 自动同步 (Confluence / Slack / SharePoint, 详见 §0.1.5d 关于 Connector)"/>
+        <outline text="步 2 — 文本解析 (Parse): PDF / Word / HTML → 纯文本 + 结构化标记 (LlamaParse / Reducto / pypdfium2)"/>
+        <outline text="步 3 — 数据处理 (6 道治理): 去噪 → 格式化 → 去重 (MinHash) → PII 检测脱敏 (Presidio) → 质量评分 (LLM-as-judge) → 分类打标 + 版本管理. 详见 §4 L1 数据治理"/>
+        <outline text="步 4 — 切块 (Chunking): 长文档切 256-1024 字 chunk + 分配 chunk_id (父子分块 / Late Chunking / Contextual Retrieval)"/>
+        <outline text="步 5 — 向量化 (Embedding): 每 chunk 喂 Embedder (BGE-M3 / Voyage / OpenAI text-3) → 1024 维向量"/>
+        <outline text="步 6 — 入库: (chunkid, vector) 入向量库 + (chunkid, text, source_url) 入 Doc Store + 倒排索引建立"/>
+      </outline>
+      <outline text="2.2.2 业务场景">
+        <outline text="企业内部 KB (Glean / Microsoft Copilot): 接 100+ Connector, 数据散在 wiki/聊天/CRM/文件系统"/>
+        <outline text="客服知识库 (Klarna / 小米): FAQ + 政策文档 + 历史工单, Confluence 拉取"/>
+        <outline text="法律 / 医疗 (Harvey / 微医): 合规要求高, 必须 6 道治理全做 + 严格 PII 脱敏"/>
+        <outline text="代码 RAG (Cursor / Cody): 不预先索引, AST-aware Chunking 实时切代码"/>
+      </outline>
+      <outline text="2.2.3 常见问题 (反模式)">
+        <outline text="❌ Parse 完直接 Chunk — 跳过数据处理 = Garbage In Garbage Out (用户最近反馈的痛点)"/>
+        <outline text="❌ 全用 PyPDF2 凑合 — 表格永远栽 (Bloomberg [12.5M vs ]125M 事故 §13.5)"/>
+        <outline text="❌ Connector 不做全量 reconcile — webhook 漏一个永久不同步"/>
+        <outline text="❌ 不去重 — 100 万文档实际唯一 60 万, 检索召回重复"/>
+        <outline text="❌ PII 检测放在检索时做 — 太晚, 必须入库前 (§13.27 MS Recall 隐私事故)"/>
+      </outline>
+      <outline text="2.2.4 决策表 (何时选什么)" _note="业务问 | 决策
+Parser 选哪个? | 普通 PDF → pypdfium2 / 复杂 PDF → LlamaParse / 法律财务高精度 → Reducto / 扫描件 → GPT-5 Vision
+数据治理做几道? | 内部 KB → 5 道 (跳严格 PII) / 客户场景 → 6 道全做 / 医疗金融 → 6 道 + 5% 人工 review
+Chunking 策略? | 通用 → 父子分块 / 跨文档 KB → Contextual Retrieval (+49%) / 代码 → AST-aware
+Embedder 选哪个? | 中文 / 混合 → BGE-M3 (1024 维, 自托管免费) / 英文 → Voyage-3 / 全球 → OpenAI text-3-large
+同步方式? | 实时性高 → Webhook + 周度 reconcile / 实时性低 → 30 分钟轮询"/>
+    </outline>
+    <outline text="2.3 流程 2: 检索 (Retrieval)">
+      <outline text="2.3.1 技术原理 (5 步)">
+        <outline text="步 1 — 接收 query + 预处理: HTTP 接收, 用户意图分类 (FAQ / 编号 / 复杂)"/>
+        <outline text="步 2 — Query 双路编码: 同一个 Embedder 转向量 (Dense) + tokenizer 切词 (Sparse)"/>
+        <outline text="步 3 — 双路并行检索 (Hybrid Search): Dense (ANN/HNSW) + BM25 (倒排索引) 各返 top-50 chunk_id"/>
+        <outline text="步 4 — RRF 融合: 用倒数排名融合公式合并两路, 输出 top-20 chunk_id"/>
+        <outline text="步 5 — Reranker 精排 (可选): Cross-Encoder 对 (query, chunk) 打分, 输出 top-5"/>
+      </outline>
+      <outline text="2.3.2 业务场景">
+        <outline text="客服查 FAQ: query 简单, 单路 Dense 够用 ($0.001 / 1s)"/>
+        <outline text="金融查 SKU 编号: BM25 字面匹配核心 ("RF12345" Dense 召不到), Hybrid 必须"/>
+        <outline text="法律案例检索: 长 query + 高精度需求, Reranker 必加 + Lost in the Middle 修正"/>
+        <outline text="代码搜索 (Cursor): 不走 Embedding, 而是 grep + LLM 探索 (Agentic)"/>
+      </outline>
+      <outline text="2.3.3 常见问题 (反模式)">
+        <outline text="❌ 只用 Dense — 漏掉精确匹配类 query (产品编号 / 错误码 / 法条号)"/>
+        <outline text="❌ Dense top_k = 1000+ — ANN 延迟涨 5-10×, Reranker 也算不过来"/>
+        <outline text="❌ Reranker cascade 多级 — 单 query 延迟 500ms-2s, 高 QPS 撑不住"/>
+        <outline text="❌ query 用不同 Embedder 编码 (跟入库时不一致) — 向量空间不可比, 召回率塌 50%+"/>
+        <outline text="❌ 召回结果按 score 直接给 LLM, 不修 Lost in the Middle — 中间位置文档被忽略"/>
+      </outline>
+      <outline text="2.3.4 决策表 (何时选什么)" _note="业务问 | 决策
+用 Dense / Sparse / Hybrid? | 字面命中类 (SKU / 编号 / 代码) → Hybrid 必须 / 纯语义类 → Dense 够用
+要不要 Reranker? | 候选 30+ 且延迟可放宽到 200ms+ → 上 BGE-Reranker / Cohere Rerank-3.5 / 候选 &lt; 30 → 不上
+top-K 设多少? | Dense top-50 → RRF top-20 → Reranker top-5 (工业默认)
+要不要 Lost in the Middle 修正? | context 里 chunk 数 ≥ 10 → 必加 LongContextReorder (§6.6)
+要不要 CRAG 兜底 web search? | 内部 KB 召回率 &lt; 0.7 → 上 CRAG / KB 完整 → 不上"/>
+    </outline>
+    <outline text="2.4 流程 3: LLM 生成 (Generation)">
+      <outline text="2.4.1 技术原理">
+        <outline text="拼 messages 数组: system (角色 + 规则 + 安全约束) + 检索的 chunks (用 &lt;documents&gt; 包裹) + user query"/>
+        <outline text="调 LLM API (Anthropic / OpenAI / Gemini), 模型 token-by-token 生成答案"/>
+        <outline text="后处理: 引用反查 ([chunk42] → sourceurl), Faithfulness 校验, PII 过滤"/>
+        <outline text="详细的 messages 数据流详见 §0.1.5b/c/d"/>
+      </outline>
+      <outline text="2.4.2 业务场景">
+        <outline text="客服: Haiku 4.5 综合, $0.005/query, 90% 场景够用"/>
+        <outline text="法律咨询: Sonnet 4.5 推理, 必须严格 Faithfulness ≥ 0.95"/>
+        <outline text="代码生成 (Cursor): Sonnet 4.5 + extended thinking, 单次 $0.05-0.5"/>
+        <outline text="多语言客服: Gemini 2.0 (1M context), 可塞大量 few-shot"/>
+      </outline>
+      <outline text="2.4.3 常见问题 (反模式)">
+        <outline text="❌ 把 chunk 的向量 / score 喂给 LLM — LLM 输入只接 token, 数值看不懂 (§0.1.5e 5 根本原因)"/>
+        <outline text="❌ 不加 system 防注入约束 — &lt;documents&gt; 内的恶意指令被 LLM 执行 (§16.1.7 Type G)"/>
+        <outline text="❌ 全用 Sonnet — Synthesizer 综合不吃推理力, 用 Haiku 省 5-10×"/>
+        <outline text="❌ 不做 Faithfulness 校验 — Air Canada 法律事故 (§13.1)"/>
+        <outline text="❌ 不做 token 预算管理 — context 超 16K 直接报错或截断关键信息"/>
+      </outline>
+      <outline text="2.4.4 决策表 (何时选什么)" _note="业务问 | 决策
+LLM 选哪个? | Planner / 推理 → Sonnet 4.5 / GPT-5 / o3; Synthesizer 综合 → Haiku 4.5 / GPT-5-mini
+context 预算分配? | system 1K + few-shot 0-2K + history 2-4K + chunks 6-10K + query 0.5-1K + 输出 2K (§0.1.5c)
+要不要 Prompt Caching? | 长 system prompt + 工具描述稳定 → 必上 (Anthropic 0.1× / 省 35-49%)
+引用怎么做? | LLM 输出 [chunkX] 编号 → 后台反查 sourceurl 渲染链接
+要不要 Validator? | 任何客户场景必上 (Faithfulness + Citation + PII + Guardrail)"/>
+    </outline>
+    <outline text="2.5 流程 4: Router 路由分流">
+      <outline text="2.5.1 技术原理">
+        <outline text="三层混合路由: 规则 (先) → 语义匹配 (中) → LLM 兜底 (后)"/>
+        <outline text="输出路径标签: simple_rag / agent / sql / clarification / refusal"/>
+        <outline text="决定 query 走哪条路径, 是 §20.1.2 三层模型在工程层的实现"/>
+      </outline>
+      <outline text="2.5.2 业务场景">
+        <outline text="Klarna 客服: 80% FAQ → simple_rag / 5% 复杂诊断 → Agent"/>
+        <outline text="Glean 内部 KB: 大部分单源查询 → simple_rag / 少量跨多源 → Agent"/>
+        <outline text="数据分析 (Snowflake Cortex): 结构化查询 → SQL Agent / 文档查询 → simple_rag"/>
+        <outline text="代码助理 (Cursor): 全部走 Agent (Coding 任务无法预先分解)"/>
+      </outline>
+      <outline text="2.5.3 常见问题 (反模式)">
+        <outline text="❌ 全 LLM 路由 — 单 query 多花 0.5-1s, 高 QPS 时 LLM 排队拖死全链"/>
+        <outline text="❌ 全 Agent 一刀切 — 简单 query 上 Agent 平均 $0.4/query, 是普通 RAG 50× 成本"/>
+        <outline text="❌ Router 准确率 &lt; 0.95 — 误分流频繁, 用户体验崩"/>
+        <outline text="❌ 不区分 query 类型 — FAQ 也走 multi-step, 浪费 token"/>
+      </outline>
+      <outline text="2.5.4 决策表 — 80/15/5 分流原则 (业界共识)" _note="流量比例 | 路径 | 单 query 成本 | 单 query 延迟
+80% (简单 FAQ) | Modular RAG (单次 hybrid + Reranker) | $0.008 | 1.2s
+15% (中等) | 增强 RAG (HyDE / Multi-Query / Self-RAG) | $0.02 | 2-3s
+5% (复杂跨源) | Agent (多步规划 + 工具调用) | $0.42 | 8.3s">
+        <outline text="数据来源: Klarna 2024 Q1 公开年报 + Glean 内部分享."/>
       </outline>
     </outline>
-    <outline text="2.2 流程 1: 文档入库 (Ingestion 文档摄取) — 完整 6 步详解">
-      <outline text="2.2.1 业务目标 (一句话)">
-        <outline text="把企业散落各处的私有文档变成 AI 可检索的知识库"/>
-        <outline text="决定 RAG 系统"能知道什么", 是 100% 文档必经的离线流水线"/>
+    <outline text="2.6 流程 5: Agent 多步推理 (复杂场景 5%)">
+      <outline text="2.6.1 技术原理 (核心循环)">
+        <outline text="Planner 用强 LLM (Sonnet 4.5 / o3) 生成执行计划"/>
+        <outline text="Executor 在循环里执行: LLM 决定调哪个工具 → 调用 → 看结果 → 决定下一步"/>
+        <outline text="4 终止条件: LLM 主动声明 / max_steps / 同 tool 重复 3 次 / 累计 cost 超预算"/>
+        <outline text="详见 §20.1 Agent RAG 完整讲透"/>
       </outline>
-      <outline text="2.2.2 业务背景与价值">
-        <outline text="核心矛盾: 公司有 PB 级文档但 AI 一无所知 → RAG 第一步就是把它们灌进系统"/>
-        <outline text="真实场景: 字节跳动飞书 KB 接入 100+ 数据源 / Glean 接入 100+ Connector / 公司内部 wiki + Slack + Confluence 都是源"/>
-        <outline text="失败代价: 数据没入库 = AI 答 "我不知道" = 用户失望 = 项目失败"/>
-        <outline text="业务价值: 决定 RAG 系统的"覆盖率上限". 入库 1 万文档与 100 万文档, 用户体验差 10×"/>
+      <outline text="2.6.2 业务场景">
+        <outline text="退款失败诊断 (Klarna): 跨订单 + 支付 + 风控 + 物流 4 系统 (Agent 必须)"/>
+        <outline text="代码助理 (Cursor / Devin): 探索 codebase → 写代码 → 跑测试 → 改 bug (循环)"/>
+        <outline text="跨系统 Ops (Microsoft Copilot Workspace): 接 GitHub Issue → 拆任务 → 写 PR → review"/>
+        <outline text="法律研究 (Harvey): 检索案例 → 反思 → 改 query 重检 → 综合写法律意见"/>
       </outline>
-      <outline text="2.2.3 6 步流程详解 (含数据处理环节)">
-        <outline text="步 1: 文档上传 / 同步 (Upload / Sync)">
-          <outline text="是什么">
-            <outline text="把文档送进系统的入口环节"/>
-            <outline text="两种方式: 用户主动上传 + Connector 自动同步"/>
-          </outline>
-          <outline text="主流来源 (按企业重要性排)">
-            <outline text="Confluence / Notion (内部 wiki, 占 30%+)"/>
-            <outline text="Slack / 飞书 / 钉钉 (聊天历史, 占 20%)"/>
-            <outline text="SharePoint / Google Drive (文档共享, 占 15%)"/>
-            <outline text="Salesforce / HubSpot (CRM, 占 10%)"/>
-            <outline text="GitHub / GitLab (代码 + Wiki, 占 10%)"/>
-            <outline text="Email (Outlook / Gmail, 占 5%)"/>
-            <outline text="自建数据库 / 本地文件 (占 10%)"/>
-          </outline>
-          <outline text="Connector (连接器) 工作原理">
-            <outline text="后台每 30 分钟轮询源系统 API (e.g. Confluence REST)"/>
-            <outline text="增量同步: 只拉 lastmodified &gt; lastsync 的文档"/>
-            <outline text="Webhook 实时: 重要源 (HR 系统) 文档改 → 立即推送"/>
-            <outline text="删除事件: 源系统删了 → cascade 删 KB + Cache"/>
-          </outline>
-          <outline text="真实业务影响">
-            <outline text="来源越多覆盖越广: Glean 接 100+ source 是估值 $4.6B 的关键"/>
-            <outline text="Connector 维护成本高: 业界做法用 Airbyte (350+ 现成 connector) 而非自研"/>
-            <outline text="权限继承: 源系统 ACL 必须同步到 KB (Notion 早期不做导致越权事故)"/>
-          </outline>
-          <outline text="常见误区">
-            <outline text="❌ "让用户手动上传就行" — 1000 用户 × 100 文档 = 几万文档全靠手动"/>
-            <outline text="❌ "全量同步, 每次重灌" — 100 万文档每天重灌 = 24 小时不够"/>
-            <outline text="✅ "Connector 增量 + Webhook 实时 + 周度全量校对""/>
-          </outline>
-        </outline>
-        <outline text="步 2: 文本解析 (Parse 解析)">
-          <outline text="是什么">
-            <outline text="把 PDF / Word / 网页等格式 → 纯文本 + 结构化标记 (表格 / 图片 / 标题)"/>
-          </outline>
-          <outline text="Parser 选型 (按场景)">
-            <outline text="普通 PDF: pypdfium2 / pdfplumber (免费, 简单文档够用)"/>
-            <outline text="复杂 PDF (财报 / 合同, 表格密集): LlamaParse $0.003/页, 表格准确率 92%"/>
-            <outline text="顶级精度 (法律 / 医疗): Reducto $0.01-0.05/页, 准确率 98%"/>
-            <outline text="扫描件: GPT-4o Vision $0.01-0.03/页, 中文 OCR 强"/>
-            <outline text="Word: python-docx (免费, 简单)"/>
-            <outline text="HTML: trafilatura / readability-lxml (剥广告 + 导航)"/>
-            <outline text="Email: mailparse (区分正文 / 签名 / 历史)"/>
-          </outline>
-          <outline text="业务影响 (Bloomberg 真实事故)">
-            <outline text="时间: 2023, Bloomberg Terminal RAG"/>
-            <outline text="场景: 分析师查 "Acme Corp Q3 2024 营收?""/>
-            <outline text="结果: AI 答 "[12.5M" (实际 ]125M, 差 10×)"/>
-            <outline text="原因: PyPDF2 把跨行表格 "[125M" 拆成 "]12" + ".5M""/>
-            <outline text="损失: 分析师据此决策买入, 损失数百万"/>
-            <outline text="修复: 切 LlamaParse + 表格转 Markdown 整存"/>
-          </outline>
-          <outline text="关键决策">
-            <outline text="100 万页大批量: LlamaParse [3K (一次性) vs Reducto ]30K, 通常 LlamaParse 性价比胜"/>
-            <outline text="中文复杂 PDF: 测试 100 页 sample, 不要听厂商宣称"/>
-            <outline text="法律 / 财务 (容错率低): 必须高精度 (LlamaParse 高级 / Reducto)"/>
-          </outline>
-          <outline text="常见误区">
-            <outline text="❌ "全用 PyPDF2 凑合" — 表格永远栽"/>
-            <outline text="❌ "全用最贵 Parser" — 100 万页 GPT-4o [30K, LlamaParse ]3K, 性价比悬殊"/>
-            <outline text="✅ "按文档类型路由: 普通 PyPDF2, 复杂 LlamaParse, 扫描 GPT-4o""/>
-          </outline>
-        </outline>
-        <outline text="步 3: 数据处理 (Data Processing 清洗 + 治理)">
-          <outline text="是什么">
-            <outline text="Parse 后拿到的是"原始纯文本", 但生产级 RAG 不能直接进 Chunking, 必须先做一系列治理"/>
-            <outline text="真实数据 80% 时间在做这一步 (业界共识 "Garbage In, Garbage Out")"/>
-            <outline text="跳过这步 = LLM 答案必然差, 检索召回也差"/>
-          </outline>
-          <outline text="6 道数据治理子环节 (生产必做)">
-            <outline text="(1) 去噪 (Cleaning)"/>
-            <outline text="去 HTML tag / 广告 / 导航 / 页眉页脚 / 水印 / 多余空白"/>
-            <outline text="去重复段落 (同一份 PDF 每页都有版权声明)"/>
-            <outline text="工具: BeautifulSoup / readability-lxml / 正则"/>
-            <outline text="真实影响: 去噪前 chunk 30% 是噪声 → 检索精度跌 15%"/>
-            <outline text="(2) 格式化 (Normalization)"/>
-            <outline text="统一编码 (UTF-8 强制), 处理 BOM / 乱码"/>
-            <outline text="统一换行 (\r\n → \n)"/>
-            <outline text="全角/半角统一 (中文逗号, vs 英文逗号 ,)"/>
-            <outline text="Unicode 归一化 (NFKC, 处理同形异码)"/>
-            <outline text="工具: ftfy / unicodedata"/>
-            <outline text="反模式: 不格式化 → query "用户" 命中不了 chunk "用 户" (有空格的同形)"/>
-            <outline text="(3) 去重 (Deduplication)"/>
-            <outline text="文档级去重: SHA256 hash 完全相同丢弃 (e.g. 同 PDF 上传 2 次)"/>
-            <outline text="段落级近似去重: MinHash + LSH (Jaccard ≥ 0.85 视为重复)"/>
-            <outline text="跨文档段落去重: 法律条款 / 免责声明 在 100 个合同里重复, 只留 1 份"/>
-            <outline text="工具: datasketch (MinHash) / Apache Spark MinHashLSH"/>
-            <outline text="真实影响: 去重前 100 万文档实际唯一内容 60 万, 浪费 40% 存储 + 检索召回重复结果用户骂"/>
-            <outline text="(4) PII 检测与脱敏 (Privacy)"/>
-            <outline text="检测: 身份证 / 手机 / 邮箱 / 信用卡 / SSN / 银行账号 / 地址"/>
-            <outline text="工具: Microsoft Presidio (规则 + NER 双引擎) / spaCy NER + 自定义正则"/>
-            <outline text="中文 NER 需 fine-tune: 通用模型对中文身份证 / 中文手机识别率 50-70%, fine-tune 后 95%+"/>
-            <outline text="处理策略 3 选 1:">
-              <outline text="脱敏: 张三 → [PERSON001], 13800138000 → [PHONE001]"/>
-              <outline text="删除: 直接丢弃含 PII 的 chunk (合规严的场景)"/>
-              <outline text="标记不上索引: 入库但加 sensitivity=high, 检索时按用户权限过滤"/>
-            </outline>
-            <outline text="真实事故: §13.27 Microsoft Recall — 截屏未做 PII 脱敏直接落盘, 银行密码 / 私聊 / 信用卡裸奔"/>
-            <outline text="(5) 质量评分 + 过滤 (Quality Gating)"/>
-            <outline text="检测低质内容: 全是表情符号 / 乱码 / 测试文档 / 内容过短 (&lt;50 字) / 重复字符"/>
-            <outline text="评分方法 2 种:">
-              <outline text="启发式规则: text length / unique tokens ratio / language detection / 标点比例"/>
-              <outline text="LLM-as-judge: Haiku/Flash 调一次, 给 1-5 分 (3 维度: 信息密度 / 可读性 / 完整性), 阈值过滤"/>
-            </outline>
-            <outline text="成本: Haiku [0.001/文档, 100 万文档 ]1000"/>
-            <outline text="ROI: 过滤掉低质 5-15%, 召回率提升 10-20%"/>
-            <outline text="(6) 分类打标 + 版本管理 (Classification + Versioning)"/>
-            <outline text="topic / language / department / sensitivity 自动打标 (LLM 或 fine-tuned 分类器)"/>
-            <outline text="版本管理: 同 doc 多版本 (canonical_id + version), 新版进来旧版归档不删 (法规 / 审计需求)"/>
-            <outline text="时效性: 抓取 createdat / updatedat, 检索时支持 recency_decay (近期文档加权)"/>
-            <outline text="真实场景: §13.13 OpenAI v2→v3 embedding 集体迁移 — 必须有 canonical_id 才能双写过渡"/>
-          </outline>
-          <outline text="处理顺序 (有先后)">
-            <outline text="按依赖顺序: 去噪 → 格式化 → 去重 → PII → 质量 → 分类"/>
-            <outline text="先去噪格式化 (干净的文本才能正确做后续)"/>
-            <outline text="再去重 (避免对重复文档做后面的昂贵处理)"/>
-            <outline text="再 PII (去重后再脱敏, 减少 50%+ 调用量)"/>
-            <outline text="最后质量 + 分类 (只对值得保留的文档做)"/>
-          </outline>
-          <outline text="工程实现建议 (生产架构)">
-            <outline text="异步队列: Kafka / RabbitMQ + Celery worker, 不阻塞前端上传"/>
-            <outline text="失败重试 + DLQ (死信队列): 单文档处理失败不能堵塞全链"/>
-            <outline text="监控指标: dedupskipratio / piidetectedratio / qualitypassratio / dlq_size"/>
-            <outline text="详见 §4 L1 数据治理 完整流程"/>
-          </outline>
-          <outline text="跳过这步的真实代价 (3 个事故)">
-            <outline text="❌ 不去重: 100 万文档实际唯一 60 万 → 检索召回重复结果, 用户体验差"/>
-            <outline text="❌ 不做 PII: §13.27 Microsoft Recall 隐私事故, 全网骂上热搜"/>
-            <outline text="❌ 不质量过滤: 测试文档 / 乱码进 KB, 检索召回时 LLM 看到一堆"asdfasdf"无法回答"/>
-          </outline>
-          <outline text="关键决策">
-            <outline text="内部 KB (低敏感): 去噪 + 格式化 + 去重 + 质量过滤 (跳过严格 PII)"/>
-            <outline text="客户场景 (高敏感): 6 道全做 (PII 严格脱敏 + 双重 LLM-as-judge)"/>
-            <outline text="极致合规 (医疗/金融): 6 道全做 + 人工 review 5% 抽样"/>
-          </outline>
-          <outline text="常见误区">
-            <outline text="❌ "Parse 完就 Chunk" — 跳过数据处理 = Garbage In Garbage Out, 工业 RAG 必栽"/>
-            <outline text="❌ "数据处理是一次性的" — 每次入库都要做, 不是部署时跑一次"/>
-            <outline text="❌ "PII 脱敏放在检索时做" — 太晚, 必须入库前; 检索时做泄露已发生"/>
-            <outline text="✅ "异步队列 + 6 道治理 + DLQ + 监控告警, 详见 §4 L1 数据治理""/>
-          </outline>
-        </outline>
-        <outline text="步 4: 文档切块 (Chunking 分块)">
-          <outline text="是什么">
-            <outline text="长文档切成 256-1024 字小段"/>
-            <outline text="为什么: LLM 一次能看的字数有限 (8K-200K token) + 检索精度需要"/>
-          </outline>
-          <outline text="8 种主流策略 (按 NDCG 召回质量排)">
-            <outline text="固定窗口 (512 token, 步长 50 重叠): NDCG 0.55, 简单但会切碎语义"/>
-            <outline text="递归字符 (LangChain 默认): NDCG 0.62, 优先按段落 → 句子 → 词"/>
-            <outline text="句子窗口 (LlamaIndex): NDCG 0.68, 索引单句 + 检索时扩展前后 N 句"/>
-            <outline text="父子分块 (业界主流): NDCG 0.72, 索引 256 子块 + 检索后返 1024 父块"/>
-            <outline text="语义分块: NDCG 0.74, 用 embedding 检测语义边界"/>
-            <outline text="Late Chunking (Jina 2024.08): NDCG 0.82, 整文 token-by-token embed 后 mean-pooling"/>
-            <outline text="Contextual Retrieval (Anthropic 2024.09): NDCG 0.83, 每 chunk 加 LLM 生成 50-100 字 context"/>
-            <outline text="AST-aware (代码专用): tree-sitter 按函数 / 类切, 不切函数"/>
-          </outline>
-          <outline text="真实场景: DocuSign 法律合同">
-            <outline text="原状: 法律条款 "除非用户在 7 天内...否则..." 被切成两段"/>
-            <outline text="后果: 关键限定词丢失 → AI 答错 "可以无理由退" (实际有限定)"/>
-            <outline text="修复: 父子分块 (父 1024 含完整条款) + 表格保留 + Contextual Retrieval"/>
-          </outline>
-          <outline text="关键决策 (业务推荐)">
-            <outline text="通用场景 → 父子分块 (业界主流, 实现成熟)"/>
-            <outline text="跨文档 KB (内部 wiki / 知识库) → Contextual Retrieval (召回 +49%)"/>
-            <outline text="极致召回 (法律 / 医疗) → 父子 + Contextual + Late Chunking 组合"/>
-            <outline text="代码 RAG → AST-aware (Cursor / Cody 都用)"/>
-          </outline>
-          <outline text="常见误区">
-            <outline text="❌ "切碎就行 (chunk_size=128)" — 信息密度低, LLM 看不完整"/>
-            <outline text="❌ "切大保上下文 (chunk_size=2048)" — 检索精度低, embedding 平均化"/>
-            <outline text="✅ "512 token 是工业甜点, 父子分块解决精度+上下文矛盾""/>
-          </outline>
-        </outline>
-        <outline text="步 5: 向量编码 (Embedding 嵌入向量)">
-          <outline text="是什么">
-            <outline text="把每个 chunk 转成固定长度数字向量 (1024 个数, 或 768/2048/4096)"/>
-            <outline text="数字代表"语义指纹""/>
-            <outline text="类似含义文本的"指纹"在数学空间接近"/>
-          </outline>
-          <outline text="主流 Embedder 选型 (按 MTEB benchmark 排)">
-            <outline text="中文私有化首选: BGE-M3 (智源, MTEB 60+, 1024 维, 完全免费)"/>
-            <outline text="中文 SOTA: Qwen3-Embedding (阿里, MTEB 65, 1024-2048 维)"/>
-            <outline text="英文 SOTA: NV-Embed-v2 (英伟达, MTEB 72.3, 4096 维)"/>
-            <outline text="API 性价比: Voyage-3-large ($0.18/1M tokens, 中文也强)"/>
-            <outline text="API 国际首选: OpenAI text-embedding-3-large ($0.13/1M, 3072 维, Matryoshka)"/>
-            <outline text="极致便宜: Voyage-3-lite ($0.02/1M, 512 维)"/>
-          </outline>
-          <outline text="自托管真实成本 (BGE-M3)">
-            <outline text="模型大小 568M 参数, 单卡 A10 24GB 够"/>
-            <outline text="推理吞吐 batch=32 ~50ms = 640 doc/s"/>
-            <outline text="单 A10 月成本 ~$700"/>
-            <outline text="月吞吐 16.6 亿 doc → 平均 doc 成本几乎 0"/>
-          </outline>
-          <outline text="业务影响">
-            <outline text="选错 embedder 召回率掉 15-30%: Spotify 用 multilingual-MiniLM 中英不平衡 (英 75 / 中 60)"/>
-            <outline text="升级 embedder 必须双写过渡 (不能直接换, 会断)"/>
-            <outline text="维度选择: 1024 是甜点, 4096 内存翻 4× 但 NDCG 只 +1pt"/>
-          </outline>
-          <outline text="真实场景: Bloomberg 法律 fine-tune">
-            <outline text="通用 BGE-M3 法律领域 NDCG 35"/>
-            <outline text="收集 50K 律师查询 + 点击日志 fine-tune"/>
-            <outline text="上线后 NDCG 70+ (翻倍)"/>
-            <outline text="成本: [200 GPU + ]10K 数据标注 (律师时间)"/>
-            <outline text="ROI: 律师付费意愿 +30%"/>
-          </outline>
-          <outline text="常见误区">
-            <outline text="❌ "用 OpenAI ada-002" — 已过时 (2024.01 被 v3 替代)"/>
-            <outline text="❌ "维度越高越好" — 4096 vs 1024 召回 +1pt 但内存 4×"/>
-            <outline text="✅ "中文 BGE-M3 / Qwen3, 英文 OpenAI v3 / Voyage, 垂直领域 fine-tune""/>
-          </outline>
-        </outline>
-        <outline text="步 6: 入库 (Index 索引)">
-          <outline text="是什么">
-            <outline text="向量存进向量数据库 (Vector DB)"/>
-            <outline text="元数据 (作者 / 时间 / 权限 / 来源) 存关系数据库"/>
-          </outline>
-          <outline text="向量库选型 (按规模)">
-            <outline text="&lt; 1000 万向量 / 已有 Postgres: pgvector (业界主流, 免费, 跟元数据 JOIN)"/>
-            <outline text="中型 SaaS / 不想运维: Pinecone serverless ($70/月起, 0 运维)"/>
-            <outline text="大规模 (百亿+) / 国产合规: Milvus / Zilliz Cloud"/>
-            <outline text="Rust 性能 + 标量过滤强: Qdrant"/>
-            <outline text="嵌入式 / 多模态: LanceDB"/>
-            <outline text="极致性能 + Yahoo 级: Vespa"/>
-          </outline>
-          <outline text="索引算法 (HNSW 业界主流)">
-            <outline text="HNSW (Hierarchical Navigable Small World): 多层近邻图"/>
-            <outline text="关键参数:">
-              <outline text="M (邻居数): 16 默认 (高维 32, 低维 8)"/>
-              <outline text="efConstruction (建索引候选池): 200 默认 (质量 vs 时间权衡)"/>
-              <outline text="efSearch (查询候选池): 100 是工业甜点 (太高 CPU 100%)"/>
-            </outline>
-            <outline text="内存计算: 单向量 ≈ dim × 4 字节 + M × 8 字节 + overhead">
-              <outline text="1024 维 + M=16 ≈ 4.5KB / 向量"/>
-              <outline text="1 亿向量 ≈ 450GB RAM (必须分片或量化)"/>
+      <outline text="2.6.3 常见问题 (反模式)">
+        <outline text="❌ Day 1 上 LangGraph multi-agent — 跳阶段必栽"/>
+        <outline text="❌ 不限 max_steps — 真实事故 1 query 烧 $200 (§20.7)"/>
+        <outline text="❌ 工具池 &gt; 20 个 — LLM 选错率塌 30-50%"/>
+        <outline text="❌ Planner 用 Haiku — 规划质量塌, 步骤逻辑断裂"/>
+        <outline text="❌ 不上 LangSmith / Phoenix 追踪 — 多步出错根本看不到中间状态"/>
+      </outline>
+      <outline text="2.6.4 决策表 (何时该上 Agent)" _note="业务问 | 决策
+该不该上 Agent? | 单次 RAG 能解 → 不上 / 步骤可固定 → Workflow / 步骤需 LLM 决定 → Agent (§20.1.8 决策树)
+选 Plan-and-Execute 还是 ReAct? | 任务可预先分解 (退款诊断) → Plan-and-Execute / 不可预测 (Coding) → ReAct
+maxsteps 设多少? | 客服 8 / 通用 12 / Coding 50+
+maxcost 设多少? | 客服 [1 / Coding ]5 / 科研 $50
+要不要 Multi-Agent? | 90% 业务单 Agent 够 / 内容生成 (Researcher + Writer + Critic) → AutoGen / CrewAI"/>
+    </outline>
+    <outline text="2.7 5 流程串联关系 — 整体决策路径图">
+      <outline text="2.7.1 离线 vs 在线">
+        <outline text="离线 (一次性): 流程 1 (Ingestion) — 跑 1 次, 后续每次 query 都用同一份 KB"/>
+        <outline text="在线 (每次 query): 流程 4 Router → 流程 2 检索 → (流程 5 Agent 可选) → 流程 3 生成"/>
+      </outline>
+      <outline text="2.7.2 完整在线决策流 (一图看完)">
+        <outline text="用户 query 进">
+          <outline text="→ 流程 4 Router 判路径">
+            <outline text="简单 80% → 流程 2 检索 → 流程 3 生成 → 答案 (1.2s, $0.008)"/>
+            <outline text="中等 15% → 流程 2 增强检索 (HyDE) → 流程 3 生成 → 答案 (2-3s, $0.02)"/>
+            <outline text="复杂 5% → 流程 5 Agent">
+              <outline text="Planner 规划 N 步"/>
+              <outline text="循环: 调流程 2 检索 + 工具 → 看结果 → 决定下一步 (max 8-12 步)"/>
+              <outline text="流程 3 综合答案"/>
+              <outline text="Validator 校验 → 通过返用户 / 不通过拒答"/>
             </outline>
           </outline>
-          <outline text="业务影响 (HNSW 调错真实事故)">
-            <outline text="时间: 2024.06, 国内 TOP10 电商"/>
-            <outline text="场景: 4 亿商品向量, 256GB RAM"/>
-            <outline text="现象: 上线 2 周 QPS 50→800 P95 200ms → 3000ms"/>
-            <outline text="排查 3 天: 发现 efSearch=500 (上线时调高想保召回)"/>
-            <outline text="efSearch 500 → 每查询遍历 500 候选 → CPU 100%"/>
-            <outline text="修复: efSearch 100 → P95 250ms, 召回率仅降 0.5%"/>
-          </outline>
-          <outline text="元数据 Schema 必备字段">
-            <outline text="docid / chunkid / parent_id (父子分块)"/>
-            <outline text="source / sourceurl / author / createdat / updated_at"/>
-            <outline text="ACL: tenantid / owner / readers (groupids)"/>
-            <outline text="sensitivity (public / internal / confidential / restricted)"/>
-            <outline text="expires_at (法规 / 政策类)"/>
-            <outline text="canonical_id + version (版本管理)"/>
-            <outline text="topic / language / pii_tags"/>
-          </outline>
+          <outline text="全程 Cost Controller 监控, 超预算硬熔断"/>
         </outline>
       </outline>
-      <outline text="2.2.4 真实账本 (100 万文档完整 Ingest)" _note="步骤 | 工具 | 时间 | 成本
-上传 / 同步 | Connector + Webhook | 持续 | 服务器月 $500
-解析 (LlamaParse 普通) | LlamaParse API | 2-5 小时 | [3K (一次性, 平均 50 页/文档 × ]0.003)
-切块 (父子分块) | 自研 + tiktoken | 30 分钟 | &lt; $10 (CPU)
-Embedding (BGE-M3 自托管) | TEI on A10 GPU | 1-2 小时 | &lt; $50 (GPU 时间)
-入库 (pgvector HNSW) | Postgres | 30 分钟 | $0
-Contextual Retrieval (可选) | Claude Haiku | 1-2 小时 | $50-100 (一次性)
-总耗时 |  | 5-10 小时 | ~$3.2K (一次性)
-增量同步 (5K 新文档/天) | 同上 | 30 分钟 | $20/天
-
-⚠️ 注: 上表省略了"步 3 数据处理"成本. 真实生产 100 万文档完整 Ingest 数据处理 (去噪 + 去重 + PII + 质量评分 + 分类) 额外占 3-5 小时 + ~[1.5K (Haiku 质量评分 100 万 × ]0.001 ≈ [1K + 分类打标 ]300 + CPU $200), 占总成本 35-40%. 跳过会导致召回塌 + 合规风险, 详见 §2.2.3 步 3 + §4 L1 数据治理."/>
-      <outline text="2.2.5 失败模式 + 防御">
-        <outline text="失败 1: 大文件 OOM">
-          <outline text="真实事故: 客户上传 5GB PDF, RAG 服务 OOM Killer 杀进程"/>
-          <outline text="修复: 流式解析 (page-by-page) + 异步队列 + 单 chunk &lt; 1MB"/>
-        </outline>
-        <outline text="失败 2: 解析数字错">
-          <outline text="真实事故: Bloomberg PDF 表格数字 [12.5M vs ]125M 错 10×"/>
-          <outline text="修复: 升级 LlamaParse + 表格保留为整 chunk"/>
-        </outline>
-        <outline text="失败 3: ACL 没同步">
-          <outline text="真实事故: Notion 早期跨 workspace 越权"/>
-          <outline text="修复: 源系统 ACL → 内部 acl 字段映射 + Webhook 实时同步"/>
-        </outline>
-        <outline text="失败 4: 重复文档污染">
-          <outline text="真实数据: Confluence 5 万文档实测 35% 重复"/>
-          <outline text="修复: SHA256 + MinHash + Embedding cosine 三层去重"/>
-        </outline>
+      <outline text="2.7.3 5 流程的成本 / 延迟 / 复杂度对照" _note="流程 | 离线/在线 | 单次成本 | 单次延迟 | 实施复杂度
+1. Ingestion | 离线 (一次性) | $4-5K (100 万文档) | 8-15 小时 | 中 (含 6 道数据治理)
+2. Retrieval | 在线 (每 query) | $0.001-0.005 | 30-200ms | 低 (Hybrid 是工业标准)
+3. Generation | 在线 (每 query) | $0.005-0.5 | 1-30s | 低 (LLM API 调用)
+4. Router | 在线 (每 query) | $0.0001-0.001 | 5-50ms | 中 (三层混合)
+5. Agent | 在线 (复杂 query) | $0.05-1 | 5-30s | 高 (循环 + Memory + Validator)"/>
+      <outline text="2.7.4 何时只跑流程 1-3 (不上 4/5)">
+        <outline text="PoC 阶段 (验证可行性)"/>
+        <outline text="业务场景固定单一 (e.g. FAQ 客服)"/>
+        <outline text="用户量 / 文档量 / query 多样性都小"/>
       </outline>
-      <outline text="2.2.6 业务监控指标 (KB Health)">
-        <outline text="入库速度: 文档/小时 (目标 &gt; 500)"/>
-        <outline text="失败率: 失败 / 总数 (目标 &lt; 1%)"/>
-        <outline text="重复率: duplicate_ratio (目标 &lt; 10%)"/>
-        <outline text="过期率: stale_ratio 6 月未更新 (目标 &lt; 30%)"/>
-        <outline text="覆盖率: coverage_gap 用户 query 命中率 (目标 &lt; 20%)"/>
+      <outline text="2.7.5 何时必加 Router (流程 4)">
+        <outline text="多类型 query 共存 (FAQ + 复杂诊断混用)"/>
+        <outline text="上 Agent 后 (Router 是 80/15/5 分流前提)"/>
+        <outline text="高 QPS (Router 决定哪些走便宜路径省成本)"/>
       </outline>
-    </outline>
-    <outline text="2.3 流程 2: 用户提问与检索 (Retrieve 检索) — 完整深度详解">
-      <outline text="2.3.1 业务目标 (一句话)">
-        <outline text="用户问完问题, 系统毫秒级从海量 chunk 中找出最相关的 5-20 个"/>
-        <outline text="决定 RAG 答案质量上限 (找不到对的, LLM 能力再强也无济于事)"/>
-        <outline text="100% query 必经环节"/>
-      </outline>
-      <outline text="2.3.2 业务背景与价值">
-        <outline text="核心矛盾: 1000 万 chunk 中找最相关的 5 个, 不能全部读 LLM (token 装不下 + 成本爆)"/>
-        <outline text="真实数字: 召回质量提升 10pt → 用户满意度 NPS +15-25pt"/>
-        <outline text="失败代价: 召回不到关键 chunk → AI 答非所问 → 用户体验极差, NPS 下降"/>
-        <outline text="业界共识: 70% 项目失败在 Retrieve, 不是 Generate"/>
-      </outline>
-      <outline text="2.3.3 5 步完整流程详解">
-        <outline text="步 1: 接收用户问题 + 预处理 (Query + Preprocessing)">
-          <outline text="是什么">
-            <outline text="用户在 chat 输入框打字 / 语音输入"/>
-            <outline text="系统对原始 query 做预处理"/>
-          </outline>
-          <outline text="预处理细节 (业界容易忽视的)">
-            <outline text="语言检测 (langdetect / fastText): 决定走哪个 embedder"/>
-            <outline text="拼写纠错 (可选): 用户打错 "k8s" → 纠正为 "Kubernetes""/>
-            <outline text="敏感词过滤: 拒绝越狱 prompt (Llama Guard)"/>
-            <outline text="意图分类: 判断是 FAQ / 编号 / 数据分析 / Agent 路径"/>
-          </outline>
-          <outline text="真实场景 (用户输入难题)">
-            <outline text="用户打字 emoji / 表情包: "退款😡" → 需 strip"/>
-            <outline text="中英混排: "k8s 的 deployment 怎么写" → BGE-M3 原生支持"/>
-            <outline text="语音转写错: "我想退买的衣服" → 模型理解需鲁棒"/>
-            <outline text="越狱注入: "ignore previous instructions" → Guardrail 拦"/>
-          </outline>
-          <outline text="业务影响">
-            <outline text="Stack Overflow 早期 RAG: 用户搜 TypeError 报错, 没预处理 → 召回水文"/>
-            <outline text="修复: 加 BM25 兜底 + 错误码精确匹配"/>
-          </outline>
-        </outline>
-        <outline text="步 2: 编码查询 (Query Embedding) + 查询改写">
-          <outline text="编码查询 (Query Embedding)">
-            <outline text="用同一个 embedder (跟入库时一致, 否则向量不可比较)"/>
-            <outline text="把 query 转成 1024 维向量 (BGE-M3 标准)"/>
-            <outline text="性能: 单 query ~5-20ms (TEI 自托管) / 50-100ms (API)"/>
-          </outline>
-          <outline text="关键认知 (面试加分)">
-            <outline text="query 和 doc 用同一编码器 (Bi-Encoder), 否则向量空间不一致"/>
-            <outline text="短 query (5 字) vs 长 doc (500 字) 向量空间有 gap → 用 HyDE 解决"/>
-            <outline text="升级 embedder (e.g. v2 → v3) 必须双写过渡, 不能直接换"/>
-          </outline>
-          <outline text="Query Transformation (查询改写) 4 种 — 决定召回上限"/>
-          <outline text="HyDE (假设性文档嵌入, Gao 2022)">
-            <outline text="思想: 短 query 难匹配长 doc, 让 LLM 先生成"假设答案文档"再用它去检索"/>
-            <outline text="流程: query → LLM Haiku 生成 hypothesis → embed hypothesis → 检索"/>
-            <outline text="关键洞察: LLM 不需要答对 (hypothesis 允许包含幻觉内容), 只需语义相关"/>
-            <outline text="成本: 1 次 LLM 调用 ($0.0001/Haiku) + 500ms-2s"/>
-            <outline text="收益: 召回 +10%"/>
-            <outline text="何时用: 短 query (&lt; 10 词) / 抽象 query / 长尾 query"/>
-          </outline>
-          <outline text="Multi-Query (多查询分解, LangChain)">
-            <outline text="思想: 一个 query 表达单一, LLM 生成多个相似变体"/>
-            <outline text="流程: query → LLM 生成 3-5 变体 → 并行检索 → RRF 融合"/>
-            <outline text="例: 原"刘慈欣对 AI 的看法?" → 变体 ["刘慈欣 AI 观点", "三体作者 AI 立场", "刘慈欣 科技伦理"]"/>
-            <outline text="成本: 3-5 次 LLM 调用"/>
-            <outline text="收益: 召回 +15-20%"/>
-            <outline text="何时用: 复杂查询 / 用户表达多样"/>
-          </outline>
-          <outline text="Step-Back Prompting (退步提示, Google 2023)">
-            <outline text="思想: 先抽象出更高层概念问题, 答完再代入具体"/>
-            <outline text="例: 原"理想气体温度2倍体积8倍压力变?" → 退步"PV=nRT 是什么?" → 代入算"/>
-            <outline text="适合: 细节繁多 / 需要先建立通用知识基础"/>
-          </outline>
-          <outline text="Decomposition (问题分解)">
-            <outline text="思想: 多跳问题拆成线性子查询"/>
-            <outline text="例: "Apple CEO 母校在哪个州?" → ["Apple CEO 是谁?", "Tim Cook 母校?", "Auburn 在哪个州?"]"/>
-            <outline text="适合: 多跳推理"/>
-            <outline text="收益: 多跳准确率 +40%"/>
-          </outline>
-        </outline>
-        <outline text="步 3: 双路并行检索 (Hybrid Search 混合检索)">
-          <outline text="是什么 — 业界标配">
-            <outline text="同时跑 2-3 个检索通道, 互相补短"/>
-            <outline text="业界共识: 单一通道全栽, 必须 Hybrid"/>
-          </outline>
-          <outline text="通道 A: Dense Retrieval (稠密向量检索, 语义)">
-            <outline text="####### 怎么实现"/>
-            <outline text="用 HNSW 索引在向量库找 top-K 最近邻"/>
-            <outline text="工具: pgvector / Milvus / Pinecone / Qdrant"/>
-            <outline text="####### HNSW 算法原理 (面试常考)"/>
-            <outline text="多层近邻图 (Hierarchical Navigable Small World)"/>
-            <outline text="上层稀疏 (远跳, 类似高速公路), 下层密集 (精搜, 类似乡道)"/>
-            <outline text="查询: 从顶层贪心走到 layer 0, 用 ef_search=100 候选池精搜"/>
-            <outline text="####### 关键参数"/>
-            <outline text="M=16 (邻居数, 默认), efConstruction=200 (建索引), efSearch=100 (查询)"/>
-            <outline text="ef_search 调错的真实事故: 电商 P95 200ms → 3000ms (efSearch=500 致 CPU 100%)"/>
-            <outline text="####### 优势 / 劣势"/>
-            <outline text="✅ 语义匹配 ("汽车" ↔ "轿车")"/>
-            <outline text="❌ 专有名词召不到 (iPhone 15 Pro Max 编成"高端手机")"/>
-            <outline text="❌ SKU / 错误码 / 数字 / 错别字栽"/>
-          </outline>
-          <outline text="通道 B: Sparse Retrieval (稀疏检索, 关键词)">
-            <outline text="####### BM25 (业界传统标杆)"/>
-            <outline text="公式: score = Σ IDF(qi) × (TF(qi,d) × (k1+1)) / (TF(qi,d) + k1 × (1 - b + b × |d|/avgdl))"/>
-            <outline text="参数: k1=1.2 (TF 饱和速度), b=0.75 (长度归一化强度)"/>
-            <outline text="实现: Elasticsearch / Postgres tsvector + jieba 中文分词 / Pyserini"/>
-            <outline text="####### SPLADE (SParse Lexical AnD Expansion, Naver 2021)"/>
-            <outline text="思想: 用 BERT 学稀疏向量, 含同义词扩展 ("退款" → "退货 / 返金")"/>
-            <outline text="比 BM25 +15-20% NDCG (BEIR)"/>
-            <outline text="推理慢 (BERT) 但召回质量高"/>
-            <outline text="####### 优势 / 劣势"/>
-            <outline text="✅ 专有名词 / 编号 / 数字精确"/>
-            <outline text="⚠️ 错别字: 标准 BM25 不容忍 ("退欵"≠"退款", score=0), 需加 N-gram / 模糊匹配扩展才可救"/>
-            <outline text="❌ 不理解语义 ("汽车" vs "轿车" 算不同词)"/>
-          </outline>
-          <outline text="通道 C: Keyword 精确 (倒排索引, 可选)">
-            <outline text="适合: SKU / 错误码 / IP / UUID 强结构化标识"/>
-            <outline text="实现: PG GIN index / ES keyword field / Trigram"/>
-          </outline>
-          <outline text="三通道并行执行 (asyncio.gather)">
-            <outline text="总延迟 = max(三路) 而非 sum"/>
-            <outline text="性能 1.5-3× 加速"/>
-            <outline text="Python 实现: dense, sparse, keyword = await asyncio.gather(...)"/>
-          </outline>
-          <outline text="真实事故: Stack Overflow 早期纯 Dense">
-            <outline text="用户搜 "TypeError: 'NoneType' object is not subscriptable""/>
-            <outline text="纯向量检索召回一堆 "Python 报错原因" 水文"/>
-            <outline text="真正 SO 答案排在 50 名外"/>
-            <outline text="修复: 加 BM25 兜底 → 召回 +25%"/>
-          </outline>
-        </outline>
-        <outline text="步 4: 融合排序 (RRF Fusion 倒数排名融合)">
-          <outline text="是什么">
-            <outline text="把多通道结果合并去重 + 重新排序"/>
-            <outline text="业界标配: RRF (Reciprocal Rank Fusion, Cormack 2009)"/>
-          </outline>
-          <outline text="RRF 公式">
-            <outline text="scoreRRF(d) = Σ{retrievers r} 1 / (k + rank_r(d))"/>
-            <outline text="k 是平滑常数, 防止排名 1 的得分过高"/>
-            <outline text="k=60 业界默认 (Cormack 论文实验得出)"/>
-          </outline>
-          <outline text="k 的影响">
-            <outline text="k 太小 (&lt; 10): top 1 主导, 退化为单一检索器最强者"/>
-            <outline text="k 太大 (&gt; 200): 所有 chunk 几乎平权, 失去排序意义"/>
-            <outline text="k=60 是甜点, 不需要调"/>
-          </outline>
-          <outline text="Python 实现 (10 行)"/>
-          <outline text="vs 其他融合 (RRF 为什么赢)">
-            <outline text="Linear Combination (α × dense + β × bm25): 各通道分数 scale 不同, 难调"/>
-            <outline text="Borda Count: 类似 RRF 但简单"/>
-            <outline text="Learning to Rank (LTR, XGBoost): 适合大规模 + 有点击数据 (Glean 用)"/>
-            <outline text="RRF: 简单 + 鲁棒 + 不需调参 → 业界首选"/>
-          </outline>
-          <outline text="业务收益">
-            <outline text="召回率 +15-30% (vs 单通道)"/>
-            <outline text="Spotify 加 Hybrid 后多语言场景 +12%"/>
-          </outline>
-        </outline>
-        <outline text="步 5: 精排 (Reranker 重排序)">
-          <outline text="是什么">
-            <outline text="把 RRF 融合后的 top-20 候选用更精的模型再排序, 取 top-5"/>
-            <outline text="类比: Bi-Encoder (海选) + Cross-Encoder (复试)"/>
-          </outline>
-          <outline text="Cross-Encoder 原理">
-            <outline text="query + doc 拼一起送 BERT: "[CLS] query [SEP] doc [SEP]""/>
-            <outline text="全 attention 让 query token 与 doc token 完全交互"/>
-            <outline text="输出 0-1 相关分数"/>
-            <outline text="比 Bi-Encoder 精度高 +4 NDCG (MS MARCO)"/>
-            <outline text="但慢 (N 次推理, 50 候选 ~150ms)"/>
-          </outline>
-          <outline text="主流 Reranker 选型 (按 NDCG 提升排)">
-            <outline text="BGE-Reranker-v2-M3 (智源, 中英 SOTA): 568M, GPU 150ms, +12% NDCG vs BM25 (BEIR), 自托管免费, 中文最佳"/>
-            <outline text="Cohere Rerank 3.5 (商业 SOTA): API 50-100ms, +20%, $2/1M tokens, 英文 SaaS 首选"/>
-            <outline text="Voyage rerank-2: API 80ms, +13% NDCG vs BM25, $0.05/1M (40× 便宜于 Cohere), 性价比之王"/>
-            <outline text="mxbai-rerank-large-v1: 435M, 100ms, +10% vs BM25, 自托管平价 (英文短 doc)"/>
-            <outline text="ColBERT-v2: 110M, 100ms, +17%, token-level 后期交互"/>
-            <outline text="ms-marco-MiniLM-L-12-v2 (经典): 33M, 50ms, +12%, 入门首选"/>
-            <outline text="RankGPT / RankLLM (LLM-based): 1-3s, +20%, $0.05/query, 法律/医疗高价值"/>
-          </outline>
-          <outline text="Reranker Cascade (级联重排, 大规模生产)">
-            <outline text="L0 召回 1000 (Hybrid + RRF)"/>
-            <outline text="L1 BM25 粗排: 1000 → 200 ($0.0001/query)"/>
-            <outline text="L2 ColBERT 中排: 200 → 50 ($0.02, 快, token-level maxsim)"/>
-            <outline text="L3 Cross-Encoder 精排: 50 → 10 ($0.05, 全 attention, 最准但慢)"/>
-            <outline text="L4 LLM Verifier: 10 → 3 ($0.03)"/>
-            <outline text="总成本 $0.13/query (顶级精度)"/>
-            <outline text="Glean 推断架构"/>
-          </outline>
-          <outline text="业务收益">
-            <outline text="NDCG +15-20% (top-3 准确率从 60% → 75%)"/>
-            <outline text="投资回报极高 (单次成本 $0.001-0.05, 召回质量大幅提升)"/>
-          </outline>
-        </outline>
-      </outline>
-      <outline text="2.3.4 进阶: Lost in the Middle 修正 (业界容易忽视)">
-        <outline text="现象 (Liu 2023, Stanford)">
-          <outline text="LLM 对 prompt 中间 chunk 关注度低 (U 型曲线)"/>
-          <outline text="实测: 答案在第 1 位 75% 准确率, 第 5 位 (中间) 50%, 末尾 70%"/>
-        </outline>
-        <outline text="LongContextReorder 解法">
-          <outline text="把 top-1 → 头, top-2 → 尾, top-3 → 第 2 位... 交替"/>
-          <outline text="LangChain / LlamaIndex 一行代码集成"/>
-          <outline text="配 Cross-Encoder 准确率 +15-25%"/>
-        </outline>
-        <outline text="真实案例 (法律 SaaS, 2024.09)">
-          <outline text="离线 RAGAS context_precision 92% 但用户实测正确率 65%"/>
-          <outline text="排查发现关键 chunk 排名 5-15 (中间洼地)"/>
-          <outline text="实施 LongContextReorder: 65% → 88%"/>
-        </outline>
-      </outline>
-      <outline text="2.3.5 业务理解关键 — 召回率 vs 查准率">
-        <outline text="召回率 (Recall 查全率)">
-          <outline text="该找到的资料找回多少 (找到 80% → 召回率 0.8)"/>
-          <outline text="影响: 召回率低 → 答案不全 → 用户不满"/>
-          <outline text="健康范围: &gt; 80%"/>
-        </outline>
-        <outline text="查准率 (Precision 查准率)">
-          <outline text="找回的有多少真相关"/>
-          <outline text="影响: 查准率低 → LLM 被噪声淹没 → 幻觉风险"/>
-          <outline text="健康范围: &gt; 80%"/>
-        </outline>
-        <outline text="平衡 (top-K 选择)">
-          <outline text="top-K 大 → 召回高但噪声多 (Precision 低)"/>
-          <outline text="top-K 小 → 召回低但精准 (Recall 低)"/>
-          <outline text="工业甜点: Hybrid 各路 top-50 → RRF 融合 top-20 → Reranker top-5 给 LLM"/>
-        </outline>
-      </outline>
-      <outline text="2.3.6 完整 Read Path 端到端性能账本" _note="步骤 | 工具 | 延迟 | 成本/query
-Query Embedding | BGE-M3 (TEI) | 5-20ms | $0
-HyDE (可选, 默认开) | Claude Haiku | 500ms-1s | $0.0001
-Hybrid Search 并行 | pgvector + tsvector | 50ms (并行) | $0
-RRF Fusion | 自研 (10 行 Python) | 5ms | $0
-Reranker (BGE-v2-M3) | TEI on GPU | 100-150ms | $0
-LongContextReorder | 自研 | 5ms | $0
-拒答检查 | Faithfulness LLM | 500ms (异步) | $0.0001
-总延迟 |  | ~1.2s | $0.0002 + 缓存命中后接近 0"/>
-      <outline text="2.3.7 失败模式 + 防御">
-        <outline text="失败 1: 单一通道全栽 (Stack Overflow 案)">
-          <outline text="现象: 专有名词 / 错误码召不到"/>
-          <outline text="防: 必须 Hybrid (Dense + Sparse + RRF)"/>
-        </outline>
-        <outline text="失败 2: HNSW efSearch 调错">
-          <outline text="现象: P95 飙升 10×"/>
-          <outline text="防: efSearch 100 是工业甜点, 别调高"/>
-        </outline>
-        <outline text="失败 3: 召回率高但答案错 (Lost in the Middle)">
-          <outline text="现象: context_precision 92% 但答错率 35%"/>
-          <outline text="防: LongContextReorder + Reranker"/>
-        </outline>
-        <outline text="失败 4: 长尾 query 拒答率高">
-          <outline text="现象: 80% 命中热门 20% 长尾差"/>
-          <outline text="防: HyDE + Multi-Query + Web fallback"/>
-        </outline>
-        <outline text="失败 5: 跨租户数据泄露">
-          <outline text="现象: 用户 A 看到 workspace Y 内容"/>
-          <outline text="防: SQL 行级过滤 + 三层 ACL 防御"/>
-        </outline>
-      </outline>
-      <outline text="2.3.8 业务监控指标">
-        <outline text="Recall@K (召回率): 目标 &gt; 0.85"/>
-        <outline text="NDCG@K (排序质量): 目标 &gt; 0.75"/>
-        <outline text="拒答率: 目标 10-30% (太低幻觉, 太高用户骂)"/>
-        <outline text="P95 延迟: 目标 &lt; 2s"/>
-        <outline text="Cache 命中率: 目标 &gt; 60%"/>
-      </outline>
-    </outline>
-    <outline text="2.4 流程 3: LLM 生成答案 (Generate 生成) — 完整深度详解">
-      <outline text="2.4.1 业务目标 (一句话)">
-        <outline text="把检索到的 5-10 个 chunk + 用户问题给 LLM, 生成自然语言答案"/>
-        <outline text="最后一公里: 决定用户最终看到的体验"/>
-      </outline>
-      <outline text="2.4.2 业务背景与价值">
-        <outline text="核心矛盾: LLM 强大但贵 + 慢, 必须流式 + 路由分流 + 成本控制"/>
-        <outline text="失败代价: 答案幻觉 → 法律风险 (Air Canada 案 2024.02 法庭判赔)"/>
-        <outline text="业务价值: 答案质量决定用户满意度, NPS +5pt = 续约率 +10%"/>
-      </outline>
-      <outline text="2.4.3 5 步完整流程详解">
-        <outline text="步 1: 拼上下文 (Context Building 上下文组装)">
-          <outline text="是什么">
-            <outline text="把 5-10 个 chunk + 用户问题 + 系统提示词拼成完整 prompt"/>
-            <outline text="用 LLM 能理解的格式 (Messages with role)"/>
-          </outline>
-          <outline text="标准模板"/>
-          <outline text="Token Budget 控制 (重要)">
-            <outline text="LLM context window 限制 (8K-200K token)"/>
-            <outline text="预算分配 (16K context):">
-              <outline text="System prompt: 1K"/>
-              <outline text="Context (chunks): 8K"/>
-              <outline text="Session history: 2K"/>
-              <outline text="User preference: 0.5K"/>
-              <outline text="Business memory: 2K"/>
-              <outline text="Current query: 1K"/>
-              <outline text="留 1.5K 给 LLM 输出"/>
-            </outline>
-          </outline>
-          <outline text="LongContextReorder 集成 (Lost in the Middle 修正)">
-            <outline text="把 top-1 → 头, top-2 → 尾, top-3 → 第 2 位 交替"/>
-            <outline text="见 §2.3.4"/>
-          </outline>
-          <outline text="Skill 系统提示词注入">
-            <outline text="Per-team / Per-skill 自定义 system prompt"/>
-            <outline text="模板变量替换 (e.g. {{ user_name }}, {{ company }})"/>
-          </outline>
-          <outline text="业务影响 (拼错的代价)">
-            <outline text="chunks 顺序错 → Lost in the Middle, 准确率掉 25%"/>
-            <outline text="缺 system prompt → LLM 乱答"/>
-            <outline text="token 超限 → API 报错或截断"/>
-          </outline>
-        </outline>
-        <outline text="步 2: 调 LLM (Inference 推理)">
-          <outline text="是什么">
-            <outline text="把 messages 送 LLM, 等待生成"/>
-          </outline>
-          <outline text="LLM 选型 (按场景)">
-            <outline text="####### 高质量场景 (法律 / 医疗 / 复杂推理)"/>
-            <outline text="Claude Sonnet 4.5 (国际): 综合质量顶级, [3/]15 per 1M"/>
-            <outline text="GPT-4o (国际): 综合稳定, [2.5/]10 per 1M"/>
-            <outline text="Qwen3-235B / DeepSeek-V3 (中文): 国产 SOTA, $1-2/1M"/>
-            <outline text="成本: $0.005-0.05/query"/>
-            <outline text="####### 性价比场景 (FAQ / 客服 80% 流量)"/>
-            <outline text="Claude Haiku 4.5 (国际): [0.25/]1.25 per 1M"/>
-            <outline text="GPT-4o-mini: [0.15/]0.6"/>
-            <outline text="Gemini Flash: [0.075/]0.3"/>
-            <outline text="DeepSeek-V3: [1/]2 (中文性价比)"/>
-            <outline text="成本: $0.0001-0.001/query"/>
-            <outline text="####### 私有化场景 (合规要求)"/>
-            <outline text="Qwen3-72B (vLLM 自托管): 8 × A100 月 $20K"/>
-            <outline text="DeepSeek-V3 (vLLM): 类似"/>
-            <outline text="Llama 4 Scout (109B MoE, 17B 激活): 类似"/>
-            <outline text="平摊成本: $0.0005-0.005/query (取决于 QPS)"/>
-          </outline>
-          <outline text="推理引擎 (自托管时关键)">
-            <outline text="vLLM (业界主流): PagedAttention + Continuous Batching, 比 HF Transformers 2-24× 吞吐 (典型 2-4×)"/>
-            <outline text="SGLang (后起之秀): RadixAttention 前缀 cache, 比 vLLM 快 2-5× (前缀重复多场景)"/>
-            <outline text="TensorRT-LLM (NVIDIA 极致): FP8/INT4 量化, 比 vLLM 再快 1.5-2×"/>
-            <outline text="llama.cpp / Ollama: CPU + Mac 边缘场景"/>
-          </outline>
-          <outline text="业务影响 (模型选错的代价)">
-            <outline text="全 Sonnet: 月成本 $300K (1000 QPS)"/>
-            <outline text="80% Haiku + 20% Sonnet (路由): 月 $60K (省 80%)"/>
-            <outline text="全 Haiku: 月 $30K 但 NPS 掉 10pt (复杂答不好)"/>
-          </outline>
-        </outline>
-        <outline text="步 3: 流式输出 (Streaming SSE 流式响应)">
-          <outline text="是什么">
-            <outline text="边生成边返回给用户 (不让用户干等)"/>
-            <outline text="用 SSE (Server-Sent Events) 协议"/>
-          </outline>
-          <outline text="工作原理">
-            <outline text="HTTP Content-Type: text/event-stream"/>
-            <outline text="每生成一个 token 立即 flush 给客户端"/>
-            <outline text="客户端 EventSource 监听累积渲染"/>
-          </outline>
-          <outline text="关键性能指标">
-            <outline text="TTFT (First Token Latency 首字延迟): 关键! 目标 &lt; 1s"/>
-            <outline text="后续 token 速度: 30-100 token/s (vLLM 自托管 / Sonnet API)"/>
-            <outline text="总响应时间 (含输出): 5-10s"/>
-          </outline>
-          <outline text="业务影响">
-            <outline text="不流式: 用户看 5-10s 转圈圈 → 感觉系统卡死 → 流失"/>
-            <outline text="流式: 1s 看到第一个字 → 持续阅读 → 好体验"/>
-            <outline text="实测: 流式 vs 非流式 用户满意度 +20pt"/>
-          </outline>
-        </outline>
-        <outline text="步 4: 引用校验 (Citation Validation 引用验证)">
-          <outline text="是什么">
-            <outline text="检查 LLM 输出中的 [N] 引用是否真实"/>
-            <outline text="防止"引用幻觉""/>
-          </outline>
-          <outline text="Perplexity 真实事故">
-            <outline text="时间: 2023.06"/>
-            <outline text="现象: 答案有 [3] 引用, 但 source list 只有 2 条"/>
-            <outline text="修复: post-hoc 引用校验 + LLM 重写 + Pydantic 强制 schema"/>
-          </outline>
-          <outline text="校验 3 步">
-            <outline text="步 1: 后处理 parse 答案, 提取所有 [N]"/>
-            <outline text="步 2: 检查 N 是否真在 source list (引用编号存在)"/>
-            <outline text="步 3: 检查 chunk N 内容是否真支撑该断言 (内容支撑)"/>
-          </outline>
-          <outline text="句子级 Citation (Anthropic Claude 原生)">
-            <outline text="LLM 输出 + 元数据: {"sentence": "...", "chunks": [3, 7]}"/>
-            <outline text="评估指标: Citation Recall (引对的 chunk) + Citation Precision (没引错)"/>
-          </outline>
-        </outline>
-        <outline text="步 5: 拒答检查 (Refusal Check 拒答机制)">
-          <outline text="是什么">
-            <outline text="信心不够 → 转人工或拒答 ("没找到相关信息")"/>
-            <outline text="防止"宁可错也答"导致的法律 / 品牌灾难"/>
-          </outline>
-          <outline text="Air Canada 真实事故 (2024.02)">
-            <outline text="chatbot 编 "丧亲机票 90 天内可退" (实际无此政策)"/>
-            <outline text="用户买票申请退款被拒 → 起诉"/>
-            <outline text="BC 省小额法庭判航司必须按 chatbot 答复退款 + 赔精神损失"/>
-            <outline text="行业地震: 所有面客 AI 必须强 Refusal"/>
-          </outline>
-          <outline text="拒答触发条件 (任一即拒)">
-            <outline text="候选数不足 (&lt; 3): "没找到相关文档""/>
-            <outline text="最高 score 太低 (&lt; 0.5): "信心不足""/>
-            <outline text="Faithfulness &lt; 0.85: "答案不可靠""/>
-            <outline text="候选互相矛盾: "信息冲突, 转人工""/>
-            <outline text="触发拒答关键词 (法律 / 医疗 / 投诉): 强制转人工"/>
-          </outline>
-          <outline text="Faithfulness 评分 (LLM-as-judge)">
-            <outline text="Prompt: "Answer: {answer} Context: {chunks} Is answer fully supported by context? Output 0-1 score.""/>
-            <outline text="阈值 0.85 (业界共识)"/>
-            <outline text="用 Haiku 便宜 ($0.0001/query)"/>
-            <outline text="增加延迟 500ms-1s (可异步)"/>
-          </outline>
-        </outline>
-      </outline>
-      <outline text="2.4.4 业务认知 — 答案质量公式">
-        <outline text="答案质量 = Retrieve × Generate × Validator"/>
-        <outline text="任何一边差 → 整体差"/>
-        <outline text="70% 项目失败在 Retrieve, 不是 Generate"/>
-        <outline text="但 30% 失败在 Generate 也常见 (LLM 幻觉 / 拒答策略错)"/>
-      </outline>
-      <outline text="2.4.5 业务监控指标">
-        <outline text="TTFT: 目标 &lt; 1s"/>
-        <outline text="总响应: &lt; 10s"/>
-        <outline text="单次成本: $0.001-0.05"/>
-        <outline text="拒答率: 10-30%"/>
-        <outline text="Faithfulness: &gt; 0.85"/>
-        <outline text="Citation 准确率: &gt; 90%"/>
-      </outline>
-    </outline>
-    <outline text="2.5 流程 4: 智能分流 (Modular Router 模块化路由) — 完整深度详解">
-      <outline text="2.5.1 业务目标 (一句话)">
-        <outline text="不是所有问题都该走同一条路, Router 在入口决策走哪条路径"/>
-        <outline text="100% query 必经环节, 是 Modular RAG 灵魂"/>
-      </outline>
-      <outline text="2.5.2 业务背景">
-        <outline text="核心矛盾: 简单问题 (FAQ) 和复杂问题 (跨系统诊断) 用同一处理 = 浪费 / 失败"/>
-        <outline text="业界共识: 80/15/5 分流后平均成本砍一半 + 简单 query 响应快 + 复杂能力强"/>
-        <outline text="数据来源: Glean / Notion / Microsoft Copilot 内部 traces"/>
-      </outline>
-      <outline text="2.5.3 4 类问题 4 路径完整详解">
-        <outline text="注: §0.3 的 80/15/5 是按"RAG 复杂度"分的 3 档 (普通/增强/Agent), 本节的 4 路径是按"业务类型"分的 4 档 (FAQ/编号/SQL/Agent)"/>
-        <outline text="两套分类并存不矛盾: 80% FAQ 中大部分走普通 RAG, 少部分走增强 (HyDE); 5% 编号走 BM25 精确匹配 (属普通 RAG 子类); 10% SQL 走 Text2SQL (属增强 RAG 子类); 5% Agent 两套一致"/>
-        <outline text="总之: §0.3 按 RAG 技术复杂度分档, §2.5 按业务场景分档, 是两个维度的划分"/>
-        <outline text="路径 A: FAQ / 概念查询 (普通 RAG, 80% 流量)">
-          <outline text="识别特征">
-            <outline text="关键词: "如何 / 怎么 / 什么是 / 介绍""/>
-            <outline text="长度 &lt; 50 字"/>
-            <outline text="无编号 / SKU / 时间限定"/>
-          </outline>
-          <outline text="例子">
-            <outline text=""退款政策是什么?""/>
-            <outline text=""公司有几款产品?""/>
-            <outline text=""如何申请年假?""/>
-          </outline>
-          <outline text="处理路径">
-            <outline text="HyDE 生成 hypothesis (1 LLM 调用)"/>
-            <outline text="Hybrid Search (Dense + Sparse + RRF)"/>
-            <outline text="Reranker 重排 (BGE-Reranker-v2-M3)"/>
-            <outline text="LongContextReorder"/>
-            <outline text="Generation (Haiku/Flash 便宜 LLM)"/>
-          </outline>
-          <outline text="性能数字">
-            <outline text="成本: $0.001/次"/>
-            <outline text="延迟: 1-2s"/>
-            <outline text="占流量: 80%"/>
-          </outline>
-        </outline>
-        <outline text="路径 B: 编号查询 (BM25 + API, 5% 流量)">
-          <outline text="识别特征">
-            <outline text="含订单号 / SKU / 错误码 / IP / UUID 强结构化标识"/>
-            <outline text="正则匹配: \d{10,15} (订单) / RF\d+ (错误码) / E[A-Z]\d+"/>
-          </outline>
-          <outline text="例子">
-            <outline text=""订单 ABC123 在哪?""/>
-            <outline text=""错误码 RF102 啥意思?""/>
-            <outline text=""IP 192.168.1.1 是谁的?""/>
-          </outline>
-          <outline text="处理路径">
-            <outline text="BM25 (精确匹配) → 错误码 / SKU KB"/>
-            <outline text="或 Function Calling (调订单服务 API)"/>
-            <outline text="Generation (小模型短答)"/>
-          </outline>
-          <outline text="性能数字">
-            <outline text="成本: $0.0001/次"/>
-            <outline text="延迟: &lt; 1s (业务系统快)"/>
-            <outline text="占流量: 5%"/>
-          </outline>
-        </outline>
-        <outline text="路径 C: 数据分析 (Text2SQL, 10% 流量)">
-          <outline text="识别特征">
-            <outline text="含时间 + 聚合关键词"/>
-            <outline text=""上月销售 / Q3 利润 / top 10 / 平均 / 同比""/>
-          </outline>
-          <outline text="例子">
-            <outline text=""上月销售 top 10 商品?""/>
-            <outline text=""Q3 用户增长率?""/>
-            <outline text=""去年和今年同期对比?""/>
-          </outline>
-          <outline text="处理路径">
-            <outline text="检索 Schema 知识 (DDL + Q-SQL + Description, RAGFlow 架构)"/>
-            <outline text="LLM 生成 SQL (Sonnet temp=0)"/>
-            <outline text="安全检查 (强制 LIMIT, 禁 DELETE)"/>
-            <outline text="执行 (只读账号)"/>
-            <outline text="失败 → Reflection (LLM 反思错误) → 重试 (max 3 次)"/>
-            <outline text="LLM 解读结果 → 自然语言答案 + 可视化建议"/>
-          </outline>
-          <outline text="性能数字">
-            <outline text="成本: $0.005/次 (Schema 检索 + SQL 生成)"/>
-            <outline text="延迟: 2-3s"/>
-            <outline text="占流量: 10%"/>
-          </outline>
-          <outline text="真实业界">
-            <outline text="Snowflake Cortex Analyst (2024 GA)"/>
-            <outline text="Databricks Genie / Genie Spaces"/>
-            <outline text="Vanna AI (开源 6K star)"/>
-          </outline>
-        </outline>
-        <outline text="路径 D: 跨系统诊断 (Agent + Tool Calling, 5% 流量)">
-          <outline text="识别特征">
-            <outline text="复杂多原因 / 多步推理"/>
-            <outline text=""为什么 / 诊断 / 分析根因""/>
-            <outline text="需要跨多个业务系统"/>
-          </outline>
-          <outline text="例子">
-            <outline text=""为什么订单 12345 退款失败?""/>
-            <outline text=""客户 X 为什么投诉?""/>
-            <outline text=""服务 A 为什么 latency 飙升?""/>
-          </outline>
-          <outline text="处理路径">
-            <outline text="LangGraph Plan-and-Execute"/>
-            <outline text="Tool Calling 多步 (调订单 / 支付 / 风控 / 客服 / 物流 API)"/>
-            <outline text="Memory 三层 (Session / User / Business)"/>
-            <outline text="LLM 综合答 + Validator 校验"/>
-          </outline>
-          <outline text="性能数字">
-            <outline text="成本: $0.05-0.5/次 (5-10 步 LLM 调用 + 工具调用)"/>
-            <outline text="延迟: 5-30s"/>
-            <outline text="占流量: 5%"/>
-          </outline>
-          <outline text="真实业界">
-            <outline text="Klarna AI 客服 (95% 自动 + 5% Agent 共同替代 700 人, 年省 $40M)"/>
-            <outline text="Cursor / Devin / Claude Code (Agentic 代码)"/>
-          </outline>
-        </outline>
-      </outline>
-      <outline text="2.5.4 Router 实现 (三层混合, 业界标配)">
-        <outline text="Layer 1: 规则路由 (60-70% 覆盖, 0ms 0 cost)">
-          <outline text="正则 + 关键词"/>
-          <outline text="例: 含订单号 → 路径 B, 含 "如何/什么" → 路径 A"/>
-        </outline>
-        <outline text="Layer 2: 语义路由 (20-30% 覆盖, 10ms 0 cost)">
-          <outline text="为每路由写描述并 embed"/>
-          <outline text="查询时 cos sim 选最近邻路由"/>
-        </outline>
-        <outline text="Layer 3: LLM 兜底 (10-20% 覆盖, 500ms $0.0001)">
-          <outline text="LLM (Haiku) 分类输出 JSON"/>
-        </outline>
-        <outline text="三层综合">
-          <outline text="平均延迟: ~52ms (主要被 LLM 兜底拖累)"/>
-          <outline text="平均 cost: $0.00001/query (几乎零)"/>
-        </outline>
-      </outline>
-      <outline text="2.5.5 业务收益 (80/15/5 分流)">
-        <outline text="平均成本砍一半 (vs 全走 Agent)"/>
-        <outline text="简单问题响应快 (用户不等)"/>
-        <outline text="复杂问题能力强 (复杂场景不漏)"/>
-        <outline text="反向诊断: 跑 1 周 traces 看实际分布, 不是 80/15/5 → Router 没做好"/>
-      </outline>
-      <outline text="2.5.6 真实事故: 没分流 → 全 Agent 成本爆炸">
-        <outline text="某 SaaS 全用 Agent: 月 $80K"/>
-        <outline text="加 Router 80/15/5 后: 月 $25K (省 70%)"/>
-      </outline>
-    </outline>
-    <outline text="2.6 流程 5: Agent 多步推理 (复杂场景 5%) — 完整深度详解">
-      <outline text="2.6.1 业务目标 (一句话)">
-        <outline text="一次检索答不了的复杂问题, Agent 自主多步执行 (找一步 → 想一步 → 再找一步)"/>
-        <outline text="替代低价值重复人力工作"/>
-      </outline>
-      <outline text="2.6.2 业务背景">
-        <outline text="核心场景: 跨系统业务诊断 (订单 + 支付 + 风控 + 客服 + 物流)"/>
-        <outline text="真实案例: Klarna AI 客服 95% 自动 + 5% Agent 共同替代 700 人 / 年省 $40M"/>
-        <outline text="代价: 慢 (5-30s) + 贵 ($0.05-0.5) + 死循环风险"/>
-      </outline>
-      <outline text="2.6.3 真实案例完整剖析: 退款失败诊断">
-        <outline text="用户问">
-          <outline text=""为什么订单 12345 退款失败?""/>
-        </outline>
-        <outline text="Agent 5 步执行 (Plan-and-Execute)">
-          <outline text="Step 0: Planner 规划">
-            <outline text="LLM (Sonnet 高质量) 分析问题, 输出 plan"/>
-            <outline text="5 步: ["查订单状态", "查支付错误码", "查重试日志", "查风控记录", "综合答"]"/>
-          </outline>
-          <outline text="Step 1: 调订单服务">
-            <outline text="toolcall: getorderstatus(orderid="12345")"/>
-            <outline text="真实 API: GET /api/orders/12345"/>
-            <outline text="返回: {status: "refundfailed", errorcode: "RF102", refund_amount: 100, attempts: 2}"/>
-            <outline text="耗时: 100ms (业务 API)"/>
-          </outline>
-          <outline text="Step 2: 调支付通道查错误码">
-            <outline text="toolcall: lookuperror_code(code="RF102")"/>
-            <outline text="真实 API: GET /api/payment/errors/RF102"/>
-            <outline text="返回: {description: "原支付卡已失效", category: "cardinvalid", suggestedaction: "usenewcard"}"/>
-            <outline text="耗时: 50ms"/>
-          </outline>
-          <outline text="Step 3: 查重试日志">
-            <outline text="toolcall: getretrylog(orderid="12345")"/>
-            <outline text="真实 API: GET /api/logs/retries?order_id=12345"/>
-            <outline text="返回: [{ts: "2024-04-25 10:00", status: "failed"}, {ts: "2024-04-25 11:00", status: "failed"}]"/>
-            <outline text="耗时: 200ms (日志服务慢)"/>
-          </outline>
-          <outline text="Step 4: 查风控记录">
-            <outline text="toolcall: getrisklog(orderid="12345")"/>
-            <outline text="真实 API: GET /api/risk/logs?order_id=12345"/>
-            <outline text="返回: {risk_level: "low", blocked: false, score: 0.15}"/>
-            <outline text="耗时: 100ms"/>
-          </outline>
-          <outline text="Step 5: LLM 综合 (Sonnet)">
-            <outline text="输入: query + 4 个 tool_results"/>
-            <outline text="输出: "订单 12345 退款失败. 原因: 原支付卡已失效 (错误码 RF102), 系统已自动重试 2 次. 风控未拦截. 建议: 联系用户更换收款方式.""/>
-            <outline text="耗时: 2-3s (LLM 推理 + 流式)"/>
-          </outline>
-        </outline>
-        <outline text="总耗时: ~3-5s"/>
-        <outline text="总成本: ~$0.1 (5 次 LLM 调用 + 4 次 tool 调用)"/>
-      </outline>
-      <outline text="2.6.4 业务收益 (Klarna 真实数字)">
-        <outline text="替代 1 客服 5 分钟工作 (人力成本 $5+)"/>
-        <outline text="答案准确 + 可执行 (业务系统实时数据, 不是猜测)"/>
-        <outline text="用户体验远超传统客服 (即时 + 详细 + 可信)"/>
-        <outline text="ROI: [5 替代 ]0.1 = 50× 投资回报"/>
-      </outline>
-      <outline text="2.6.5 业务代价 + 防御 (5 道防线)">
-        <outline text="代价 1: 慢 (5-30s)">
-          <outline text="vs 普通 RAG 1-2s, 慢 5-10×"/>
-          <outline text="防: timeout 8s 强制返回, 流式让用户看到进展"/>
-        </outline>
-        <outline text="代价 2: 贵 ($0.05-0.5/次)">
-          <outline text="8 步 = 8× 成本"/>
-          <outline text="防: budget cap per query ($1 上限), 超过强制停"/>
-        </outline>
-        <outline text="代价 3: 死循环 (真实事故 1 小时烧 $5000)">
-          <outline text="LLM 反复调同一 tool"/>
-          <outline text="防: 同 tool 重复 3 次熔断 + max_steps = 8"/>
-        </outline>
-        <outline text="代价 4: 调错工具">
-          <outline text="LLM 选错或参数错"/>
-          <outline text="防: 工具描述清晰 + Few-shot 示例 + 工具数量控制 &lt; 10"/>
-        </outline>
-        <outline text="代价 5: 难调试 (8 步里哪步错?)">
-          <outline text="防: Phoenix / Langfuse 全链路追踪 + 每步可见 + Bad case 闭环"/>
-        </outline>
-      </outline>
-      <outline text="2.6.6 实施 Roadmap (Phase 化)">
-        <outline text="Phase 1 (2 月): Modular RAG 上线, 80% query 跑通"/>
-        <outline text="Phase 2 (1 月): 加 Tool Calling, 单步业务系统集成"/>
-        <outline text="Phase 3 (1 月): 加 Plan-and-Execute, 5% 复杂走 Agent"/>
-        <outline text="Phase 4 (持续): Memory + Multi-Agent + Self-Reflection 优化"/>
-      </outline>
-    </outline>
-    <outline text="2.7 业务必备 5 大 KPI">
-      <outline text="2.7.1 召回率 (Recall)">
-        <outline text="健康: &gt; 80%"/>
-        <outline text="影响: 低 → 用户不满"/>
-      </outline>
-      <outline text="2.7.2 拒答率 (Refusal Rate)">
-        <outline text="健康: 10-30%"/>
-        <outline text="影响: 突涨 → 检索退化"/>
-      </outline>
-      <outline text="2.7.3 单次成本 (Cost per Query)">
-        <outline text="健康: $0.001-0.05"/>
-        <outline text="影响: 失控 → 业务亏损"/>
-      </outline>
-      <outline text="2.7.4 响应延迟 (Latency)">
-        <outline text="健康: 首字 &lt; 3s, 总 &lt; 10s"/>
-        <outline text="影响: 慢 → 用户流失"/>
-      </outline>
-      <outline text="2.7.5 用户满意度 (NPS / CSAT)">
-        <outline text="健康: NPS &gt; 60"/>
-        <outline text="影响: 终极指标"/>
-      </outline>
-      <outline text="2.7.6 5 KPI 因果">
-        <outline text="召回 ↑ → 拒答 ↓ → NPS ↑"/>
-        <outline text="重排 ↑ → 召回 ↑ → 但延迟 ↑ + 成本 ↑"/>
-        <outline text="缓存 ↑ → 成本 ↓ + 但要防数据不新"/>
-      </outline>
-    </outline>
-    <outline text="2.8 业务视角选型决策">
-      <outline text="2.8.1 我需要 RAG 吗">
-        <outline text="大量私有文档要 AI 问答? → 需要"/>
-        <outline text="实时数据 / 业务系统集成? → 需要"/>
-        <outline text="数据小 + 不变? → 不需要"/>
-      </outline>
-      <outline text="2.8.2 自建 vs 买">
-        <outline text="&lt; 5 人 + 通用: Buy (Glean / OpenAI Assistants)"/>
-        <outline text="&gt; 20 人 + 定制: Build"/>
-        <outline text="高合规: Build (私有化)"/>
-      </outline>
-      <outline text="2.8.3 私有化 vs 云">
-        <outline text="政府 / 金融 / 医疗: 私有化"/>
-        <outline text="SaaS B2B: 云"/>
-        <outline text="跨国: 混合云"/>
-      </outline>
-      <outline text="2.8.4 中国 vs 海外">
-        <outline text="国内业务 / 备案: 国产 (Qwen3 / DeepSeek / GLM)"/>
-        <outline text="国际: 海外 (Claude / GPT / Gemini)"/>
-        <outline text="性价比: DeepSeek-V3"/>
-      </outline>
-      <outline text="2.8.5 投入多少">
-        <outline text="POC: 5 人 × 2 月 (~$50K)"/>
-        <outline text="MVP: 10 人 × 6 月 (~$300K)"/>
-        <outline text="生产化: 15 人 × 12 月 (~$1M)"/>
-      </outline>
-    </outline>
-    <outline text="2.9 一页总结 (给老板看)">
-      <outline text="2.9.1 RAG 是什么">
-        <outline text="AI 答问题前先去公司知识库找资料"/>
-      </outline>
-      <outline text="2.9.2 业务价值">
-        <outline text="省钱: Klarna 替代 700 人, 省 $40M/年"/>
-        <outline text="提效: Glean 查资料 30 分钟 → 30 秒"/>
-        <outline text="合规: 答案可溯源"/>
-        <outline text="安全: 数据可私有化"/>
-      </outline>
-      <outline text="2.9.3 关键风险">
-        <outline text="数据脏乱: 70% 项目栽这里"/>
-        <outline text="召回不准: 用户体验差"/>
-        <outline text="拒答不严: 法律风险 (Air Canada)"/>
-        <outline text="成本失控: 死循环 / 缓存失效"/>
-      </outline>
-      <outline text="2.9.4 推荐启动">
-        <outline text="Phase 1 (1 月): OpenAI Assistants / Glean PoC"/>
-        <outline text="Phase 2 (3 月): 选 1 个高 ROI 场景做 MVP"/>
-        <outline text="Phase 3 (6 月): 上线生产 + 持续优化"/>
-        <outline text="---"/>
+      <outline text="2.7.6 何时必加 Agent (流程 5)">
+        <outline text="跨 3+ 数据源诊断 (退款失败 = 订单+支付+风控+物流)"/>
+        <outline text="任务无法预先固定 (Coding / 探索性研究)"/>
+        <outline text="需要执行操作 (创建工单 / 修代码 / 提 PR)"/>
+        <outline text="详见 §20.1.8 适用 / 不适用 5%/95% 边界"/>
       </outline>
     </outline>
   </outline>
