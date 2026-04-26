@@ -736,16 +736,16 @@ h3:hover::before, h4:hover::before {
 <figure class="mermaid-figure">
 <pre class="mermaid">graph LR
     Doc["📄 原始文档<br/>PDF/Word/网页/API"] --> Parse["Parser 解析<br/>结构化文本+元数据"]
-    Parse --> <span class="pron">Chunk<span class="ipa">/tʃʌŋk/</span><button class="speak-btn" onclick="speak('Chunk')" title="点击朗读 Chunk">🔊</button></span>["Chunking 分块<br/>200-1024 字/块<br/>分配 chunk_id"]
-    <span class="pron">Chunk<span class="ipa">/tʃʌŋk/</span><button class="speak-btn" onclick="speak('Chunk')" title="点击朗读 Chunk">🔊</button></span> --> Split{分流三路并行}
+    Parse --> Chunk["Chunking 分块<br/>200-1024 字/块<br/>分配 chunk_id"]
+    Chunk --> Split{分流三路并行}
 
     Split -->|chunk text| Embed["Embedder 向量化<br/>BGE-M3 / OpenAI text-3<br/>→ 1024 维向量"]
-    Embed --> VDB[("🔵 向量库<br/>pgvector / <span class="pron">Pinecone<span class="ipa">/ˈpaɪnkoʊn/</span><button class="speak-btn" onclick="speak('Pinecone')" title="点击朗读 Pinecone">🔊</button></span><br/>chunk_id + vector<br/><span class="pron">HNSW<span class="ipa">/eɪtʃ ɛn ɛs ˈdʌbəljuː/</span><button class="speak-btn" onclick="speak('HNSW')" title="点击朗读 HNSW">🔊</button></span> 索引")]
+    Embed --> VDB[("🔵 向量库<br/>pgvector / Pinecone<br/>chunk_id + vector<br/>HNSW 索引")]
 
-    Split -->|chunk text| <span class="pron">Token<span class="ipa">/ˈtoʊkən/</span><button class="speak-btn" onclick="speak('Token')" title="点击朗读 Token">🔊</button></span>["分词 + 倒排表<br/>jieba / nltk<br/>+ IDF + len + avgdl"]
-    <span class="pron">Token<span class="ipa">/ˈtoʊkən/</span><button class="speak-btn" onclick="speak('Token')" title="点击朗读 Token">🔊</button></span> --> IDX[("🟠 倒排索引库<br/>Elasticsearch / tsvector<br/>term → chunk_id 倒排表<br/>GIN 索引")]
+    Split -->|chunk text| Token["分词 + 倒排表<br/>jieba / nltk<br/>+ IDF + len + avgdl"]
+    Token --> IDX[("🟠 倒排索引库<br/>Elasticsearch / tsvector<br/>term → chunk_id 倒排表<br/>GIN 索引")]
 
-    Split -->|原文+chunk_id| DocDB[("🟢 文档库<br/>Postgres / <span class="pron">Redis<span class="ipa">/ˈrɛdɪs/</span><button class="speak-btn" onclick="speak('Redis')" title="点击朗读 Redis">🔊</button></span><br/>chunk_id + text + metadata<br/>B-tree 索引")]
+    Split -->|原文+chunk_id| DocDB[("🟢 文档库<br/>Postgres / Redis<br/>chunk_id + text + metadata<br/>B-tree 索引")]
 
     VDB -.->|chunk_id 连接键| DocDB
     IDX -.->|chunk_id 连接键| DocDB
@@ -796,7 +796,7 @@ h3:hover::before, h4:hover::before {
 <li>为什么异步: 大文件解析可能要数分钟, 不能阻塞用户上传操作</li>
 <li>为什么队列: 削峰填谷 + 失败可重试 + 进度可追踪</li>
 <li>典型技术栈:</li>
-<li>队列: Kafka (大厂) / RabbitMQ (中小) / Redis Stream (极简)</li>
+<li>队列: Kafka (大厂) / RabbitMQ (中小) / <span class="pron">Redis<span class="ipa">/ˈrɛdɪs/</span><button class="speak-btn" onclick="speak('Redis')" title="点击朗读 Redis">🔊</button></span> Stream (极简)</li>
 <li>Worker: Celery (Python) / 自研消费者</li>
 <li><span class="pron">Parser<span class="ipa">/ˈpɑːrsər/</span><button class="speak-btn" onclick="speak('Parser')" title="点击朗读 Parser">🔊</button></span>: LlamaParse API 或 Unstructured 自托管</li>
 <li>PII: Presidio (微软开源, 50+ 语种) + 自训中文 NER</li>
@@ -855,9 +855,9 @@ h3:hover::before, h4:hover::before {
 <li>但 SKU/编号/代码需要字面精确匹配 → 这就是第二层 "倒排索引库" 存在的原因</li>
 <li>倒排索引 (BM25) 本质是个 "关键词 → 文档列表" 的映射表, 和向量库完全不同的数据结构</li>
 <li>问题 3 — 为什么不把三层合成一层:</li>
-<li>有些向量库 (Pinecone / <span class="pron">Weaviate<span class="ipa">/ˈwiːviˌeɪt/</span><button class="speak-btn" onclick="speak('Weaviate')" title="点击朗读 Weaviate">🔊</button></span> / <span class="pron">Qdrant<span class="ipa">/ˈkwɒdrænt/</span><button class="speak-btn" onclick="speak('Qdrant')" title="点击朗读 Qdrant">🔊</button></span>) 确实支持"向量 + 原文 + BM25"一体化</li>
+<li>有些向量库 (<span class="pron">Pinecone<span class="ipa">/ˈpaɪnkoʊn/</span><button class="speak-btn" onclick="speak('Pinecone')" title="点击朗读 Pinecone">🔊</button></span> / <span class="pron">Weaviate<span class="ipa">/ˈwiːviˌeɪt/</span><button class="speak-btn" onclick="speak('Weaviate')" title="点击朗读 Weaviate">🔊</button></span> / <span class="pron">Qdrant<span class="ipa">/ˈkwɒdrænt/</span><button class="speak-btn" onclick="speak('Qdrant')" title="点击朗读 Qdrant">🔊</button></span>) 确实支持"向量 + 原文 + BM25"一体化</li>
 <li>这是<strong>逻辑上的三层, 物理上可以是一层或两层</strong></li>
-<li>但即使一体化, 内部还是三个独立的数据结构 (HNSW 图 / 倒排表 / 文档表), 只是包装在一个服务里</li>
+<li>但即使一体化, 内部还是三个独立的数据结构 (<span class="pron">HNSW<span class="ipa">/eɪtʃ ɛn ɛs ˈdʌbəljuː/</span><button class="speak-btn" onclick="speak('HNSW')" title="点击朗读 HNSW">🔊</button></span> 图 / 倒排表 / 文档表), 只是包装在一个服务里</li>
 <li>所以"三存储"是<strong>逻辑架构</strong>, 不一定是三个独立进程. pgvector 一个 Postgres 实例就能承担全部三层</li>
 <li>三层各自的职责 (不可替代):</li>
 <li>层 A — 向量库: <strong>语义检索</strong> (找意思相近的, 用 HNSW 索引)</li>
@@ -886,7 +886,7 @@ h3:hover::before, h4:hover::before {
 <h4 id="015">0.1.5 完整数据流 — 在线检索与生成阶段 (每次查询都执行)</h4>
 <figure class="mermaid-figure">
 <pre class="mermaid">graph TB
-    Q["👤 用户 query<br/>'RF12345 退款流程'"] --> Pre{<span class="pron">Query<span class="ipa">/ˈkwɪri/</span><button class="speak-btn" onclick="speak('Query')" title="点击朗读 Query">🔊</button></span> 双路预处理}
+    Q["👤 用户 query<br/>'RF12345 退款流程'"] --> Pre{Query 双路预处理}
 
     Pre -->|路径 A| QE["Query Embedding<br/>⭐ 同一个 Embedder<br/>→ 1024 维向量"]
     Pre -->|路径 B| QT["Query 分词<br/>⭐ 同一个 tokenizer<br/>→ ['RF12345', '退款', '流程']"]
@@ -900,8 +900,8 @@ h3:hover::before, h4:hover::before {
     RRF --> Rerank["🎯 Reranker 精排 (可选)<br/>BGE-Reranker-v2-M3<br/>Cross-Encoder<br/>→ top-5 chunk_id"]
     Rerank --> Lookup["🔎 回查文档库<br/>SELECT text WHERE chunk_id IN ..."]
     Lookup --> Texts["📄 top-5 原文片段 (text)"]
-    Texts --> <span class="pron">Prompt<span class="ipa">/prɑːmpt/</span><button class="speak-btn" onclick="speak('Prompt')" title="点击朗读 Prompt">🔊</button></span>["Prompt 拼接<br/>system + 原文 + query"]
-    <span class="pron">Prompt<span class="ipa">/prɑːmpt/</span><button class="speak-btn" onclick="speak('Prompt')" title="点击朗读 Prompt">🔊</button></span> --> LLM["🤖 LLM 推理<br/>⭐ 喂的是原文 text<br/>向量和 score 是检索中间产物"]
+    Texts --> Prompt["Prompt 拼接<br/>system + 原文 + query"]
+    Prompt --> LLM["🤖 LLM 推理<br/>⭐ 喂的是原文 text<br/>向量和 score 是检索中间产物"]
     LLM --> Ans["✅ 答案 + 引用<br/>用 chunk_id 反查 URL"]
 
     style Q fill:#3B82F6,color:#fff
@@ -913,7 +913,7 @@ h3:hover::before, h4:hover::before {
     style Rerank fill:#EF4444,color:#fff
     style LLM fill:#3B82F6,color:#fff
     style Ans fill:#10B981,color:#fff</pre>
-<figcaption class="mermaid-caption">🔍 在线 Hybrid 检索 + 生成 9 步. ⭐ 易忽略: (1) <span class="pron">Query<span class="ipa">/ˈkwɪri/</span><button class="speak-btn" onclick="speak('Query')" title="点击朗读 Query">🔊</button></span> 双路预处理 (Embedder + <span class="pron">Tokenizer<span class="ipa">/ˈtoʊkənaɪzər/</span><button class="speak-btn" onclick="speak('Tokenizer')" title="点击朗读 Tokenizer">🔊</button></span> 必须用入库时同一套) (2) 双路并行 (asyncio.gather, 总延迟 = max 不是 sum) (3) RRF 融合 (用 rank 不用 score, 兼容两路) (4) 喂给 LLM 的是原文 (text), 向量和 score 只是检索中间产物 (5) Query 和 Doc 必须用同一套 Embedder + <span class="pron">Tokenizer<span class="ipa">/ˈtoʊkənaɪzər/</span><button class="speak-btn" onclick="speak('Tokenizer')" title="点击朗读 Tokenizer">🔊</button></span>.</figcaption>
+<figcaption class="mermaid-caption">🔍 在线 Hybrid 检索 + 生成 9 步. ⭐ 易忽略: (1) <span class="pron">Query<span class="ipa">/ˈkwɪri/</span><button class="speak-btn" onclick="speak('Query')" title="点击朗读 Query">🔊</button></span> 双路预处理 (Embedder + <span class="pron">Tokenizer<span class="ipa">/ˈtoʊkənaɪzər/</span><button class="speak-btn" onclick="speak('Tokenizer')" title="点击朗读 Tokenizer">🔊</button></span> 必须用入库时同一套) (2) 双路并行 (asyncio.gather, 总延迟 = max 不是 sum) (3) RRF 融合 (用 rank 不用 score, 兼容两路) (4) 喂给 LLM 的是原文 (text), 向量和 score 只是检索中间产物 (5) <span class="pron">Query<span class="ipa">/ˈkwɪri/</span><button class="speak-btn" onclick="speak('Query')" title="点击朗读 Query">🔊</button></span> 和 Doc 必须用同一套 Embedder + <span class="pron">Tokenizer<span class="ipa">/ˈtoʊkənaɪzər/</span><button class="speak-btn" onclick="speak('Tokenizer')" title="点击朗读 Tokenizer">🔊</button></span>.</figcaption>
 </figure>
 <ul>
 <li>步 1: 用户 query 输入 (str)</li>
@@ -948,7 +948,7 @@ h3:hover::before, h4:hover::before {
 <li>用 top-5 chunk_id 去文档库取原文</li>
 <li>SELECT text, metadata, source_url FROM docs WHERE chunk_id IN (...)</li>
 <li>输出: top-5 原文片段 (str list)</li>
-<li>步 7: Prompt 拼接</li>
+<li>步 7: <span class="pron">Prompt<span class="ipa">/prɑːmpt/</span><button class="speak-btn" onclick="speak('Prompt')" title="点击朗读 Prompt">🔊</button></span> 拼接</li>
 <li>system_prompt + "参考资料:\n" + chunks 原文 + "\n问题: " + query</li>
 <li>步 8: LLM 推理 ⭐ 关键</li>
 <li>输入给 LLM 的是<strong>原文 token (text)</strong>, 不是向量, 不是 chunk_id, 不是 BM25 score</li>
@@ -1040,7 +1040,7 @@ h3:hover::before, h4:hover::before {
 <li>RRF 融合 → top-20</li>
 <li>Reranker (Cross-Encoder) 精排 → top-5</li>
 <li>回查 Doc Store → top-5 原文 text</li>
-<li>Prompt 拼接 (原文 text + query) → LLM → 答案 + 引用</li>
+<li><span class="pron">Prompt<span class="ipa">/prɑːmpt/</span><button class="speak-btn" onclick="speak('Prompt')" title="点击朗读 Prompt">🔊</button></span> 拼接 (原文 text + query) → LLM → 答案 + 引用</li>
 <li>三存储职责分工:</li>
 <li>向量库: 只做"找语义相似的 chunk_id" (Dense 召回)</li>
 <li>倒排索引库: 只做"找字面匹配的 chunk_id" (Sparse 召回, BM25 兜底)</li>
@@ -1164,7 +1164,7 @@ h3:hover::before, h4:hover::before {
         Q["👤 用户 query"]
         L4["Layer 4: Query Routing<br/>查询路由 100% 必经入口"]
         L3["Layer 3: Retrieval & Rerank<br/>检索+重排 100% 都用"]
-        L5["Layer 5: Agent <span class="pron">Orchestration<span class="ipa">/ˌɔːrkɪˈstreɪʃən/</span><button class="speak-btn" onclick="speak('Orchestration')" title="点击朗读 Orchestration">🔊</button></span><br/>智能体调度 仅 5% 走"]
+        L5["Layer 5: Agent Orchestration<br/>智能体调度 仅 5% 走"]
         Gen["Generation Layer<br/>LLM + Validator 100% 必到"]
         Q --> L4
         L4 -->|80% 普通| L3
@@ -1311,7 +1311,7 @@ h3:hover::before, h4:hover::before {
 <li><span class="pron">Ingestion<span class="ipa">/ɪnˈdʒɛstʃən/</span><button class="speak-btn" onclick="speak('Ingestion')" title="点击朗读 Ingestion">🔊</button></span> (文档摄取) — 把 PDF/Word/网页等异构源拉到 RAG 系统的过程</li>
 <li>Parser (解析器) — 把 PDF/Word 解析成结构化文本+元数据, e.g. LlamaParse / Unstructured / Marker</li>
 <li>Chunking (文档分块) — 把长文档切成 200-1024 字的片段, 切法影响召回 (8 种策略, 见 §5.2)</li>
-<li>Chunk (文档片段) — 切完的最小检索单元, 每个分配唯一 chunk_id</li>
+<li><span class="pron">Chunk<span class="ipa">/tʃʌŋk/</span><button class="speak-btn" onclick="speak('Chunk')" title="点击朗读 Chunk">🔊</button></span> (文档片段) — 切完的最小检索单元, 每个分配唯一 chunk_id</li>
 <li><span class="pron">Deduplication<span class="ipa">/diːˌdjuːplɪˈkeɪʃən/</span><button class="speak-btn" onclick="speak('Deduplication')" title="点击朗读 Deduplication">🔊</button></span> (去重) — 用 MinHash + LSH 找近似重复文档, 阈值 Jaccard ≥ 0.85</li>
 <li>MinHash (最小哈希) — 用 k 个哈希函数取最小值生成 k 维签名, 签名相同概率 ≈ Jaccard 相似度</li>
 <li>LSH (Locality-Sensitive Hashing, 局部敏感哈希) — 把相似向量映射到同一桶, 候选少, 速度快</li>
@@ -1399,7 +1399,7 @@ h3:hover::before, h4:hover::before {
 <li>FlashAttention (Dao 2022) — 把 attention 计算 tiling 到 SRAM 减少 HBM 读写, 训练/推理都用</li>
 <li>RadixAttention (SGLang) — 用 Radix Tree 共享公共 prefix 的 KV cache, 多轮对话 / Agent 提速</li>
 <li><span class="pron">Streaming<span class="ipa">/ˈstriːmɪŋ/</span><button class="speak-btn" onclick="speak('Streaming')" title="点击朗读 Streaming">🔊</button></span> (流式) — LLM 逐 token 返回, 不等全部生成完, 体感快</li>
-<li>Token (令牌) — LLM 的最小处理单位, 中文 1 字 ≈ 1.5-2 token, 英文 1 词 ≈ 1.3 token</li>
+<li><span class="pron">Token<span class="ipa">/ˈtoʊkən/</span><button class="speak-btn" onclick="speak('Token')" title="点击朗读 Token">🔊</button></span> (令牌) — LLM 的最小处理单位, 中文 1 字 ≈ 1.5-2 token, 英文 1 词 ≈ 1.3 token</li>
 <li>Tokenizer (分词器) — 把文本切成 token 的算法, BERT 用 WordPiece, GPT 用 BPE, LLaMA 用 SentencePiece</li>
 <li>Context Window (上下文窗口) — LLM 单次能处理的最大 token 数, GPT-4o 128K, Claude 200K, Gemini 1M</li>
 <li><span class="pron">Faithfulness<span class="ipa">/ˈfeɪθfəlnəs/</span><button class="speak-btn" onclick="speak('Faithfulness')" title="点击朗读 Faithfulness">🔊</button></span> (忠实度) — 答案是否被检索原文支撑, <span class="pron">RAGAS<span class="ipa">/ˈrɑːɡəs/</span><button class="speak-btn" onclick="speak('RAGAS')" title="点击朗读 RAGAS">🔊</button></span> 4 大指标之一, 阈值 ≥ 0.85</li>
@@ -3116,7 +3116,7 @@ User:
   &lt;/context&gt;
   &lt;question&gt;{用户问题}&lt;/question&gt;
 </code></pre>
-<h6 id="token-budget">Token Budget 控制 (重要)</h6>
+<h6 id="token-budget"><span class="pron">Token<span class="ipa">/ˈtoʊkən/</span><button class="speak-btn" onclick="speak('Token')" title="点击朗读 Token">🔊</button></span> Budget 控制 (重要)</h6>
 <ul>
 <li>LLM context window 限制 (8K-200K token)</li>
 <li>预算分配 (16K context):</li>
@@ -3568,7 +3568,7 @@ User:
         K1["🎯 召回率 Recall<br/>> 80% (Golden Set 月测)"]
         K2["🚫 拒答率 Refusal Rate<br/>10-30% (太低幻觉, 太高用户骂)"]
         K3["💰 单次成本 Cost/Query<br/>$0.001-0.05"]
-        K4["⚡ 响应延迟 <span class="pron">Latency<span class="ipa">/ˈleɪtənsi/</span><button class="speak-btn" onclick="speak('Latency')" title="点击朗读 Latency">🔊</button></span><br/>首字 < 3s, 总 < 10s"]
+        K4["⚡ 响应延迟 Latency<br/>首字 < 3s, 总 < 10s"]
         K5["⭐ 用户满意度 NPS<br/>> 60 (终极指标)"]
     end
 
@@ -3594,7 +3594,7 @@ User:
 <li>健康: $0.001-0.05</li>
 <li>影响: 失控 → 业务亏损</li>
 </ul>
-<h4 id="274-latency">2.7.4 响应延迟 (Latency)</h4>
+<h4 id="274-latency">2.7.4 响应延迟 (<span class="pron">Latency<span class="ipa">/ˈleɪtənsi/</span><button class="speak-btn" onclick="speak('Latency')" title="点击朗读 Latency">🔊</button></span>)</h4>
 <ul>
 <li>健康: 首字 &lt; 3s, 总 &lt; 10s</li>
 <li>影响: 慢 → 用户流失</li>
@@ -3797,7 +3797,7 @@ User:
 <li>关键组件: Intent Classifier (规则 + 语义 + LLM 三层) / Skill 系统</li>
 <li>注意: Router 是 Modular RAG 7 模块之一, 不要混淆 "Modular RAG" 与 "Router"</li>
 </ul>
-<h4 id="325-layer-5-agent-orchestration-5-query">3.2.5 Layer 5 Agent Orchestration (读路径高级, 5% query)</h4>
+<h4 id="325-layer-5-agent-orchestration-5-query">3.2.5 Layer 5 Agent <span class="pron">Orchestration<span class="ipa">/ˌɔːrkɪˈstreɪʃən/</span><button class="speak-btn" onclick="speak('Orchestration')" title="点击朗读 Orchestration">🔊</button></span> (读路径高级, 5% query)</h4>
 <ul>
 <li>仅 5% 复杂 query 走</li>
 <li>决定"能否跨系统多步"</li>
@@ -5514,7 +5514,7 @@ User:
 <li>节点类型:</li>
 <li>Source (Confluence page / S3 file / Postgres row)</li>
 <li>Document (经过 Parser 后的清洁文本)</li>
-<li>Chunk (切块后的片段)</li>
+<li><span class="pron">Chunk<span class="ipa">/tʃʌŋk/</span><button class="speak-btn" onclick="speak('Chunk')" title="点击朗读 Chunk">🔊</button></span> (切块后的片段)</li>
 <li>Embedding (向量, 含模型 + 版本)</li>
 <li>Index (HNSW / 倒排)</li>
 <li>边类型:</li>
@@ -11631,7 +11631,7 @@ User:
         Err[Sentry / Datadog]
     end
     subgraph Deploy [部署运行层]
-        K8s[Docker / <span class="pron">Kubernetes<span class="ipa">/kuːbərˈnɛtiːz/</span><button class="speak-btn" onclick="speak('Kubernetes')" title="点击朗读 Kubernetes">🔊</button></span>]
+        K8s[Docker / Kubernetes]
         GW[网关 Apisix/Higress]
         Sec[安全 Vault/OAuth]
     end</pre>
@@ -11666,7 +11666,7 @@ User:
 </ul>
 <h4 id="1115">11.1.5 部署运行层</h4>
 <ul>
-<li>容器: Docker / Kubernetes</li>
+<li>容器: Docker / <span class="pron">Kubernetes<span class="ipa">/kuːbərˈnɛtiːz/</span><button class="speak-btn" onclick="speak('Kubernetes')" title="点击朗读 Kubernetes">🔊</button></span></li>
 <li>网关: Kong / Apisix / Higress / Istio</li>
 <li>安全: Vault / OAuth (Keycloak)</li>
 </ul>
@@ -12863,7 +12863,7 @@ User:
     R --> R4[Context Precision/Recall]
 
     G --> G1[Faithfulness 忠实度]
-    G --> G2[Answer <span class="pron">Relevancy<span class="ipa">/ˈrɛləvənsi/</span><button class="speak-btn" onclick="speak('Relevancy')" title="点击朗读 Relevancy">🔊</button></span>]
+    G --> G2[Answer Relevancy]
     G --> G3[Citation Accuracy]
     G --> G4[ROUGE / BLEU]
 
@@ -12887,7 +12887,7 @@ User:
 <h4 id="1412">14.1.2 生成质量</h4>
 <ul>
 <li>Faithfulness (忠实度)</li>
-<li>Answer Relevancy</li>
+<li>Answer <span class="pron">Relevancy<span class="ipa">/ˈrɛləvənsi/</span><button class="speak-btn" onclick="speak('Relevancy')" title="点击朗读 Relevancy">🔊</button></span></li>
 <li>Citation Accuracy</li>
 <li>ROUGE / BLEU (摘要)</li>
 <li>Exact Match / F1 (短答案)</li>
