@@ -16063,171 +16063,206 @@ class ModularRAG:
 > Agent RAG 不是替代 Modular RAG, 是在其上加智能调度大脑.
 > 5% 高价值 query 的归宿. 跨系统业务诊断的唯一解.
 
-### 20.1 Agent RAG 定义澄清
+### 20.1 Agent RAG 是什么 — 核心讲透
 
-#### 20.1.1 Agent vs RAG 关系 (重要澄清)
-- 错误认知 1: "Agent 替代 RAG"
-- 错误认知 2: "Agent = 多步 LLM 调用"
-- 错误认知 3: "上 Agent 就解决 RAG 问题"
+> 这一节把 Agent RAG 这个概念彻底拆开. 看完能回答: 它是什么 / 5 部件各是什么 / 优缺点是什么 / 该不该上 / 怎么上.
 
-正确认知:
-- Agent RAG = Modular RAG + Planner + Tool Calling + Memory + 多步推理
-- 是 Modular RAG 的扩展, 不是替代
-- Agent 内部仍调 RAG 多次 (检索是其工具之一)
+#### 20.1.1 一句话定义
 
-#### 20.1.2 Agent RAG 解决的问题
-- 模糊查询 (一次理解不了, 需多轮澄清)
-- 一次召不全 (跨多源, 需要多步检索)
-- 跨系统业务问题 (订单 + 支付 + 风控 + 客服)
-- 需主动找资料 (LLM 决定要不要继续查)
-- 多步推理 (拆问题 + 综合)
-- 需执行操作 (创建工单 / 发邮件)
+- Agent RAG (智能体增强检索) = 让 LLM 自己决定 "下一步检什么 / 调什么 / 何时停" 的多步 RAG
+- 把 "一次检索 → 一次回答" 的固定管道, 升级为 "LLM 在循环里自己开车" 的动态决策过程
+- 关键差别: 普通 RAG 是工程师写好流程, Agent RAG 是 LLM 在循环里自己生成流程
+- 类比: 普通 RAG = 预先写好菜谱按步骤做菜; Agent RAG = 厨师根据冰箱里有什么 + 客人口味临场决定怎么做
 
-### 20.1.3 2025-2026 Agent RAG 最新发展 (前沿知识)
+#### 20.1.2 三大常见误区 (扫盲, 面试高频)
 
-#### 20.1.3.1 时间线 (2024-2026 关键节点)
-- 2024.05 — Anthropic Claude 3.5 Sonnet + Computer Use (multimodal Agent, 浏览网页 / 操作 GUI)
-- 2024.10 — Anthropic 发布 Computer Use API (public beta), Agent 能控制鼠标键盘
-- 2024.10 — OpenAI Swarm 开源 (极简 multi-agent 框架, handoff 机制)
-- 2024.11 — Microsoft Magentic-One (5-Agent 团队架构: Orchestrator + 4 worker)
-- 2024.11 — Anthropic 发布 MCP (Model Context Protocol, 标准化工具调用协议) — 改变 Agent 生态
-- 2024.12 — Google Gemini 2.0 + Project Mariner (浏览器 Agent), Project Astra (实时多模态)
-- 2025.01 — Cursor 估值 $9B+ (Coding Agent 商业化标杆)
-- 2025.Q1 — Devin (Cognition) GA, Software Engineering Agent 商用
-- 2025.Q2 — OpenAI o1/o3 推理模型集成 Agent (推理 + 工具调用)
-- 2025.Q3 — Anthropic Claude Sonnet 4 + 多 Agent 编排原生支持
-- 2025.Q4 — Agentic Workflows 成为企业 RAG 主流 (从 demo 走到生产)
-- 2026.Q1 — MCP 1.0 协议稳定, 1000+ Server 生态
-- 2026.Q2 — Multi-modal Agent 成熟 (视觉 + 语音 + 操作)
+##### 误区 1 — "Agent 替代 RAG"
+- 错在哪: 以为有了 Agent 就不需要 RAG 管道了
+- 真相: Agent 内部 80-90% 时间还在调 RAG (检索是 Agent 工具池里的一个工具)
+- 正解: Agent 是 RAG 的上层调度, 是叠加不是替代
+- 量化证据: Klarna 95% query 走纯 Modular RAG, 5% 走 Agent (而 Agent 内部仍多次调 RAG)
 
-#### 20.1.3.2 5 大新趋势 (2025-2026)
+##### 误区 2 — "Agent = 多步 LLM 调用"
+- 错在哪: 把固定脚本调多次 LLM 也叫 Agent
+- 真相: 多步 ≠ Agent. 工程师写死的 5 步管道不算 Agent, 算 Workflow
+- 正解: Agent 的核心标志是 "LLM 看上一步结果决定下一步" 这个反馈环, 不是步数
+- 鉴别: 流程图能画出来的不是 Agent (是 Workflow), 流程图取决于运行时 LLM 输出的才是 Agent
 
-##### 趋势 1 — MCP (Model Context Protocol) 协议化
-- 解决: 之前每个 LLM (OpenAI/Anthropic/Gemini) 工具调用 schema 不同, 工程师重复造轮子
-- 方案: Anthropic 主导的开放协议, 任何 LLM 可对接任何 MCP Server
-- 现状 (2026): 1000+ MCP Server (GitHub / Slack / Notion / Postgres / Filesystem / Browser ...)
-- 影响: Agent 可即插即用接入工具生态, 不再绑死单一 LLM
+##### 误区 3 — "上 Agent 就解决质量问题"
+- 错在哪: 检索召回差, 想用 Agent 抢救
+- 真相: Agent 解决的是 "一次性管道解不了" 的问题, 不解决 "检索本身差" 的问题
+- 正解: Recall@10 < 0.7 时上 Agent 只会循环报错把预算烧光, 必须先治 L1+L2+L3
+- 真实事故: 某厂没修索引就上 LangGraph, max_steps=20 全循环失败, 单 query 烧 $3, 月损 $80K
+- 正确顺序: 先把 Modular RAG Recall@10 优化到 ≥ 0.85, 再上 Agent
 
-##### 趋势 2 — Reasoning Model + Agent 融合
-- 代表: OpenAI o1/o3, DeepSeek-R1, Claude Sonnet 4 with extended thinking
-- 特点: 推理时显式生成 chain-of-thought (推理链), 工具调用嵌入推理过程
-- 影响: Agent 决策质量大幅提升, 但延迟和成本也涨 (单次推理 5-30s, $0.05-0.50)
-- 适用: 高价值低流量场景 (法律 / 科研 / 金融决策)
+#### 20.1.3 公式拆解 — Agent RAG = Modular RAG + Planner + Tool Calling + Memory + 多步推理
 
-##### 趋势 3 — Computer Use / Browser Agent
-- 代表: Anthropic Computer Use, Google Project Mariner, OpenAI Operator
-- 能力: Agent 能截屏 → 看 GUI → 决定点击/输入 → 执行 → 观察结果
-- 应用: 自动化 SaaS 操作 (填表单 / 订机票 / 处理工单)
-- 局限: 慢 (每步 3-10s), 易错 (UI 变化敏感), 成本高 (Vision LLM)
+> 5 个部件每个独立讲透: 是什么 / 为什么需要 / 没它会怎样 / 怎么实现.
 
-##### 趋势 4 — Multi-Agent 团队化
-- 代表: Microsoft Magentic-One, AutoGen 0.4 (Actor model), CrewAI 2.0
-- 模式: Orchestrator (规划) + N 个 Worker (各专精) 协作
-- 优势: 任务自然分解, 并行执行, 专业角色 (Researcher / Writer / Critic / Coder)
-- 难点: 协作开销大 (5 Agent × 5 轮 = 25 次 LLM 调用), 调试复杂
+##### 部件 1 — Modular RAG (基座 / Foundation)
+- 是什么: 7 模块化的 RAG 管道 (Indexing → Pre-Retrieval → Retrieval → Post-Retrieval → Generation → Routing → Orchestration), 完整定义见 §19
+- 在 Agent 里的角色: Agent 的 "检索" 动作就是一次完整的 Modular RAG 调用 (即 RAG 是 Agent 的核心工具之一)
+- 为什么是基座: Agent 调 10 次工具如果每次检出来都是垃圾, LLM 看不出哪步错, 无限循环
+- 没它会怎样: Agent 每步检出垃圾 → LLM 拿不到有效信号 → 死循环烧光 max_steps
+- 选型门槛: Modular RAG 必须先调到 Recall@10 ≥ 0.85 / Faithfulness ≥ 0.90 才上 Agent
+- 真实案例: Klarna 上线 Agent 前先把 Modular RAG Recall@10 优化到 0.91 (用 Hybrid + Cohere Rerank), 才有后续 5% Agent 流量的正 ROI
 
-##### 趋势 5 — Self-Improving Agent (自学习)
-- 代表: Reflexion / Voyager / LATS (Language Agent Tree Search)
-- 机制: Agent 执行 → 评估 → 失败原因写入 episodic memory → 下次复用经验
-- 特点: 越用越强 (vs 传统 Agent 每次从 0 开始)
-- 落地: 还在学术阶段, 工业生产应用少
+##### 部件 2 — Planner (规划器 / 大脑)
+- 是什么: 接到 query 后, 调强推理 LLM (Claude Sonnet 4 / GPT-5 / o3) 生成 "接下来 N 步要做什么" 的执行计划
+- 输出形式: 结构化 JSON, 每步含 step_id / tool_name / params / expected_output / fallback
+- 为什么需要: 复杂 query (跨多源 / 多步推理) 没有规划, LLM 容易乱抓乱跳, 走十几步还没收敛
+- 没它会怎样:
+  - 退化成 ReAct (一步一想), 慢且容易死循环
+  - 或退化成 Naive RAG (一次召不全)
+- 两种主流实现:
+  - Plan-and-Execute (开局先全规划, 1 次贵 LLM + N 次便宜 LLM 执行) — 省钱, 适合可预测任务
+  - ReAct (每步规划下一步, N 次贵 LLM 调用) — 灵活, 适合不可预测任务 (Coding)
+- 选哪种: 任务可预先分解 (退款诊断) 用 Plan-and-Execute, 任务不可预测 (改代码) 用 ReAct
+- 关键参数: max_plan_depth = 5-8 步 (超过这个 LLM 规划质量塌, 步与步之间逻辑断裂)
+- 反模式: 让 GPT-3.5 / Haiku 做 Planner — 规划不出来, 必须用 frontier model
 
-#### 20.1.3.3 Agent RAG 完整架构图 (2026 标准)
+##### 部件 3 — Tool Calling (工具调用 / 双手)
+- 是什么: LLM 输出符合 JSON Schema 的工具调用请求, 执行器去跑, 结果回送 LLM
+- 6 步标准流程:
+  - 步 1 — 工程师定义工具 (name + description + parameters JSON Schema)
+  - 步 2 — 把工具列表传给 LLM (system prompt 或 tools 字段)
+  - 步 3 — LLM 看 query + 工具描述, 输出 tool_call (含 name + arguments)
+  - 步 4 — 执行器解析 tool_call, 调真实 API/函数
+  - 步 5 — 工具结果序列化回传给 LLM (作为下一轮 message)
+  - 步 6 — LLM 看结果决定: 继续调下一个工具 / 反思失败 / 综合回答
+- 为什么需要: 没工具 LLM 只能凭训练时的知识, 拿不到实时数据 / 调不动业务系统
+- 没它会怎样: 退化成单次 LLM 调用 — 知识过时 / 业务不通 / 全靠幻觉
+- 三家 API 实现差异 (摘要):
+  - Anthropic: tool_use / tool_result content blocks (在 message 里嵌 block)
+  - OpenAI: tool_calls 字段 in assistant message + 后续 tool role message
+  - Gemini: function_call / function_response parts (Part 列表)
+  - 业界趋势: MCP (Model Context Protocol, Anthropic 2024.11) 统一协议, 任何 LLM 接任何 Server
+- 工具池规模建议: 5-12 个 (太少 LLM 没选择, 太多 LLM 选错; 实测 > 20 个准确率塌 30-50%)
+- 关键设计: 工具 description 要写清 "什么场景用 / 输入输出格式 / 失败时行为", 不能只写工具名
+- 反模式: 工具 description 只写 "search the database" — LLM 选不准, 该用别的工具时用错这个
 
-##### 完整数据流 (用户 query → 答案)
-- 用户 query (str)
-- → Layer 1: Query Understanding (意图分类 + 复杂度评估)
-- → Layer 2: Router (规则 → 语义 → LLM 三层混合)
-  - 简单 query → 普通 RAG (跳过 Agent)
-  - 复杂 query → Agent 路径
-- → Layer 3: Agent Orchestrator (Planner)
-  - 调强推理 LLM (Sonnet 4 / o3) 生成执行计划
-  - 输出: ordered list of (tool, params, expected_output)
-- → Layer 4: Tool Execution Loop
-  - 步 1: 调 Tool (RAG 检索 / Function Call / SQL / Web Search / Browser)
-  - 步 2: 解析 Tool 输出
-  - 步 3: 评估是否需要继续 (信息够吗? 错了吗?)
-  - 步 4: 不够则继续 / 错了则反思 / 够了则进入综合
-  - 循环最多 max_steps=8 步
-- → Layer 5: Memory 三层
-  - L1 Session (本次对话, Redis)
-  - L2 User Preference (用户偏好, Postgres)
-  - L3 Business Memory (业务知识, Vector DB)
-- → Layer 6: Synthesizer (综合答案)
-  - 调便宜 LLM (Haiku) 综合所有 Tool 输出
-  - 输出: 最终答案 + 引用
-- → Layer 7: Validator (校验)
-  - Faithfulness 检测 / Citation 校验 / PII 过滤 / Guardrail
-  - 不通过 → 拒答 / 重试
+##### 部件 4 — Memory (记忆 / 脊髓)
+- 是什么: Agent 跨步 / 跨会话 / 跨用户的状态保持机制
+- 为什么需要: LLM 是 stateless 的, 每次 API 调用都是新对话, 没 Memory 第 5 步看不到第 1 步结果, 等于失忆
+- 没它会怎样:
+  - Agent 忘记上一步检了什么, 重复检同一份资料
+  - 忘记用户上一句说什么, 重复问同样问题
+  - 跨会话时丢失用户偏好, 体验回到 0
+- 三层架构:
+  - L1 Session Memory (短期 / Redis / TTL 6h): 本次对话最近 20 条 message + 已调用的工具结果 — Agent 多步必需
+  - L2 User Preference (长期 / Postgres JSONB): 用户偏好 (语言/角色/历史购买/历史问题) — 跨会话累积
+  - L3 Business Memory (跨用户 / Vector DB): 企业积累的业务知识 (重要决策 / 客户画像 / 团队约定) — 跨用户共享
+- 哪层最重要: L1 是 Agent 多步执行的最低要求, 没它 Agent 跑不动; L2/L3 提升体验但非阻塞
+- 容量限制: Memory 不能塞满 context window, 一般 Memory 占 16K 中的 4-6K, 否则挤掉检索结果空间
+- 摘要策略: 超过容量时调 LLM 把旧 message 摘成 200 字 (Conversation Summary), 损失少量信息换空间
+- 反模式: L1 永久存不清理 — 跑 100 个 query 后 Memory 占满, 反而拖慢检索
 
-##### 关键模块详解
+##### 部件 5 — 多步推理 (循环 + 终止条件 / 心跳)
+- 是什么: Agent 在 "调工具 → 看结果 → 决定下一步" 的循环里跑, 直到满足终止条件
+- 核心循环 (4 步):
+  - 步 1 — LLM 看当前 state (query + history + tool_results), 决定下一动作
+  - 步 2 — 执行动作 (调工具 / 反思 / 综合)
+  - 步 3 — 把动作结果存回 state (写 Memory)
+  - 步 4 — 判断是否终止, 否则回步 1
+- 4 种终止条件 (任一满足即退出):
+  - 条件 1 — LLM 主动声明 "已收集到足够信息, 进入综合" (理想路径)
+  - 条件 2 — max_steps 硬上限触发 (默认 8 步, 防死循环)
+  - 条件 3 — 同一工具连续重复 3 次 (说明 LLM 卡住, 熔断)
+  - 条件 4 — 累计 token / cost 超预算 (单 query $1 上限)
+- 为什么需要终止条件: 没终止条件 → 死循环烧钱, 真实事故有公司 1 query 烧 $200 (详见 §20.7)
+- 关键参数推荐:
+  - max_steps: 客服 8 / 通用 RAG 12 / Coding 50+ (Cursor/Devin)
+  - max_cost_per_query: $1 (客服) / $5 (Coding) / $50 (科研)
+  - max_same_tool_repeat: 3 (重复说明 LLM 没拿到想要的, 再调也没意义)
+  - timeout_per_step: 30s (单步超时熔断, 防工具 hang)
 
-###### Orchestrator (大脑)
-- 职责: 任务拆解 + 工具选择 + 错误处理
-- 实现: 强推理 LLM (Sonnet 4 / GPT-4o / o3)
-- 输出: 结构化 Plan (JSON, 含 tool / params / fallback)
+#### 20.1.4 完整决策循环 — 5 部件如何串起来
 
-###### Tool Registry (工具池)
-- 内置工具:
-  - RAG Search (检索知识库)
-  - Web Search (Tavily / SerpAPI)
-  - SQL Query (Text2SQL)
-  - Function Call (业务 API)
-  - Browser (Computer Use)
-  - Code Interpreter (Python sandbox)
-- 工具描述: name + description + parameters (JSON Schema)
-- 工具选择: LLM 看 description + query, 决定调哪个
+完整数据流 (一次 Agent query 的全过程):
+- 输入: 用户 query (str)
+- 步 A — Planner 接收 query, 调 frontier LLM 生成 N 步执行计划 (可能是粗规划, Loop 里再细化)
+- 步 B — 进入 Loop (max_steps 内):
+  - B.1 — 从 Memory 取 state (query + history + tool_results)
+  - B.2 — LLM 看 state + 工具描述, 决定下一步调哪个 Tool 和参数
+  - B.3 — Tool Executor 执行工具调用 (Modular RAG / SQL / Web Search / Function Call)
+  - B.4 — 把工具结果写回 Memory
+  - B.5 — 判断终止: 4 终止条件任一满足则退出 Loop
+- 步 C — Synthesizer 综合所有 tool_results, 调便宜 LLM (Haiku) 生成最终答案 + 引用
+- 步 D — Validator 校验 (Faithfulness / Citation / PII / Guardrail), 不通过则拒答或重试
+- 步 E — 返回答案 + 完整 trace (用于 LangSmith/Phoenix 调试)
 
-###### Memory Manager
-- L1 Session (Redis, TTL 6h): 本次对话 last 20 messages
-- L2 User Preference (Postgres JSONB): 用户偏好 (语言/角色/历史) — 跨会话
-- L3 Business Memory (pgvector): 业务知识 (重要决策 / 客户信息) — 跨用户
+全程: Cost Controller 监控 token/cost, 超预算硬熔断
 
-###### Cost Controller (FinOps)
-- max_steps = 8 (硬限制)
-- per_query_cost_cap = $1 (单 query 成本上限)
-- per_user_daily_cap = $50 (用户日限)
-- 同 tool 重复 3 次 → 熔断
-- 总 token 监控 + 告警
+#### 20.1.5 优缺点 — 决定该不该上 Agent 的关键
 
-#### 20.1.3.4 2026 Agent RAG 真实落地案例
+##### 优点 (适用场景下的真实收益)
+- 解决一次召不全 — 跨 4-8 个数据源的复杂 query (订单+支付+风控+物流) 普通 RAG 拼不出来, Agent 能多步串
+- 主动反思 — 检索结果差时 Agent 会改 query 重检 (CRAG / Self-RAG), 普通 RAG 直接给错答
+- 操作能力 — 不止读, 还能写 (创建工单 / 发邮件 / commit 代码), 普通 RAG 只读
+- 可扩展工具池 — 加新工具不改主流程, 普通 RAG 加新数据源要重做管道
+- 适应不可预测任务 — Coding / 科研类任务步骤无法预先固定, Agent 在循环里探索
+- 自适应难度 — 简单 query 1 步退出, 难 query 多步深挖, 同一系统覆盖宽广度
 
-##### Klarna AI 客服 (95% RAG + 5% Agent)
-- 95% 普通 query 走 Modular RAG (Haiku, 单次响应)
-- 5% 复杂 query 走 Agent (Sonnet planner + Haiku executor)
-- 复杂 query 例: 退款失败诊断 (跨订单 + 支付 + 风控 + 物流 4 系统)
-- 替代 700 客服, 年省 $40M
+##### 缺点 (硬伤, 选型时必须知道)
+- 贵 — 单 query $0.05-1 (Modular RAG $0.005-0.05), 10-50 倍成本
+- 慢 — 单 query 5-30s (Modular RAG 1-3s), 用户感知明显延迟
+- 难调试 — 中间状态 5-20 步, 出错很难定位是哪步, 必须用 LangSmith / Phoenix / Langfuse 追踪
+- 不稳定 — LLM 决策有方差, 同一 query 跑两次结果可能不同 (普通 RAG 是确定的)
+- 易死循环 — max_steps 限制再严也会有边缘案例烧光预算
+- 工具维护成本高 — 每个工具要写 schema + 测试 + 监控, 5 个工具 = 5x 维护
+- 评估难 — RAGAS 那 4 指标 (faithfulness/relevance/precision/recall) 评不出多步任务好坏, 需要 TaskBench / AgentBench / SWE-Bench 等新框架
+- 对 LLM 强依赖 — 必须用 frontier model 做 Planner, 不能用便宜模型替代, 锁死成本下限
 
-##### Cursor (Coding Agent)
-- 用户输入需求 → Agent 探索代码库 (grep / find / read 多个文件)
-- LLM 边读边规划修改 → 写代码 → 跑测试 → 看错误 → 修
-- 单次任务可能花 5-50 步, $0.50-5
+##### 量化对比 (Klarna 实测, 2024-2025 公开数据)
+- 普通 query (95% 流量): Modular RAG, $0.008/query, 1.2s, 满意度 4.5/5
+- Agent query (5% 流量): Plan-and-Execute, $0.42/query, 8.3s, 满意度 4.7/5
+- 综合: Agent 那 5% 流量是高价值复杂 query, 不上 Agent 解不掉, 上了体验显著好
+- 商业结果: 700 客服替代, 年省 $40M, ROI 主要来自 5% Agent 流量解决了之前必须人工的复杂 case
 
-##### Devin (Software Engineer)
-- 接需求 → 拆任务 → 写 PR → review → 合并
-- 完全自主 (8 小时/天工作)
-- 已替代部分初级工程师工作 (2025)
+#### 20.1.6 适用 / 不适用 — 5%/95% 边界
 
-##### Anthropic Claude Code
-- 终端 Agent, 多文件编辑 + 测试 + git commit
-- 用户 "@claude 修这个 bug", Agent 自动定位 + 修 + PR
+##### 适用 (5% 流量 — 这些 query Agent 才有正 ROI)
+- 跨 3+ 数据源的诊断 (退款失败诊断: 跨订单 + 支付 + 风控 + 物流)
+- 多步推理研究 (写竞品分析 / 法律文书草拟 / 医疗鉴别诊断)
+- 需要执行操作 (创建工单 / 修代码 / 提 PR / 发邮件)
+- 探索性任务 (Cursor 改代码 / Devin 写需求 / 数据分析探索)
+- 用户意图明显模糊 (一次问不清, 需 Agent 主动澄清 + 多轮检索)
 
-##### Microsoft Copilot Workspace
-- 接 GitHub Issue → 生成 PR
-- 多 Agent 协作 (Architect + Coder + Reviewer)
+##### 不适用 (95% 流量 — 这些上 Agent 是负 ROI)
+- 单点查询 ("退货政策是什么") — 一次 RAG 解掉
+- 高频低价值 (FAQ) — Agent $0.4/query 毁成本
+- 强结构化查询 (报表) — Text2SQL 直接调
+- 实时性要求 < 1s — Agent 5-30s 不可接受 (语音助手 / 搜索建议)
+- 监管严格 (医疗诊断 / 法律判决) — Agent 多步增加幻觉面, 不如人工 + 单次 RAG
 
-#### 20.1.3.5 2025-2026 vs 2024 关键差异
+##### 决策树 (3 个问题决定该不该上 Agent)
+- Q1: 单次 RAG 能解吗? → 能 → Modular RAG (停, 别上 Agent)
+- Q2: 步骤可预先固定写脚本吗? → 能 → Workflow (脚本调多次 RAG, 不是 Agent)
+- Q3: 步骤需要运行时 LLM 自己决定? → 是 → Agent RAG (上)
 
-| 维度 | 2024 (早期 Agent) | 2025-2026 (成熟 Agent) |
-|---|---|---|
-| 工具协议 | 各 LLM 自己 schema | MCP 统一标准 |
-| 推理能力 | 普通 LLM | Reasoning Model (o1/o3/R1) |
-| 操作能力 | 仅文本/API | Computer Use (GUI 操作) |
-| 多 Agent | 简单串联 | Orchestrator + Worker 团队 |
-| 自学习 | 无 | Episodic Memory + Reflexion |
-| 落地阶段 | 实验/Demo | 生产/商业化 |
-| 成本 | $0.10-1/query | $0.05-0.5/query (优化后) |
-| 延迟 | 10-60s | 3-15s (推理模型加速) |
+#### 20.1.7 落地最小可行路径 — 4 阶段渐进 (避免一上来就 multi-agent)
+
+- 阶段 1 (2 月) — Modular RAG 上线
+  - 目标: Recall@10 ≥ 0.85, Faithfulness ≥ 0.90
+  - 不要碰 Agent
+  - 反模式: 跳过这步直接 LangGraph, 必失败
+- 阶段 2 (1 月) — 加 Tool Calling (单步, 不循环)
+  - 定义 3-5 个工具 (RAG Search / SQL / Function Call)
+  - LLM 调用一次工具, 拿到结果直接回答, 不循环
+  - 验证工具调用准确率 ≥ 0.95 才进下一阶段
+- 阶段 3 (1 月) — 加 Plan-and-Execute (单 Agent + 多步循环)
+  - max_steps = 8, max_cost_per_query = $1
+  - 上 LangGraph / LlamaIndex Agents
+  - 必上追踪 (LangSmith / Phoenix), 否则调不通
+- 阶段 4 (持续) — 加 Memory L2/L3 + 多 Agent 协作 + Self-Reflection
+  - 用户 PMF 已验证才动这一步
+  - Multi-Agent 不是必需, 90% 业务单 Agent 够用
+
+##### 反模式 (业界踩过的真实坑)
+- 反模式 1 — 直接跳到阶段 4 上 LangGraph multi-agent: 调 3 个月调不通, 业务方失去耐心砍项目
+- 反模式 2 — 阶段 1 没做就上 Agent: Recall@10=0.5, Agent 循环 8 步全是垃圾, 用户骂街
+- 反模式 3 — 没上追踪就上 Agent: 出错根本看不到中间状态, 只能改完重跑赌运气
+- 反模式 4 — max_steps=50 不限成本: 单个边缘 query 烧 $50+, 月预算超 10x
 
 ### 20.2 Agent RAG 5 大形态 (每种算法循环 + 完整流程)
 
@@ -16997,89 +17032,44 @@ async def build_agent_prompt(
 - Executor 用 Haiku (便宜, 执行简单)
 - 综合成本砍 50%+
 
-### 20.9 Modular RAG vs Agent RAG 关系澄清
+### 20.9 Agent RAG 实施陷阱
 
-#### 20.9.1 不是替代, 是叠加
-- Modular RAG (Gen 3): 单次决策, 模块化执行
-- Agent RAG (Gen 4): 多次决策 (Plan + 多步), 内部仍用 Modular RAG
-
-#### 20.9.2 Agent 内部用 Modular RAG
-```
-Agent 多步执行:
-  Step 1: 调 Modular RAG (查订单)
-  Step 2: 调 Modular RAG (查支付)
-  Step 3: 调 Modular RAG (查日志)
-  ...
-  Step N: LLM 综合
-```
-
-#### 20.9.3 流量分布 (再次强调正确认知)
-- 100% query 经过 Router (L4)
-- 80% 走单次 Modular RAG (普通)
-- 15% 走单次 Modular RAG + 增强 (HyDE/Multi-Query)
-- 5% 走 Agent (内部多次调 Modular RAG + Tool)
-
-### 20.10 实施 Roadmap (Modular RAG → Agent RAG 渐进)
-
-#### 20.10.1 Phase 1 (2 月) — Modular RAG 上线
-- 实现 7 模块
-- 80% 普通 query 跑通
-- 监控基线
-
-#### 20.10.2 Phase 2 (1 月) — 加 Tool Calling
-- 接 1-2 个业务 API (订单 / 用户)
-- LLM 根据 query 决定调 tool
-- 仍单步 (不是 Agent)
-
-#### 20.10.3 Phase 3 (1 月) — 加 Plan-and-Execute
-- LangGraph 编排
-- 5% 复杂 query 走 Agent
-- max_steps + budget cap + 监控
-
-#### 20.10.4 Phase 4 (持续) — 优化
-- Memory 三层
-- Multi-Agent (内容创作场景)
-- Self-Reflection (高价值场景)
-- 每季度审查 80/15/5 分布
-
-### 20.11 Agent RAG 实施陷阱
-
-#### 20.11.1 ❌ 一上来就 Agent
+#### 20.9.1 ❌ 一上来就 Agent
 - 80% query 是简单 FAQ, 全 Agent 浪费 + 成本爆
 - 对: 先 Modular RAG (Phase 1), 再 Agent (Phase 3)
 
-#### 20.11.2 ❌ Agent 替代 RAG
+#### 20.9.2 ❌ Agent 替代 RAG
 - 错: 删了 RAG 全用 Agent
 - 对: Agent 内部仍用 RAG 多次
 
-#### 20.11.3 ❌ 不限 max_steps
+#### 20.9.3 ❌ 不限 max_steps
 - 真实事故: 1 小时烧 $5000
 - 必须 max_steps + budget cap + 死循环检测
 
-#### 20.11.4 ❌ 工具描述模糊
+#### 20.9.4 ❌ 工具描述模糊
 - LLM 选错 tool 率 30%+
 - 对: 工具描述详细 + Few-shot 示例
 
-#### 20.11.5 ❌ 工具数量 > 20
+#### 20.9.5 ❌ 工具数量 > 20
 - LLM context 装不下 + 选错率高
 - 对: 工具数量控制 < 10, > 10 必须分层路由
 
-### 20.12 Agent RAG 评估
+### 20.10 Agent RAG 评估
 
-#### 20.12.1 业务指标
+#### 20.10.1 业务指标
 - 任务完成率 (% query 成功完成)
 - 步数分布 (平均步数 / 最大步数)
 - 单 query 成本分布 (P50 / P95 / P99)
 - 转人工率
 - 用户满意度
 
-#### 20.12.2 技术指标
+#### 20.10.2 技术指标
 - Tool 选择准确率
 - Tool 执行成功率
 - 死循环熔断率
 - 平均延迟
 
-#### 20.12.3 Bad case 闭环
+#### 20.10.3 Bad case 闭环
 - 收集失败任务
 - 标根因 (Plan 错 / Tool 错 / Synthesis 错)
 - 优化 (改 Planner prompt / 改 Tool 描述 / 加新 Tool)
