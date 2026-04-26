@@ -484,6 +484,7 @@ h3:hover::before, h4:hover::before {
 <li class="toc-h3"><a href="#30">3.0 章节定位 (本章已瘦身)</a></li>
 <li class="toc-h3"><a href="#37-5">3.7 5 层接口契约</a></li>
 <li class="toc-h2"><a href="#layer-1-ingestion-write-path">四. Layer 1 数据治理 — 写流程 (Ingestion Write Path)</a></li>
+<li class="toc-h3"><a href="#40">4.0 本章知识体系总览 + 工具栈速查 ⭐</a></li>
 <li class="toc-h3"><a href="#41-70-l1">4.1 章节定位 — 为什么 70% 项目质量瓶颈在 L1</a></li>
 <li class="toc-h3"><a href="#42-7">4.2 7 种脏数据形态 — 真实生产中遇到的具体问题</a></li>
 <li class="toc-h3"><a href="#43-ingestion">4.3 Ingestion 完整写流程 (端到端 + 企业级架构)</a></li>
@@ -4202,6 +4203,405 @@ h3:hover::before, h4:hover::before {
 <p>70% 项目栽这一层. 决定 RAG 系统能"知道"什么 + "不能错说"什么.
 本节结构: 业务价值 → 完整写流程总览 → 每个组件独立小节 (含读写细节).</p>
 </blockquote>
+<h3 id="40">4.0 本章知识体系总览 + 工具栈速查 ⭐</h3>
+<blockquote>
+<p>读完本章你会掌握 7 大职责 / 7 种脏数据 / 12 类工具 / 5 大指标. 这一节先给你一张全景图.</p>
+</blockquote>
+<h4 id="401">4.0.1 知识体系树状大纲</h4>
+<ul>
+<li>L1 数据治理 (§4)</li>
+<li>7 大职责 (按 Ingestion 流程顺序)<ul>
+<li>职责 1 — 多源接入 Ingestion (§4.3) — Connector + 上传</li>
+<li>职责 2 — 解析 Parsing (§4.4) — 异构格式 → 纯文本</li>
+<li>职责 3 — 噪声过滤 Boilerplate (§4.5) — 去页眉页脚 / 广告</li>
+<li>职责 4 — PII 检测脱敏 (§4.6) — 识别敏感信息</li>
+<li>职责 5 — 去重 <span class="pron">Deduplication<span class="ipa">/diːˌdjuːplɪˈkeɪʃən/</span><button class="speak-btn" onclick="speak('Deduplication')" title="点击朗读 Deduplication">🔊</button></span> (§4.7) — SHA + MinHash + LSH</li>
+<li>职责 6 — 质量评估 Quality Gating (§4.8) — LLM 打分</li>
+<li>职责 7 — 元数据丰富化 (§4.9-§4.11) — 分类 + 版本 + 时效</li>
+</ul>
+</li>
+<li>7 种脏数据 (按出现频率)<ul>
+<li>重复 / 近似重复 (20-40%) → §4.7 Dedup</li>
+<li>过时未删 (15-30%) → §4.10 Recency</li>
+<li>格式破坏 PDF (30-60%) → §4.4 Parser</li>
+<li>噪声页眉页脚 (5-15%) → §4.5 Boilerplate</li>
+<li>多语言混杂 (跨国 100%) → §4.4 + §4.9</li>
+<li>PII 敏感信息 (5-20%) → §4.6 PII</li>
+<li>版本爆炸 (90%+ 企业) → §4.11 Versioning</li>
+</ul>
+</li>
+<li>5 大核心指标 (生产监控)<ul>
+<li>Recall@10 (检索召回率, 治理前 0.45 → 治理后 0.78)</li>
+<li>Faithfulness (生成忠实度, 必 ≥ 0.90)</li>
+<li>重复率 (Dedup 效果, 目标 &lt; 10%)</li>
+<li>PII 漏检率 (合规, 目标 &lt; 0.1%)</li>
+<li>平均质量分 (Quality Gating, 目标 ≥ 4.0/5)</li>
+</ul>
+</li>
+<li>实战 SOP (集大成 walkthrough)<ul>
+<li>§4.16 端到端实战 (一份脏 PDF 6 步具体处理)</li>
+<li>Spark <span class="pron">Pipeline<span class="ipa">/ˈpaɪplaɪn/</span><button class="speak-btn" onclick="speak('Pipeline')" title="点击朗读 Pipeline">🔊</button></span> 100 万文档生产架构</li>
+<li>KB Health 7 指标持续监控</li>
+<li>Bad case 闭环 5 类根因</li>
+</ul>
+</li>
+<li>局限与现实 (诚实 reality check)<ul>
+<li>§4.15 7 大局限性</li>
+<li>§4.15 业界最新尝试 (Anthropic / Glean / Notion)</li>
+</ul>
+</li>
+</ul>
+<h4 id="402">4.0.2 章节速读路径 (按角色)</h4>
+<table>
+<thead>
+<tr>
+<th>角色</th>
+<th>推荐路径 (15-30 分钟)</th>
+<th>跳过</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>PM / 业务</strong></td>
+<td>§4.0 + §4.1 (为什么 70%) + §4.2 (7 种脏数据) + §4.16 (实战 SOP)</td>
+<td>§4.4-§4.11 各组件细节</td>
+</tr>
+<tr>
+<td><strong>架构师</strong></td>
+<td>§4.0 + §4.1 + §4.3 (写流程总览) + §4.16 (实战 SOP) + §4.14 (端到端)</td>
+<td>各组件实现细节</td>
+</tr>
+<tr>
+<td><strong>RAG 工程师</strong></td>
+<td>全章 (§4.0 → §4.16)</td>
+<td>无</td>
+</tr>
+<tr>
+<td><strong>数据工程师</strong></td>
+<td>§4.0 + §4.4-§4.11 (各组件) + §4.14 (Spark <span class="pron">Pipeline<span class="ipa">/ˈpaɪplaɪn/</span><button class="speak-btn" onclick="speak('Pipeline')" title="点击朗读 Pipeline">🔊</button></span>) + §4.16</td>
+<td>§4.15 局限讨论</td>
+</tr>
+<tr>
+<td><strong>SRE / 运维</strong></td>
+<td>§4.0 + §4.12 (KB Health) + §4.14.6 (监控) + §4.16.3 (验证)</td>
+<td>各组件算法细节</td>
+</tr>
+<tr>
+<td><strong>面试准备</strong></td>
+<td>§4.0 + §4.2 (7 种脏数据) + §4.6 (PII) + §4.7 (MinHash 数学) + §4.16 反模式</td>
+<td>/</td>
+</tr>
+</tbody>
+</table>
+<h4 id="403-12">4.0.3 12 类工具完整速查表</h4>
+<blockquote>
+<p>整章涉及的所有工具, 按用途分类. 每个含: 推荐 / 备选 / 适用 / 中文支持 / 成本.</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>用途</th>
+<th>推荐工具</th>
+<th>备选</th>
+<th>适用场景</th>
+<th>中文</th>
+<th>成本</th>
+<th>详见</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Parse PDF (普通)</td>
+<td>pypdfium2</td>
+<td>PyMuPDF / pdfplumber</td>
+<td>简单文档, 量大成本敏感</td>
+<td>中</td>
+<td>免费</td>
+<td>§4.4</td>
+</tr>
+<tr>
+<td>Parse PDF (复杂表格)</td>
+<td>LlamaParse</td>
+<td>Unstructured / Marker</td>
+<td>财报 / 合同, 表格密集</td>
+<td>中</td>
+<td>$0.003-0.01/页</td>
+<td>§4.4</td>
+</tr>
+<tr>
+<td>Parse PDF (顶级精度)</td>
+<td>Reducto</td>
+<td>LlamaParse Pro</td>
+<td>法律 / 医疗 98% 准确率</td>
+<td>强</td>
+<td>$0.01-0.05/页</td>
+<td>§4.4</td>
+</tr>
+<tr>
+<td>Parse 扫描件</td>
+<td>GPT-5 Vision</td>
+<td>Claude Sonnet Vision / 阿里通义</td>
+<td>OCR + 中文混排</td>
+<td>强</td>
+<td>$0.01-0.03/页</td>
+<td>§4.4</td>
+</tr>
+<tr>
+<td>Parse Word/PPT</td>
+<td>python-docx / python-pptx</td>
+<td>LibreOffice CLI</td>
+<td>简单 Office 文档</td>
+<td>强</td>
+<td>免费</td>
+<td>§4.4</td>
+</tr>
+<tr>
+<td>Parse HTML</td>
+<td>trafilatura</td>
+<td>readability-lxml / jusText</td>
+<td>网页 + 自带 boilerplate 过滤</td>
+<td>中</td>
+<td>免费</td>
+<td>§4.4 + §4.5</td>
+</tr>
+<tr>
+<td>Parse Email</td>
+<td>mailparse</td>
+<td>email-parser (Python)</td>
+<td>Outlook / Gmail</td>
+<td>强</td>
+<td>免费</td>
+<td>§4.4</td>
+</tr>
+<tr>
+<td>编码修复</td>
+<td>ftfy</td>
+<td>unicodedata</td>
+<td>mojibake / 全半角</td>
+<td>强</td>
+<td>免费</td>
+<td>§4.16</td>
+</tr>
+<tr>
+<td>Boilerplate 检测</td>
+<td>trafilatura (HTML)</td>
+<td>jusText / readability-lxml</td>
+<td>网页噪声</td>
+<td>中</td>
+<td>免费</td>
+<td>§4.5</td>
+</tr>
+<tr>
+<td>Boilerplate (PDF)</td>
+<td>启发式 (重复频次法 / 位置法)</td>
+<td>LLM 判断 / Vision LLM</td>
+<td>PDF 页眉页脚</td>
+<td>/</td>
+<td>免费</td>
+<td>§4.5</td>
+</tr>
+<tr>
+<td>Boilerplate (LLM)</td>
+<td>Anthropic Haiku 4.5</td>
+<td>Gemini 2.0 Flash</td>
+<td>跨语言通用, 高价值少量文档</td>
+<td>强</td>
+<td>$0.0001/段</td>
+<td>§4.5.3</td>
+</tr>
+<tr>
+<td>去重 (文档级)</td>
+<td>Python hashlib SHA256</td>
+<td>xxhash (更快)</td>
+<td>完全重复检测</td>
+<td>/</td>
+<td>免费</td>
+<td>§4.7</td>
+</tr>
+<tr>
+<td>去重 (近似 MinHash)</td>
+<td>datasketch</td>
+<td>Spark MinHashLSH</td>
+<td>Jaccard ≥ 0.85 近似重复</td>
+<td>/</td>
+<td>免费</td>
+<td>§4.7</td>
+</tr>
+<tr>
+<td>去重 (语义级)</td>
+<td>embedding cosine ≥ 0.95</td>
+<td>/</td>
+<td>表达不同但语义同</td>
+<td>/</td>
+<td>免费 (复用 embedder)</td>
+<td>§4.7</td>
+</tr>
+<tr>
+<td>PII 检测 (英文)</td>
+<td>Microsoft Presidio</td>
+<td>AWS Comprehend / Google DLP</td>
+<td>SSN / 信用卡 / 邮箱</td>
+<td>弱</td>
+<td>免费 (Presidio)</td>
+<td>§4.6</td>
+</tr>
+<tr>
+<td>PII 检测 (中文)</td>
+<td>spaCy NER + 自定义正则 fine-tune</td>
+<td>jieba + 规则</td>
+<td>身份证 / 中文姓名 / 中国手机</td>
+<td>强 (需 fine-tune)</td>
+<td>免费</td>
+<td>§4.6</td>
+</tr>
+<tr>
+<td>PII 检测 (商业)</td>
+<td>AWS Comprehend / Google DLP / Azure AI Language</td>
+<td>/</td>
+<td>大规模合规要求严</td>
+<td>强</td>
+<td>$0.0001-0.001/请求</td>
+<td>§4.6</td>
+</tr>
+<tr>
+<td>PII 脱敏</td>
+<td>Presidio Anonymizer</td>
+<td>自研 mask 函数</td>
+<td>替换 / 删除 / 标记</td>
+<td>强</td>
+<td>免费</td>
+<td>§4.6</td>
+</tr>
+<tr>
+<td>Quality 评分 (启发式)</td>
+<td>langdetect + 自定义规则</td>
+<td>textstat</td>
+<td>长度 / 字符比例 / 语言</td>
+<td>强</td>
+<td>免费</td>
+<td>§4.8</td>
+</tr>
+<tr>
+<td>Quality 评分 (LLM)</td>
+<td>Anthropic Haiku 4.5</td>
+<td>Gemini 2.0 Flash / GPT-5-mini</td>
+<td>大规模 LLM-as-judge</td>
+<td>强</td>
+<td>$0.001/chunk</td>
+<td>§4.8</td>
+</tr>
+<tr>
+<td>分类打标 (LLM)</td>
+<td>Anthropic Haiku 4.5</td>
+<td>Gemini 2.0 Flash</td>
+<td>topic / sensitivity 自动打标</td>
+<td>强</td>
+<td>$0.0005/chunk</td>
+<td>§4.9</td>
+</tr>
+<tr>
+<td>分类打标 (本地)</td>
+<td>spaCy 分类器 (fine-tuned)</td>
+<td>scikit-learn LinearSVC</td>
+<td>高 QPS 不调外部 API</td>
+<td>强</td>
+<td>免费 (本地推理)</td>
+<td>§4.9</td>
+</tr>
+<tr>
+<td>语言检测</td>
+<td>langdetect</td>
+<td>fasttext langid</td>
+<td>中英文识别</td>
+<td>强</td>
+<td>免费</td>
+<td>§4.9</td>
+</tr>
+<tr>
+<td>版本管理</td>
+<td>Postgres + canonical_id + version</td>
+<td>DVC (大文件)</td>
+<td>同 doc 多版本</td>
+<td>/</td>
+<td>免费 (Postgres)</td>
+<td>§4.11</td>
+</tr>
+<tr>
+<td>时效性 (recency_decay)</td>
+<td>自研衰减函数</td>
+<td>/</td>
+<td>检索时按时间加权</td>
+<td>/</td>
+<td>免费</td>
+<td>§4.10</td>
+</tr>
+<tr>
+<td>Pipeline 编排</td>
+<td>Apache Spark + Airflow</td>
+<td>Dask + Prefect / Temporal</td>
+<td>100 万+ 文档批处理</td>
+<td>/</td>
+<td>自托管</td>
+<td>§4.14</td>
+</tr>
+<tr>
+<td>异步队列</td>
+<td>Celery + RabbitMQ / Kafka</td>
+<td>AWS SQS / GCP Pub/Sub</td>
+<td>文档 ingest 异步</td>
+<td>/</td>
+<td>自托管</td>
+<td>§4.3</td>
+</tr>
+<tr>
+<td>Connector 框架</td>
+<td>Airbyte (350+ connector)</td>
+<td>Fivetran (商业) / 自研</td>
+<td>接入 100+ 数据源</td>
+<td>中</td>
+<td>免费 (Airbyte)</td>
+<td>§0.1.5d + §4.3</td>
+</tr>
+<tr>
+<td>监控</td>
+<td>Datadog + Prometheus</td>
+<td>Grafana / New Relic</td>
+<td>KB Health 7 指标</td>
+<td>/</td>
+<td>$50-500/月</td>
+<td>§4.12</td>
+</tr>
+<tr>
+<td>Bad case 工具</td>
+<td>LangSmith</td>
+<td>Phoenix (Arize) / Langfuse</td>
+<td>检索失败溯源</td>
+<td>中</td>
+<td>$39-199/月</td>
+<td>§4.16</td>
+</tr>
+</tbody>
+</table>
+<h4 id="404">4.0.4 整章核心数字速查 (面试 / 决策必背)</h4>
+<ul>
+<li><strong>70%</strong> RAG 项目质量瓶颈在 L1 数据治理 (业界共识)</li>
+<li><strong>+0.33</strong> Recall@10 — L1 完整 6 道治理 vs 不治理 (0.45 → 0.78)</li>
+<li><strong>35-40%</strong> 数据处理占总 Ingest 成本 (100 万文档 ~$1.5K)</li>
+<li><strong>30%</strong> Confluence 真实去重比例 (5 万文档实测)</li>
+<li><strong>20-40%</strong> 重复 / 近似重复 占脏数据</li>
+<li><strong>15-30%</strong> 过时未删 (Air Canada 案根因)</li>
+<li><strong>5-20%</strong> PII 比例 (合规生死线)</li>
+<li><strong>$4550</strong> 100 万文档 6 道治理实测成本 (10 小时)</li>
+<li><strong>35-49%</strong> Anthropic Prompt Caching 节省 (LLM 评分场景)</li>
+</ul>
+<h4 id="405-0-2">4.0.5 学习路径 (从 0 到上手 2 周)</h4>
+<ul>
+<li><strong>Day 1-2</strong>: 读 §4.0 + §4.1 + §4.2, 建立全景认知</li>
+<li><strong>Day 3-5</strong>: 读 §4.4 + §4.5 + §4.6, 跑通本地 LlamaParse + Presidio + trafilatura demo</li>
+<li><strong>Day 6-8</strong>: 读 §4.7 + §4.8, 跑通 datasketch MinHash + Haiku LLM 评分 demo</li>
+<li><strong>Day 9-11</strong>: 读 §4.16 实战 SOP, 跑一份真实 PDF 完整 6 步 walkthrough</li>
+<li><strong>Day 12-14</strong>: 读 §4.12 KB Health + §4.14 Spark Pipeline, 设计自己业务的治理架构</li>
+</ul>
 <h3 id="41-70-l1">4.1 章节定位 — 为什么 70% 项目质量瓶颈在 L1</h3>
 <h4 id="411">4.1.1 一句话核心</h4>
 <ul>
@@ -4239,7 +4639,7 @@ h3:hover::before, h4:hover::before {
 <li>职责 2: 解析 (Parsing) — 把异构格式转成纯文本 + 结构化标记</li>
 <li>职责 3: 噪声过滤 (Boilerplate Detection) — 去掉页眉页脚 / 广告 / 导航</li>
 <li>职责 4: PII 检测脱敏 — 识别敏感信息, 防泄露</li>
-<li>职责 5: 去重 (<span class="pron">Deduplication<span class="ipa">/diːˌdjuːplɪˈkeɪʃən/</span><button class="speak-btn" onclick="speak('Deduplication')" title="点击朗读 Deduplication">🔊</button></span>) — 删除重复 / 近似重复文档</li>
+<li>职责 5: 去重 (Deduplication) — 删除重复 / 近似重复文档</li>
 <li>职责 6: 质量评估 (Quality Gating) — LLM 打分, 低质量不入库</li>
 <li>职责 7: 元数据丰富化 — 抽 entity / topic / 时效 / 版本 / 语言</li>
 </ul>
@@ -6649,7 +7049,7 @@ h3:hover::before, h4:hover::before {
 <li>标根因 5 类: Parser 错 / 噪声混入 / PII 没脱 / 过期未清 / 重复占满 top-K</li>
 <li>每周 review 50 个 bad case, 调整治理流程</li>
 </ul>
-<h4 id="4164-spark-pipeline-100">4.16.4 完整 Spark <span class="pron">Pipeline<span class="ipa">/ˈpaɪplaɪn/</span><button class="speak-btn" onclick="speak('Pipeline')" title="点击朗读 Pipeline">🔊</button></span> 架构 (100 万文档生产)</h4>
+<h4 id="4164-spark-pipeline-100">4.16.4 完整 Spark Pipeline 架构 (100 万文档生产)</h4>
 <h5 id="_118">端到端架构</h5>
 <ul>
 <li>数据源: S3 / GCS (上传的 PDF / Word / 抓的 HTML)</li>
@@ -6855,7 +7255,7 @@ h3:hover::before, h4:hover::before {
 <td>免费</td>
 </tr>
 <tr>
-<td>处理 <span class="pron">Pipeline<span class="ipa">/ˈpaɪplaɪn/</span><button class="speak-btn" onclick="speak('Pipeline')" title="点击朗读 Pipeline">🔊</button></span></td>
+<td>处理 Pipeline</td>
 <td>Spark + Airflow</td>
 <td>Dask + Prefect</td>
 <td>/</td>

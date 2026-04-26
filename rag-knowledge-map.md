@@ -2328,6 +2328,113 @@ Gen 4 (Agent) 解决方式:
 > 70% 项目栽这一层. 决定 RAG 系统能"知道"什么 + "不能错说"什么.
 > 本节结构: 业务价值 → 完整写流程总览 → 每个组件独立小节 (含读写细节).
 
+### 4.0 本章知识体系总览 + 工具栈速查 ⭐
+
+> 读完本章你会掌握 7 大职责 / 7 种脏数据 / 12 类工具 / 5 大指标. 这一节先给你一张全景图.
+
+#### 4.0.1 知识体系树状大纲
+
+- L1 数据治理 (§4)
+  - 7 大职责 (按 Ingestion 流程顺序)
+    - 职责 1 — 多源接入 Ingestion (§4.3) — Connector + 上传
+    - 职责 2 — 解析 Parsing (§4.4) — 异构格式 → 纯文本
+    - 职责 3 — 噪声过滤 Boilerplate (§4.5) — 去页眉页脚 / 广告
+    - 职责 4 — PII 检测脱敏 (§4.6) — 识别敏感信息
+    - 职责 5 — 去重 Deduplication (§4.7) — SHA + MinHash + LSH
+    - 职责 6 — 质量评估 Quality Gating (§4.8) — LLM 打分
+    - 职责 7 — 元数据丰富化 (§4.9-§4.11) — 分类 + 版本 + 时效
+  - 7 种脏数据 (按出现频率)
+    - 重复 / 近似重复 (20-40%) → §4.7 Dedup
+    - 过时未删 (15-30%) → §4.10 Recency
+    - 格式破坏 PDF (30-60%) → §4.4 Parser
+    - 噪声页眉页脚 (5-15%) → §4.5 Boilerplate
+    - 多语言混杂 (跨国 100%) → §4.4 + §4.9
+    - PII 敏感信息 (5-20%) → §4.6 PII
+    - 版本爆炸 (90%+ 企业) → §4.11 Versioning
+  - 5 大核心指标 (生产监控)
+    - Recall@10 (检索召回率, 治理前 0.45 → 治理后 0.78)
+    - Faithfulness (生成忠实度, 必 ≥ 0.90)
+    - 重复率 (Dedup 效果, 目标 < 10%)
+    - PII 漏检率 (合规, 目标 < 0.1%)
+    - 平均质量分 (Quality Gating, 目标 ≥ 4.0/5)
+  - 实战 SOP (集大成 walkthrough)
+    - §4.16 端到端实战 (一份脏 PDF 6 步具体处理)
+    - Spark Pipeline 100 万文档生产架构
+    - KB Health 7 指标持续监控
+    - Bad case 闭环 5 类根因
+  - 局限与现实 (诚实 reality check)
+    - §4.15 7 大局限性
+    - §4.15 业界最新尝试 (Anthropic / Glean / Notion)
+
+#### 4.0.2 章节速读路径 (按角色)
+
+| 角色 | 推荐路径 (15-30 分钟) | 跳过 |
+|---|---|---|
+| **PM / 业务** | §4.0 + §4.1 (为什么 70%) + §4.2 (7 种脏数据) + §4.16 (实战 SOP) | §4.4-§4.11 各组件细节 |
+| **架构师** | §4.0 + §4.1 + §4.3 (写流程总览) + §4.16 (实战 SOP) + §4.14 (端到端) | 各组件实现细节 |
+| **RAG 工程师** | 全章 (§4.0 → §4.16) | 无 |
+| **数据工程师** | §4.0 + §4.4-§4.11 (各组件) + §4.14 (Spark Pipeline) + §4.16 | §4.15 局限讨论 |
+| **SRE / 运维** | §4.0 + §4.12 (KB Health) + §4.14.6 (监控) + §4.16.3 (验证) | 各组件算法细节 |
+| **面试准备** | §4.0 + §4.2 (7 种脏数据) + §4.6 (PII) + §4.7 (MinHash 数学) + §4.16 反模式 | / |
+
+#### 4.0.3 12 类工具完整速查表
+
+> 整章涉及的所有工具, 按用途分类. 每个含: 推荐 / 备选 / 适用 / 中文支持 / 成本.
+
+| 用途 | 推荐工具 | 备选 | 适用场景 | 中文 | 成本 | 详见 |
+|---|---|---|---|---|---|---|
+| Parse PDF (普通) | pypdfium2 | PyMuPDF / pdfplumber | 简单文档, 量大成本敏感 | 中 | 免费 | §4.4 |
+| Parse PDF (复杂表格) | LlamaParse | Unstructured / Marker | 财报 / 合同, 表格密集 | 中 | $0.003-0.01/页 | §4.4 |
+| Parse PDF (顶级精度) | Reducto | LlamaParse Pro | 法律 / 医疗 98% 准确率 | 强 | $0.01-0.05/页 | §4.4 |
+| Parse 扫描件 | GPT-5 Vision | Claude Sonnet Vision / 阿里通义 | OCR + 中文混排 | 强 | $0.01-0.03/页 | §4.4 |
+| Parse Word/PPT | python-docx / python-pptx | LibreOffice CLI | 简单 Office 文档 | 强 | 免费 | §4.4 |
+| Parse HTML | trafilatura | readability-lxml / jusText | 网页 + 自带 boilerplate 过滤 | 中 | 免费 | §4.4 + §4.5 |
+| Parse Email | mailparse | email-parser (Python) | Outlook / Gmail | 强 | 免费 | §4.4 |
+| 编码修复 | ftfy | unicodedata | mojibake / 全半角 | 强 | 免费 | §4.16 |
+| Boilerplate 检测 | trafilatura (HTML) | jusText / readability-lxml | 网页噪声 | 中 | 免费 | §4.5 |
+| Boilerplate (PDF) | 启发式 (重复频次法 / 位置法) | LLM 判断 / Vision LLM | PDF 页眉页脚 | / | 免费 | §4.5 |
+| Boilerplate (LLM) | Anthropic Haiku 4.5 | Gemini 2.0 Flash | 跨语言通用, 高价值少量文档 | 强 | $0.0001/段 | §4.5.3 |
+| 去重 (文档级) | Python hashlib SHA256 | xxhash (更快) | 完全重复检测 | / | 免费 | §4.7 |
+| 去重 (近似 MinHash) | datasketch | Spark MinHashLSH | Jaccard ≥ 0.85 近似重复 | / | 免费 | §4.7 |
+| 去重 (语义级) | embedding cosine ≥ 0.95 | / | 表达不同但语义同 | / | 免费 (复用 embedder) | §4.7 |
+| PII 检测 (英文) | Microsoft Presidio | AWS Comprehend / Google DLP | SSN / 信用卡 / 邮箱 | 弱 | 免费 (Presidio) | §4.6 |
+| PII 检测 (中文) | spaCy NER + 自定义正则 fine-tune | jieba + 规则 | 身份证 / 中文姓名 / 中国手机 | 强 (需 fine-tune) | 免费 | §4.6 |
+| PII 检测 (商业) | AWS Comprehend / Google DLP / Azure AI Language | / | 大规模合规要求严 | 强 | $0.0001-0.001/请求 | §4.6 |
+| PII 脱敏 | Presidio Anonymizer | 自研 mask 函数 | 替换 / 删除 / 标记 | 强 | 免费 | §4.6 |
+| Quality 评分 (启发式) | langdetect + 自定义规则 | textstat | 长度 / 字符比例 / 语言 | 强 | 免费 | §4.8 |
+| Quality 评分 (LLM) | Anthropic Haiku 4.5 | Gemini 2.0 Flash / GPT-5-mini | 大规模 LLM-as-judge | 强 | $0.001/chunk | §4.8 |
+| 分类打标 (LLM) | Anthropic Haiku 4.5 | Gemini 2.0 Flash | topic / sensitivity 自动打标 | 强 | $0.0005/chunk | §4.9 |
+| 分类打标 (本地) | spaCy 分类器 (fine-tuned) | scikit-learn LinearSVC | 高 QPS 不调外部 API | 强 | 免费 (本地推理) | §4.9 |
+| 语言检测 | langdetect | fasttext langid | 中英文识别 | 强 | 免费 | §4.9 |
+| 版本管理 | Postgres + canonical_id + version | DVC (大文件) | 同 doc 多版本 | / | 免费 (Postgres) | §4.11 |
+| 时效性 (recency_decay) | 自研衰减函数 | / | 检索时按时间加权 | / | 免费 | §4.10 |
+| Pipeline 编排 | Apache Spark + Airflow | Dask + Prefect / Temporal | 100 万+ 文档批处理 | / | 自托管 | §4.14 |
+| 异步队列 | Celery + RabbitMQ / Kafka | AWS SQS / GCP Pub/Sub | 文档 ingest 异步 | / | 自托管 | §4.3 |
+| Connector 框架 | Airbyte (350+ connector) | Fivetran (商业) / 自研 | 接入 100+ 数据源 | 中 | 免费 (Airbyte) | §0.1.5d + §4.3 |
+| 监控 | Datadog + Prometheus | Grafana / New Relic | KB Health 7 指标 | / | $50-500/月 | §4.12 |
+| Bad case 工具 | LangSmith | Phoenix (Arize) / Langfuse | 检索失败溯源 | 中 | $39-199/月 | §4.16 |
+
+#### 4.0.4 整章核心数字速查 (面试 / 决策必背)
+
+- **70%** RAG 项目质量瓶颈在 L1 数据治理 (业界共识)
+- **+0.33** Recall@10 — L1 完整 6 道治理 vs 不治理 (0.45 → 0.78)
+- **35-40%** 数据处理占总 Ingest 成本 (100 万文档 ~$1.5K)
+- **30%** Confluence 真实去重比例 (5 万文档实测)
+- **20-40%** 重复 / 近似重复 占脏数据
+- **15-30%** 过时未删 (Air Canada 案根因)
+- **5-20%** PII 比例 (合规生死线)
+- **$4550** 100 万文档 6 道治理实测成本 (10 小时)
+- **35-49%** Anthropic Prompt Caching 节省 (LLM 评分场景)
+
+#### 4.0.5 学习路径 (从 0 到上手 2 周)
+
+- **Day 1-2**: 读 §4.0 + §4.1 + §4.2, 建立全景认知
+- **Day 3-5**: 读 §4.4 + §4.5 + §4.6, 跑通本地 LlamaParse + Presidio + trafilatura demo
+- **Day 6-8**: 读 §4.7 + §4.8, 跑通 datasketch MinHash + Haiku LLM 评分 demo
+- **Day 9-11**: 读 §4.16 实战 SOP, 跑一份真实 PDF 完整 6 步 walkthrough
+- **Day 12-14**: 读 §4.12 KB Health + §4.14 Spark Pipeline, 设计自己业务的治理架构
+
+
 ### 4.1 章节定位 — 为什么 70% 项目质量瓶颈在 L1
 
 #### 4.1.1 一句话核心
