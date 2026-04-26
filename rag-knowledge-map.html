@@ -21357,12 +21357,7 @@ function _doSpeak(word) {
     u.onend = () => console.log('[TTS] end:', word);
     u.onerror = (e) => {
       console.error('[TTS] utterance error:', e.error, 'word:', word);
-      alert('语音播放出错: ' + e.error + ' (词: ' + word + ')
-
-常见原因:
-1. 浏览器禁用了 Web Speech (devtools console 看详情)
-2. 系统 TTS 引擎未启用
-3. 用户未与页面交互 (Chrome 要求点击后才允许)');
+      alert('语音播放出错: ' + e.error + ' (词: ' + word + ')\n\n常见原因:\n1. 浏览器禁用了 Web Speech\n2. 系统 TTS 引擎未启用\n3. 用户未与页面交互');
     };
 
     window.speechSynthesis.speak(u);
