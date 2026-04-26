@@ -5377,6 +5377,144 @@ START
 
 ### 5.4 Vector Index 构建 (HNSW / IVF / DiskANN)
 
+### 5.4.0 向量数据库原理讲透 — 跟传统 DB 区别 + 内部架构 + 主流产品对比 ⭐
+
+> §5.4.1+ 讲 HNSW / IVF / DiskANN 等 ANN 算法细节. 这一节先讲清楚: 什么是向量数据库 / 为什么需要 / 跟传统 DB 区别 / 内部架构 / 怎么选产品.
+
+#### 5.4.0.1 一句话定义
+
+**向量数据库 (Vector Database)** = 专门存储和检索高维向量 (e.g. 1024 维 float[]) 的数据库. 核心能力是按 **cosine 相似度 / 内积 / L2 距离** 找跟 query 向量最近的 top-K 向量.
+
+跟传统 DB 区别: 传统 DB 按精确字段查 ("WHERE id=42"), 向量 DB 按相似度查 ("找跟 query 最像的 10 个").
+
+#### 5.4.0.2 为什么需要 (跟传统 DB 对比)
+
+##### 传统关系型 DB (Postgres / MySQL) 不适合
+- ❌ 不支持 ANN (近似最近邻) 查询, 没法按相似度找
+- ❌ 1024 维 float[] 当 array 字段存效率极低
+- ❌ B-tree 索引对高维向量无效 (维度灾难)
+- ❌ JOIN 跨表场景没法跟"语义相似"挂钩
+
+##### 传统全文搜索 (Elasticsearch / Solr) 也不适合
+- ❌ 倒排索引按 term (词项) 匹配, 不支持向量相似度
+- ❌ BM25 对字面匹配强但语义弱
+- ❌ 需要"语义理解" 时无能为力
+
+##### 向量数据库专门解决
+- ✅ 高效存储高维向量 (压缩 / 内存优化)
+- ✅ ANN 算法快速查 top-K (HNSW / IVF / DiskANN)
+- ✅ 支持 metadata 过滤 (where source='confluence' AND created_at > '2025-01')
+- ✅ 集群 + 分片 + 副本 + 持久化
+
+#### 5.4.0.3 向量数据库内部架构 (5 大组件)
+
+##### 完整架构 (按数据流顺序)
+- **Layer 1 — 客户端 SDK** (Python / JS / Java)
+  - 调 HTTP API / gRPC
+  - 发起 insert / search / delete
+- **Layer 2 — 接入层** (HTTP / gRPC server)
+  - 负载均衡 (nginx / Envoy)
+  - 鉴权 (API key / JWT)
+  - 请求路由 (按 collection / shard 分流)
+- **Layer 3 — 查询规划层** (Query Planner)
+  - 解析 search 请求 (vector + filter + top_k)
+  - 决定执行计划: 先 filter 后 ANN, 还是先 ANN 后 filter
+  - 跨分片并行调度
+- **Layer 4 — 索引层** (核心)
+  - **ANN 索引**: HNSW (主流) / IVF (大规模) / DiskANN (极大规模) — 详见 §5.4.1+
+  - **元数据索引**: B-tree on (source / created_at / acl_tags) 用于过滤
+  - **倒排索引** (可选): 跟 BM25 配合
+- **Layer 5 — 存储层** (持久化)
+  - **内存**: HNSW 图结构 + 热数据 (高 QPS)
+  - **磁盘**: 全量向量 + metadata + 冷数据 (DiskANN 直接磁盘 ANN)
+  - **WAL** (write-ahead log): 写操作落盘前先写日志, 故障恢复
+
+##### 写流程
+- insert(vector, metadata) → 接入层 → 决定分片 (按 doc_id hash) → 索引层 (HNSW 增量插入) → 存储层 (写 WAL + 落盘)
+
+##### 读流程
+- search(query_vec, top_k=10, filter={source: 'confluence'}) → 接入层 → 查询规划 (先按 filter 找候选 shard) → 索引层 (HNSW ef_search 找 top_k) → 取 metadata + 原文 → 返结果
+
+#### 5.4.0.4 主流向量数据库产品对比 (8 大主流)
+
+| 产品 | 类型 | 内部 ANN | 优势 | 劣势 | 何时选 |
+|---|---|---|---|---|---|
+| **pgvector** | Postgres 扩展 | HNSW + IVFFlat | 跟 Postgres 原生集成, 跟元数据 JOIN, 免费 | 单机, 性能上限 1000 万向量 | 已有 Postgres + 中小规模 (业界主流起步) |
+| **Pinecone** | 商业 SaaS | 自研 HNSW | 0 运维 / 自动扩缩容 / serverless | $70/月起 / 锁定 SaaS | 中小 SaaS / 不想运维 |
+| **Milvus / Zilliz** | 开源 + Cloud | HNSW + IVF + DiskANN | 大规模 (百亿+) / 国产 / 多种索引 | 运维复杂 (Pulsar + etcd + MinIO 一堆依赖) | 国产合规 + 大规模 |
+| **Qdrant** | 开源 | HNSW (Rust 实现) | Rust 性能强 / 标量过滤强 / 简单 | 生态比 Milvus 小 | 中等规模 + 标量过滤密集 |
+| **Weaviate** | 开源 + Cloud | HNSW | 内置 vectorizer (省 Embedder 调用) / 多模态 | 性能略弱 / 学习曲线 | 多模态场景 |
+| **Chroma** | 开源 (Python) | HNSW | 极简 (5 行代码), 单机 | 生产级特性弱 (无集群) | PoC / 本地 demo |
+| **LanceDB** | 嵌入式 (类似 SQLite) | IVF / HNSW | 嵌入式 (无服务器), 多模态原生 | 新, 生态小 | 端侧 / 嵌入式应用 |
+| **Vespa** | 开源 (Yahoo) | HNSW + 倒排 + 张量 | Yahoo 级性能 (10 亿+ 向量) / Hybrid 原生 | 学习曲线极高 | 极致性能 + 大厂 |
+
+#### 5.4.0.5 选型决策 (按规模 / 团队 / 预算)
+
+| 业务规模 | 推荐产品 | 理由 |
+|---|---|---|
+| < 10 万向量 (Demo / PoC) | Chroma | 5 行代码起 |
+| 10 万-1000 万 (中小生产) | **pgvector** | 跟 Postgres 集成, 跟元数据 JOIN, 免费 (业界主流起步) |
+| 1000 万-1 亿 (中大生产) | Pinecone serverless / Qdrant | 0 运维 / 性能稳 |
+| 1 亿+ (大规模) | Milvus / Zilliz Cloud | 大规模专精 + 国产合规 |
+| 10 亿+ (极大规模) | Vespa / Milvus + DiskANN | 极致性能 |
+| 端侧 / 嵌入式 | LanceDB / Chroma local | 无服务器 |
+
+#### 5.4.0.6 跟传统 DB 的协作模式 (生产真实做法)
+
+##### 模式 1: 向量库 + 关系 DB 双写
+- 向量库存 (chunk_id, vector)
+- 关系 DB (Postgres) 存 (chunk_id, text, metadata, ACL)
+- 检索: 先查向量库拿 chunk_id → 再用 chunk_id 查 Postgres 拿原文
+- 适合: 跨库 metadata 复杂场景
+
+##### 模式 2: pgvector 单库 (业界主流起步)
+- 全部存在 Postgres: (chunk_id, text, vector, metadata, ACL)
+- 检索: 一条 SQL 跑完 ("ORDER BY embedding <-> query_vec LIMIT 10")
+- 优势: 跨库一致性 + 跟 metadata WHERE 联用 + 事务保证
+- 劣势: pgvector 性能上限 1000 万向量 (上亿要切 Pinecone / Milvus)
+
+##### 模式 3: 向量库 + 倒排索引 (Hybrid Search)
+- 向量库 (pgvector / Pinecone) 跑 Dense ANN
+- Elasticsearch / OpenSearch 跑 BM25 倒排
+- 应用层做 RRF 融合
+- 适合: Hybrid Search (业界标配, 详见 §6.2)
+
+#### 5.4.0.7 跟 ANN 算法的关系
+
+向量数据库 = ANN 算法 + 存储 + 查询规划 + 集群
+
+- **ANN 算法** (HNSW / IVF / DiskANN) 是向量数据库的核心索引能力
+- 不同向量数据库支持的 ANN 算法不同 (Pinecone 自研 HNSW / pgvector HNSW + IVFFlat / Milvus 全部支持)
+- 详细 ANN 算法见 §5.4.1 HNSW / §5.4.2 IVF / §5.4.3 DiskANN
+
+#### 5.4.0.8 常见问题 (反模式)
+
+- ❌ **直接用 Redis 当向量库**
+  - 现象: Redis 5+ 支持 RediSearch + VECTOR field, 但 ANN 算法选择有限 (只有 HNSW + Flat)
+  - 真实: 中小项目能跑, 但跟 Pinecone / Milvus 比性能弱
+  - 避免: 除非你已经重度依赖 Redis, 否则用专门的向量数据库
+- ❌ **MongoDB 当向量库**
+  - 现象: MongoDB Atlas 7.0+ 支持 vector search, 但本质是搭载在文档库上
+  - 真实: 性能比专门向量库弱 30-50%
+  - 避免: 除非已重度依赖 MongoDB, 否则不推荐
+- ❌ **每个 query 都重启向量库连接**
+  - 现象: Python 没用连接池, 每次 search 新建连接
+  - 真实: 高 QPS 场景延迟翻倍
+  - 避免: 用连接池 (e.g. psycopg2.pool / asyncpg.create_pool)
+- ❌ **ANN 索引不建直接 search**
+  - 现象: pgvector 没建 HNSW 索引, search 走全表扫描
+  - 真实: 100 万向量 P95 从 30ms 飚到 5s
+  - 避免: 必建 HNSW 索引 (CREATE INDEX ON chunks USING hnsw (embedding vector_cosine_ops))
+- ❌ **HNSW ef_search 调太高**
+  - 现象: 想保召回率把 ef_search 调到 500+
+  - 真实: 国内 TOP10 电商 efSearch=500 上线 → P95 200ms→3000ms (§4.4 真实事故)
+  - 避免: ef_search=100 是工业甜点, 召回率仅降 0.5%
+
+#### 5.4.0.9 一句话总结
+
+向量数据库 = 专门按相似度 (cosine / 内积 / L2) 检索高维向量的数据库. 核心是 ANN 算法 (HNSW 主流) + 存储 + 查询规划. 业界起步用 **pgvector** (跟 Postgres 集成); 中大规模用 **Pinecone / Qdrant** (0 运维); 极大规模 + 国产用 **Milvus / Zilliz**. ANN 算法详见 §5.4.1+.
+
+
 #### 5.4.1 HNSW (Hierarchical Navigable Small World)
 
 ##### 是什么
@@ -5812,6 +5950,157 @@ START
 - 步 7: MMR (多样性, 可选)
 - 步 8: 拒答检查
 - 输出: top-K chunks (排序好)
+
+### 6.1.5 检索评估指标讲透 — NDCG / MRR / Recall@K / Precision@K / Hit Rate / MAP ⭐
+
+> 全文用了 NDCG 130+ 次但一直没集中定义. 这一节讲透 6 个最常用的检索评估指标 + 何时用哪个 + 业界标准.
+
+#### 6.1.5.1 一句话定义
+
+| 指标 | 全称 | 一句话 | 取值范围 |
+|---|---|---|---|
+| **Recall@K** | 召回率 @ top-K | 真正相关的 chunk 中, 多少进了 top-K | 0-1, 越高越好 |
+| **Precision@K** | 精确率 @ top-K | top-K 中, 多少是真正相关的 | 0-1, 越高越好 |
+| **MRR** | Mean Reciprocal Rank | 第一个相关结果的排名倒数, 取均值 | 0-1, 越高越好 |
+| **Hit Rate@K** | 命中率 @ top-K | 至少 1 个相关结果进了 top-K 的 query 比例 | 0-1, 越高越好 |
+| **MAP** | Mean Average Precision | 多个相关结果的平均精确率, 跨 query 平均 | 0-1, 越高越好 |
+| **NDCG@K** | Normalized Discounted Cumulative Gain | 考虑排名位置的归一化打分 (主流) | 0-1, 越高越好 |
+
+工业界主流: **Recall@10 + NDCG@10** (二选一或都看).
+
+#### 6.1.5.2 NDCG 完整讲透 (用得最多, 必懂)
+
+##### 公式 + 直觉
+- **NDCG = DCG / IDCG** (归一化 Discounted Cumulative Gain)
+- **DCG@K**: 把 top-K 每个位置的相关度按 log 衰减加权求和
+  - DCG@K = Σ (rel_i / log2(i+1)), i 从 1 到 K
+  - rel_i 是第 i 个结果的相关度分数 (0/1 二分 或 0-3 分级)
+  - log2(i+1) 是位置衰减因子 (排名越靠后权重越小)
+- **IDCG@K**: 理想情况 (相关结果按相关度从高到低排) 的 DCG, 用于归一化
+- **NDCG@K = DCG@K / IDCG@K**, 范围 [0, 1]
+
+##### 直觉解释 (用例子说人话)
+- query "退款流程是什么", 假设有 3 个真正相关的 chunk
+- top-5 结果排名: 相关 / 不相关 / 相关 / 不相关 / 相关
+- 二分相关度 (rel 是 0 或 1):
+  - DCG@5 = 1/log2(2) + 0/log2(3) + 1/log2(4) + 0/log2(5) + 1/log2(6) = 1.0 + 0 + 0.5 + 0 + 0.387 = 1.887
+- 理想排名 (3 个相关都在前): 相关 / 相关 / 相关 / 不相关 / 不相关
+  - IDCG@5 = 1/log2(2) + 1/log2(3) + 1/log2(4) + 0 + 0 = 1.0 + 0.631 + 0.5 = 2.131
+- NDCG@5 = 1.887 / 2.131 = **0.886**
+
+##### NDCG 为什么主流
+- ✅ 考虑排名位置 (相关结果越靠前分越高)
+- ✅ 支持分级相关度 (e.g. 0=不相关 / 1=相关 / 2=完全相关 / 3=最佳, 不是只有 0/1)
+- ✅ 跨 query 可比较 (归一化到 [0, 1])
+- ✅ 跟用户体验强相关 (用户一般只看 top-5)
+
+##### 业界 NDCG@10 标准 (生产参考)
+- < 0.45: 索引差, RAG 答案质量塌
+- 0.45-0.65: Naive RAG 水平
+- 0.65-0.80: Modular RAG 水平 (Hybrid + Reranker)
+- 0.80-0.90: 顶级 (Anthropic Contextual Retrieval / 业务 fine-tune)
+- > 0.90: 极致 (单领域 + 大量 fine-tune)
+
+#### 6.1.5.3 Recall@K (召回率) 完整讲透
+
+##### 公式 + 直觉
+- **Recall@K = (top-K 中相关 chunk 数) / (全部相关 chunk 数)**
+- 例子: 全库 100 万 chunk 中, query 真正相关的有 5 个. top-10 命中其中 3 个. Recall@10 = 3/5 = 0.6
+- 取值: 0-1, 越高越好
+
+##### 何时用 Recall
+- ✅ 关心"漏没漏" (法律 / 医疗场景, 不能漏关键信息)
+- ✅ Reranker 上游评估 (Reranker 只能从召回的 K 个中精排, Recall@K 是上限)
+- ❌ 不关心位置 (top-1 跟 top-10 在 Recall@10 里同样算 1 分)
+
+##### 业界 Recall@10 标准
+- < 0.6: 召回有严重问题 (Embedder 错 / Hybrid 没上)
+- 0.6-0.85: Naive RAG 水平
+- 0.85-0.92: Modular RAG (生产可用门槛)
+- > 0.92: 顶级
+
+#### 6.1.5.4 Precision@K (精确率)
+
+##### 公式
+- **Precision@K = (top-K 中相关 chunk 数) / K**
+- 例子: top-10 里 3 个相关. Precision@10 = 3/10 = 0.3
+- 取值: 0-1, 越高越好
+
+##### 何时用 Precision
+- ✅ 关心"准不准" (LLM context 有限, 不能塞太多无关 chunk)
+- ✅ 跟 Recall 一起看 (F1 = 2 × P × R / (P + R))
+- ❌ K 大时分母大, 看着低 (Precision@100 一般很低)
+
+#### 6.1.5.5 MRR (Mean Reciprocal Rank)
+
+##### 公式
+- 单 query 的 RR = 1 / (第一个相关结果的排名)
+- 例子: top-5 排名 [不相关, 不相关, 相关, ...] → RR = 1/3 = 0.333
+- MRR = 多 query 的 RR 平均
+
+##### 何时用 MRR
+- ✅ 关心"第一个相关结果排第几" (FAQ 客服, 用户只看第一条)
+- ✅ Q&A 类场景 (单一答案)
+- ❌ 多个相关结果场景 (e.g. 法律检索, 不只看第一个)
+
+#### 6.1.5.6 Hit Rate@K (命中率)
+
+##### 公式
+- 一个 query 的 top-K 中至少有 1 个相关 → Hit = 1, 否则 = 0
+- Hit Rate@K = 跨 query 的 Hit 平均
+
+##### 何时用 Hit Rate
+- ✅ 简单粗暴评估 ("有没有命中")
+- ✅ 适合二分场景 (正确 / 错误, 不分级)
+- ❌ 不区分质量 (top-1 跟 top-10 都算 hit)
+
+#### 6.1.5.7 MAP (Mean Average Precision)
+
+##### 公式
+- 单 query 的 AP = 在每个相关结果的位置上算 Precision, 然后取平均
+- MAP = 多 query 的 AP 平均
+- 比 NDCG 更精细 (但不归一化), NDCG 是 MAP 的归一化进化版
+
+##### 何时用 MAP
+- ✅ 学术论文 (历史指标, 对比方便)
+- ✅ 多相关结果场景
+- ❌ 工业应用 (NDCG 更主流)
+
+#### 6.1.5.8 6 指标对比表
+
+| 指标 | 看什么 | 排名敏感 | 分级相关度 | 工业地位 |
+|---|---|---|---|---|
+| Recall@K | 召回完整性 | ❌ | ❌ | 主流 (跟 NDCG 并列) |
+| Precision@K | 精确性 | ❌ | ❌ | 跟 Recall 一起看 |
+| MRR | 第一个相关位置 | ✅ | ❌ | FAQ / Q&A |
+| Hit Rate@K | 有没有命中 | ❌ | ❌ | 简单评估 |
+| MAP | 多相关结果排名平均 | ✅ | ❌ | 学术 |
+| **NDCG@K** | **排名 + 分级相关度** | ✅ | ✅ | **业界主流, 必看** |
+
+#### 6.1.5.9 怎么算这些指标 (实操)
+
+##### 必备: Golden Set (人工标注)
+- 准备 100-500 个 query
+- 每 query 标注哪些 chunk 真正相关 (二分 0/1 或 分级 0-3)
+- 跑 RAG 系统拿到 top-K 结果
+- 对比 ground truth 计算各指标
+
+##### 工具
+- **RAGAS** (Python pip install ragas): 一键算 4 指标 (faithfulness/answer_relevancy/context_precision/context_recall)
+- **LangSmith**: 跑评估 + 可视化 + 历史对比
+- **Phoenix (Arize)**: 开源, 支持自定义指标
+- **TruLens**: 开源, RAG 评估专精
+- **自实现** (sklearn.metrics): 直接 Python 算
+
+##### 业界做法
+- 上线前: 必跑 RAGAS 4 指标 + Recall@10 + NDCG@10 (Golden Set 100-500 query)
+- 上线后: KB Health 周报告这些指标 (跟踪退化)
+- A/B 测试: 改任何东西必跑 (Embedder 升级 / Chunking 策略改 / Reranker 加)
+
+#### 6.1.5.10 一句话总结
+
+工业界用 **NDCG@10 + Recall@10** 就够 90% 场景. NDCG 看排名质量, Recall 看召回完整性. 改任何东西必在 Golden Set 上跑这两个指标对比, 不允许凭感觉.
+
 
 ### 6.2 Hybrid Search 三通道详解
 
