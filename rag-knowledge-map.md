@@ -459,6 +459,102 @@ RAG 喂 LLM 的数据 = **一个 messages 数组**, 含 3 部分: system 提示 
 - 3. 检索质量决定最终 messages 里那 5 段原文是否相关; 5 段错了 LLM 再强也答不对. 这就是为什么 RAG 70% 工程投入在数据治理 + 检索, 不在 LLM
 
 
+##### 0.1.5d messages 里的"原文"到底是什么 — chunk_id 关联的那段文本
+
+> 上一节说 messages 装的是"原文". 这一节讲清楚 **"原文"具体是什么 — 是 chunk 的 text 字段, 不是整个原始文档**. 以及 chunk_id 在中间起什么作用.
+
+###### 关键认知 — 原文 = chunk 的 text, 不是整份文档
+
+RAG 离线处理时, 一份 5000 字的原始文档 (e.g. `policy/refund.md`) 不会整份喂给 LLM, 而是**先切成 N 段小块 (chunk), 每段 200-1024 字**, 每段独立检索. 喂 LLM 的"原文"就是那几段 chunk 的内容 (text 字段).
+
+举例:
+- 原始文档 `policy/refund.md` (5000 字) — 离线时切成 10 个 chunk (chunk_id = 40, 41, 42, ..., 49)
+- chunk_42 是其中一段, ~500 字, 内容是 "退款流程: 用户提交退款申请 → 风控审核 (24h) → ..."
+- 客户问 "RF12345 退款流程是什么", 检索找到最相关的是 chunk_42
+- 喂给 LLM 的 "原文" = chunk_42.text (~500 字), **不是整份 refund.md (5000 字)**
+
+###### chunk_id 是干什么的 — 检索系统跟 Doc Store 之间的主键
+
+chunk_id 是给每个 chunk 分配的全局唯一编号 (整数 / UUID). 它在三存储里都是"主键 / 关联键":
+
+| 存储 | 存了什么 | chunk_id 的作用 |
+|---|---|---|
+| 向量库 (Pinecone / pgvector) | (chunk_id, 1024 维向量) | 检索返回 chunk_id |
+| 倒排索引 (Elasticsearch) | (term, chunk_id 倒排表) | 检索返回 chunk_id |
+| **文档库 (Doc Store, Postgres / Redis)** | (chunk_id, **chunk 原文 text**, source_url, metadata) | 用 chunk_id 反查原文 |
+
+关键关系:
+- 向量库 / 倒排索引 **只存 chunk_id 和检索用的索引数据 (向量 / 词项)**, 不存原文
+- Doc Store **专门存 chunk 的原文 text 字段**, 用 chunk_id 当主键
+- 检索系统找到 chunk_id 后, **必须再用 chunk_id 去 Doc Store 查原文**, 才能拿到要喂 LLM 的文本
+
+这就是为什么 RAG 是"三存储架构" (§0.1.4) — 三个存储用 chunk_id 串起来.
+
+###### 完整数据流 — 从原始文档到 messages
+
+**离线阶段** (一次性, 详见 §0.1.4):
+- 步 1: 拿到原始文档 `policy/refund.md` (5000 字)
+- 步 2: Chunking — 切成 10 段, 每段 ~500 字, 分配 chunk_id 40-49
+- 步 3: 三存储分别入库:
+  - 向量库存: (chunk_id=42, vector=[0.13, -0.45, ...])
+  - 倒排索引存: ("退款" → [40, 42, 45], "RF" → [42, 47], ...)
+  - **Doc Store 存: (chunk_id=42, text="退款流程: 用户提交...", source_url="policy/refund.md#L23")**
+
+**在线阶段** (每次 query):
+- 步 1-5: 检索 → 拿到 top-5 chunk_id (e.g. [42, 88, 157, 311, 17])
+- 步 6: **用这 5 个 chunk_id 去 Doc Store 查原文** — `SELECT id, text, source_url FROM chunks WHERE id IN (42, 88, 157, 311, 17)`
+- 步 7: 把查回来的 5 段 text 拼到 messages[1].content 里 (上一节 §0.1.5c 详细)
+
+###### 真实数据示例 (Doc Store 表的样子)
+
+Doc Store (e.g. Postgres `chunks` 表) 一行长这样:
+
+| 字段 | 值 |
+|---|---|
+| id (chunk_id) | 42 |
+| text | 退款流程: 用户提交退款申请 → 风控审核 (24h) → 财务打款 (3-5 工作日) → 银行到账 (1-2 工作日)... |
+| source_url | policy/refund.md#L23 |
+| document_id | doc_001 (refund.md 的全局 ID) |
+| chunk_index | 3 (在 refund.md 里是第 3 段) |
+| metadata | {"author": "...", "updated_at": "...", "tags": [...]} |
+
+**喂 LLM 的"原文"就是 text 字段的内容**, 用 chunk_id 主键查回来.
+
+###### chunk_id 在 messages 里的作用
+
+虽然 chunk_id 不是检索目的, 但它在 messages 里**仍然出现**, 作用是 LLM 引用 + 后台反查 URL:
+
+messages[1].content 里的样子 (上一节展示过):
+- "[chunk_42, source: policy/refund.md#L23]
+- 退款流程: 用户提交退款申请 → 风控审核 (24h) → ..."
+
+这里:
+- `[chunk_42]` 让 LLM 在生成答案时能引用 (输出 "根据资料 [chunk_42], 退款流程为...")
+- `source: policy/refund.md#L23` 让用户/LLM 看到原文出自哪个文档的哪一行
+- 后台用 `[chunk_42]` 反查到 source_url, 渲染成可点击链接 (步 9)
+
+###### 数据流总图 — chunk_id 串起一切
+
+完整链路 (按数据形态):
+- 原始文档 (5000 字 markdown)
+- → Chunking → 10 段 chunk, 每段 ~500 字, 分配 chunk_id 40-49
+- → 三存储分别入库 (chunk_id 都是主键)
+- → 在线检索 → 找到 top-5 chunk_id (机器索引层面, 还没原文)
+- → **用 chunk_id 去 Doc Store 查 text** (这一步把 ID 变成原文)
+- → 拼到 messages.content 里 (text + chunk_id 标签 + query)
+- → 喂 LLM
+- → LLM 输出答案 + [chunk_42] 引用
+- → 后台用 [chunk_42] 反查 source_url → 渲染成可点击链接给用户
+
+###### 总结 — 5 条认知
+
+- 1. messages 里的"原文" = **chunk 的 text 字段** (200-1024 字小段), 不是整份原始文档
+- 2. chunk_id 是检索系统跟 Doc Store 之间的**主键**, 用它串起三存储
+- 3. 检索系统 (向量库 / 倒排索引) 返回的是 chunk_id 列表, **不是原文**; 原文必须再用 chunk_id 去 Doc Store 查
+- 4. chunk_id 也会出现在 messages 里, 作用是 LLM 引用 + 后台反查 URL (不是给 LLM 当数据)
+- 5. **整个 RAG 三存储架构的存在意义就是: 让"找"和"查原文"分开** — 找用向量/倒排 (快但只返 ID), 查原文用 KV 主键 (准但只能按 ID 查). 这两步配合才高效
+
+
 #### 0.1.6 5 个最容易被忽略的事实 (面试高频)
 - 事实 1: **真实工业 RAG 是三存储, 不是双存储**
   - 误区: "RAG = 向量库 + LLM, 两个组件够了"
