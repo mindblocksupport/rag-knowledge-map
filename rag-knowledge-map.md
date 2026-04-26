@@ -2297,31 +2297,31 @@ Gen 4 (Agent) 解决方式:
 ### 3.0 章节定位 (本章已瘦身)
 
 > 5 层架构总览 + 70/20/10 投资 + 各层职责 + 缺哪层栽哪层 已在 §0.3 / §1.4 讲透, 不再重复.
-> 本章只保留 §3.7 5 层接口契约 (其它章节看不到的内容).
+> 本章只保留 §3.1 5 层接口契约 (其它章节看不到的内容).
 
-### 3.7 5 层接口契约
+### 3.1 5 层接口契约
 
-#### 3.7.1 L1 → L2 (写路径)
+#### 3.1.1 L1 → L2 (写路径)
 - 输入: parsed cleaned text + metadata + ACL tag
 - 输出: clean chunks 待索引
 
-#### 3.7.2 L2 → L3 (写完后等读)
+#### 3.1.2 L2 → L3 (写完后等读)
 - 输入: chunks + embeddings + metadata
 - 输出: searchable indexes (vector + sparse + metadata)
 
-#### 3.7.3 用户 query → L4 (读入口)
+#### 3.1.3 用户 query → L4 (读入口)
 - 输入: raw query + user context (user_id, role, workspace_id)
 - 输出: enriched query + route decision
 
-#### 3.7.4 L4 → L3 (普通 / 增强路径)
+#### 3.1.4 L4 → L3 (普通 / 增强路径)
 - 输入: query (含 HyDE hypothesis 或 Multi-Query 变体)
 - 输出: ranked top-K chunks
 
-#### 3.7.5 L4 → L5 (Agent 路径)
+#### 3.1.5 L4 → L5 (Agent 路径)
 - 输入: query + intent classification
 - 输出: Agent 接管, 多步执行 (内部调 L3 + Tools)
 
-#### 3.7.6 L3/L5 → Generation (终点)
+#### 3.1.6 L3/L5 → Generation (终点)
 - 输入: query + top-K chunks + (Agent 时含 tool results)
 - 输出: final answer + citations + faithfulness score
 
@@ -4415,7 +4415,7 @@ Gen 4 (Agent) 解决方式:
 - 方案: 自动检测 stale 文档 + LLM 提示用户归档
 - 解决: 时效性管理 (减少人工成本)
 
-##### Cursor / Codeium AST-aware (代码 RAG)
+##### Cursor / Codeium AST-aware (代码 RAG, $20/月)
 - 方案: 代码不按字数切, 按 AST 函数/类切; 跟踪函数调用关系
 - 解决: 代码场景的 chunking + 跨文件依赖
 
@@ -5773,19 +5773,56 @@ START
 - 1-100 亿, 精度要求高: DiskANN (SSD 换内存, 精度好)
 - > 100 亿: 分片 + DiskANN (多机)
 
-#### 5.4.4 量化策略
+#### 5.4.4 量化策略 (Quantization, 内存优化)
 
-##### PQ (Product Quantization)
-- 子向量聚类, 压缩 8-32×
-- 召回 -3 到 -8%
+##### 解决什么问题
+- 原始向量 (float32, 4 字节/维) 1024 维 = 4KB / 向量
+- 1 亿向量 = 400GB RAM, 单机扛不住, 必须分布式 (复杂 + 贵)
+- 量化解法: **把 float32 压缩成 int8 / int4 / 1bit, 大幅省内存**
 
-##### SQ (Scalar Quantization)
-- float32 → int8, 压缩 4×
-- 召回 -1 到 -2%
+##### 业务场景
+- ✅ 大规模 (1 亿+ 向量) 必须量化
+- ✅ 内存敏感 (RAM 是瓶颈不是 CPU)
+- ✅ 召回率可接受小幅下降 (1-5%) 换 4-32× 内存压缩
+- ❌ 极致召回质量 (法律 / 医疗) 不要量化, 用全精度
+- ❌ 中小规模 (< 1000 万向量) 没必要量化
 
-##### BQ (Binary Quantization)
-- 1 bit, 压缩 32×
-- 召回 -10 到 -20% (仅初筛)
+##### 3 种主流量化策略
+
+###### Scalar Quantization (SQ, 标量量化)
+- 算法: 把 float32 [-1, 1] 区间分 256 段, 每段映射到 int8
+- 压缩比: 4× (4 字节 → 1 字节)
+- 召回损失: 1-3%
+- 工具: pgvector 0.7+ / Milvus 内置
+
+###### Product Quantization (PQ, 乘积量化, 主流)
+- 算法: 把 1024 维向量切成 8 个 128 维子向量, 每个子向量用 K-Means 聚类压成 8 bit
+- 压缩比: 32× (4096 字节 → 128 字节, 1024 维)
+- 召回损失: 3-5%
+- 工具: Faiss IVF-PQ / Milvus
+
+###### Binary Quantization (二值量化)
+- 算法: 每维 > 0 → 1, ≤ 0 → 0, 1024 维变 1024 bit = 128 字节
+- 压缩比: 32×
+- 召回损失: 5-15% (大)
+- 适合: 极端内存压力 + 召回率要求不高
+- 工具: Faiss BinaryFlat
+
+##### 反模式 (业界踩坑)
+- ❌ 1000 万向量量化 — 内存够 (40GB), 没必要量化, 召回率却跌
+- ❌ 法律 RAG 用 binary quantization — 召回质量塌, 答错风险
+- ❌ 量化后不重测召回率 — 不知道掉了多少
+- ✅ 1 亿+ 向量 + PQ + benchmark 验证召回率掉 < 5% 才上
+
+##### 真实数据 (实测, 某电商 1 亿商品向量)
+- 全精度 float32: 400GB RAM, 召回 0.92, 月成本 $5K
+- IVF-PQ 32× 压缩: 12.5GB RAM, 召回 0.88 (-0.04), 月成本 $200
+- 节省: 95% 内存 + 96% 成本, 召回轻微下降可接受
+
+##### 关键决策
+- 1 亿+ 向量 + 内存敏感: IVF-PQ 32× (业界主流)
+- 1000 万-1 亿 + 内存够: SQ 4× 即可
+- 极致内存压力: Binary (但召回大跌)
 
 #### 5.4.5 索引选型决策
 
@@ -5831,26 +5868,63 @@ START
 - CREATE INDEX gin_idx ON docs USING GIN (to_tsvector(...))
 - 中文必须装 zhparser/scws 扩展或自己 jieba 分词
 
-#### 5.5.2 SPLADE (神经稀疏)
+#### 5.5.2 SPLADE (Sparse Lexical and Expansion Model, 神经稀疏检索)
 
-##### 写流程
-- 步 1: 整文本输入 BERT
-- 步 2: 输出 [vocab_size] 维 logits
-- 步 3: log(1 + ReLU(logits)) 引入稀疏
-- 步 4: max-pooling 聚合
-- 步 5: 输出稀疏向量 (大部分为 0)
-- 步 6: 入稀疏索引
+##### 解决什么问题
+- BM25 是字面匹配, 同义词盲 (query "退款" 找不到 "返金 / refund")
+- Dense 是语义匹配, 但精确编号匹配差 (RF12345 不命中)
+- SPLADE 的解法: **用神经网络生成"扩展词袋", 既保留字面匹配能力又自动加同义词**
+- 价值: 一个模型同时做"BM25 字面 + 同义词扩展", 不需要单独维护同义词词典
 
-##### 优势
-- 含同义词扩展
-- 比 BM25 +15-20% NDCG
+##### 业务场景
+- ✅ 多语言 / 跨术语场景 (医学 / 法律 / 多语言客服)
+- ✅ 内容含大量同义表达
+- ✅ 想替代 BM25 + 手动同义词典的项目
+- ❌ 资源紧张 (SPLADE 需 GPU + BERT 推理, 比 BM25 重 100x)
+- ❌ 中文资源还少 (业界 SPLADE 主要英文)
+- ❌ 极致简单 (BM25 已够用)
+
+##### 算法 (一句话)
+- 用 BERT-style 模型把 chunk + query 都编码成 vocab-sized 稀疏向量 (e.g. 30000 维, 大部分 0)
+- 非零位置 = 该词的"扩展权重", 包含原词 + 同义词 + 相关词
+
+##### 写流程 (Index)
+- 步 1: 每 chunk 喂 SPLADE 模型 → 输出 30000 维稀疏向量 (大多数维 = 0)
+- 步 2: 提取非零维 → (term_id, weight) 倒排表
+- 步 3: 入 Elasticsearch / 自定义稀疏索引
+
+##### 读流程 (Query)
+- 步 1: query 喂同一 SPLADE 模型 → 输出 30000 维稀疏向量
+- 步 2: 用稀疏点积 (跟 BM25 类似) 算 query 跟 chunk 的相关度
+- 步 3: 返 top-K
+
+##### 关键参数
+- λ_q (query 稀疏度): 控制 query 扩展的词数, 0.001-0.01
+- λ_d (doc 稀疏度): 控制 doc 扩展的词数, 0.0001-0.001
+- 阈值越大越稀疏 (省存储但召回低)
+
+##### 反模式
+- ❌ 中文场景用英文 SPLADE — 训练数据不匹配, 效果差
+- ❌ 资源紧张上 SPLADE 替代 BM25 — GPU 推理成本翻 100x
+- ❌ 不调 λ — 默认参数不一定最优
+- ✅ 资源充足 + 多语言 + BM25 不够好时上 SPLADE
+
+##### 性能 / 成本
+- 索引构建: 比 BM25 慢 50-100x (要 BERT 推理)
+- 查询延迟: ~50ms (比 BM25 5ms 慢 10x)
+- 召回率: 比 BM25 提升 15-20% NDCG (英文 MS MARCO 实测)
 
 ##### 工具
-- Pinecone Sparse-Dense Index
-- Vespa Sparse Vector
-- Qdrant Sparse Vector (1.7+)
+- naver-labs/splade (官方)
+- pyserini (集成 SPLADE)
+- Elasticsearch 8.X+ (支持稀疏向量字段)
 
-### 5.5b Doc Store (文档库) + 三存储集成 ⭐ (用户反馈"三存储没体现")
+##### 业界采用
+- 学术: 多个 IR 论文标杆
+- 工业: 部分英文 RAG 用 (Elastic Cloud 内置)
+- 中文: 资源少, 业界主流仍是 BM25 + Dense Hybrid
+
+### 5.5b ### 5.5b Doc Store (文档库) + 三存储集成 ⭐ (用户反馈"三存储没体现")
 
 > §5.4 讲了向量库, §5.5 讲了倒排索引库, 但**三存储里的"文档库"** (Doc Store) 一直没集中讲. 这一节补上, 同时讲三存储的协同关系.
 
@@ -6735,7 +6809,7 @@ RRF 计算:
 - LlamaIndex 自带 fusion 模块
 - 自实现 10 行 Python (上面代码)
 
-### 6.4 Reranker (重排/精排模型) (8 种 + 完整流程详解)
+### 6.4 Reranker (重排/精排模型) — 7 种 Cross-Encoder/API + 2 种 LLM Voting (完整流程详解)
 
 #### 6.4.0 Reranker 是什么 + 为什么需要
 
@@ -7040,6 +7114,14 @@ RRF 计算:
 | RankGPT (GPT-4o) | LLM Listwise | — | LLM context | ✅ | $0.05-0.15/query | 2-5s | +18% | ⚠️ API | 高价值低流量 |
 | RankLLM (3 LLM) | LLM Voting | — | LLM context | ✅ | $0.15-0.45/query | 3-6s | +19% | ⚠️ | 极致精度 |
 
+
+##### 云原生 Reranker 补充 (audit 反馈)
+
+| 工具 | 厂商 | 优势 | 价格 | 何时选 |
+|---|---|---|---|---|
+| **Pinecone Reranker** | Pinecone | 跟 Pinecone 向量库无缝集成 | $0.001-0.01/1000 调用 | 已用 Pinecone |
+| **AWS Bedrock Reranker** | AWS | AWS 生态 + Cohere Rerank-3 模型 | $0.002/1000 docs | AWS 重度用户 + Cohere 模型偏好 |
+| **Azure AI Search Semantic Ranker** | Microsoft | 跟 Azure AI Search 集成 + 多语言 | 包含在 Azure AI Search 价格 | Azure 生态 + 已用 AI Search |
 #### 6.4.10 Reranker 选型决策树
 
 ##### 决策点 1: 私有化要求?
@@ -7293,23 +7375,84 @@ RRF 计算:
 - LangChain QueryGenerator (社区)
 - 自实现简单 (1 LLM 拆 + N 检索 + 1 综合)
 
-#### 6.5.5 RAG-Fusion 读流程
+#### 6.5.5 RAG-Fusion (Adrian Raudaschl 2023.10)
 
-##### 思想
-- Multi-Query + RRF 的组合 (Adrian Raudaschl 2023)
-- 注: 原创者博客标题含"RAG Fusion", 核心是 Multi-Query 多路检索 + RRF 融合, 不含 HyDE
+##### 解决什么问题
+- Multi-Query (§6.5.2) 多变体检索后简单 union + 去重, 排序信号丢失
+- RAG-Fusion 解法: **多变体并行检索 + RRF (§6.3) 融合排序**, 比简单 union 更精准
 
-##### 流程
-- 步 1: LLM 生成 4 个 query 变体 (同 Multi-Query)
-- 步 2: 原 query + 4 变体 = 5 路, 各自并行检索 top-K
-- 步 3: 5 路结果用 RRF 融合排序
-- 步 4: 取 top-K 输出
+##### 业务场景
+- ✅ Multi-Query 已用但召回质量需要再提升
+- ✅ 用户表达多样化 (新手 vs 专家用词不同)
+- ❌ 简单查询 (用 Multi-Query 即可)
+- ❌ 极致低延迟
 
-#### 6.5.6 Sub-Question Engine (LlamaIndex) 读流程
+##### 算法 (4 步)
+- 步 1: LLM 生成 4 个 query 变体 (跟 Multi-Query 同)
+- 步 2: 并行检索每个变体 → 4 个 ranked list
+- 步 3: 用 RRF 公式融合 4 个 list (k=60)
+- 步 4: 输出 top-K
 
-##### 思想
-- 类似 Decomposition
-- LlamaIndex SubQuestionEngine 内置
+##### 跟 Multi-Query 唯一差别
+- Multi-Query: 多变体检索 → union + 去重 (失去 rank 信息)
+- RAG-Fusion: 多变体检索 → RRF 融合 (保留 rank 信息, 更精准)
+
+##### 关键参数
+- 变体数: 4 个 (Adrian 论文最优, 太多 RRF 噪声大)
+- LLM: Haiku / GPT-5-mini (生成变体)
+- RRF k=60 (默认)
+
+##### 反模式
+- ❌ 变体 10+ — 召回质量下降 (LLM 开始生成无关变体)
+- ❌ 用简单 union 替代 RRF — 失去排序信号
+- ✅ 4 变体 + RRF 融合 = 工业最佳
+
+##### 性能 / 成本
+- 延迟: +500ms-1s (生成变体 + 4x 检索)
+- 成本: +$0.001 LLM + 4x 检索
+- 召回提升: +20-25% NDCG (vs Multi-Query +15-20%)
+
+##### 工具
+- LangChain (社区实现)
+- 自实现简单 (LLM 生成 + asyncio.gather + RRF)
+
+##### 论文出处
+- Adrian Raudaschl 2023.10 medium "Forget RAG, the Future is RAG-Fusion"
+
+#### 6.5.6 Sub-Question Engine (LlamaIndex 内置)
+
+##### 解决什么问题
+- 跟 Decomposition (§6.5.4) 解决同问题 — 复杂多跳问题拆子问题
+- LlamaIndex 提供开箱即用的 SubQuestionQueryEngine, 不需要自己实现
+
+##### 业务场景
+- ✅ 已用 LlamaIndex 生态 → 直接用内置组件 (省工程)
+- ❌ 已用 LangChain → 自实现 Decomposition 模式 (§6.5.4)
+
+##### 算法 (3 步, 跟 Decomposition 等价)
+- 步 1: SubQuestionQueryEngine 接 query, 内部调 LLM 拆子问题
+- 步 2: 每个子问题对应一个 retriever (可不同 retriever 对不同子问题)
+- 步 3: 综合所有子问题的答案 → 最终答案
+
+##### 跟 §6.5.4 Decomposition 区别
+- §6.5.4 Decomposition: 通用算法, 任何框架可实现
+- §6.5.6 Sub-Question: LlamaIndex 内置组件, 跟 LlamaIndex 工具链深度集成
+- 算法本质相同, 工程包装不同
+
+##### 何时用内置 vs 自实现
+- LlamaIndex 重度用户 → SubQuestionQueryEngine (省 50 行代码)
+- LangChain / 自研 → 用 Decomposition 模式 (§6.5.4)
+
+##### 关键参数
+- LLM: 拆问题用 Haiku, 综合用 Haiku
+- 子问题数: 2-5 (LlamaIndex 默认会限制)
+
+##### 工具
+- LlamaIndex SubQuestionQueryEngine (官方)
+- 文档: docs.llamaindex.ai/en/stable/examples/query_engine/sub_question_query_engine
+
+##### 性能 / 成本
+- 跟 §6.5.4 Decomposition 一致
 
 #### 6.5.7 Query Transformation 选型
 
@@ -7323,69 +7466,166 @@ RRF 计算:
 
 ### 6.6 Lost in the Middle (中间内容遗忘) + LongContextReorder (长上下文重排)
 
-#### 6.6.1 Lost in the Middle 现象
+#### 6.6.1 解决什么问题 — 为什么 LLM 看不到中间
 
-##### 论文 (Liu et al. 2023, Stanford)
-- "Lost in the Middle: How Language Models Use Long Contexts"
-- LLM 对 prompt 中间内容关注度低
-- U 型曲线 — 中间是注意力洼地
+##### 现象
+- 论文 "Lost in the Middle" (Liu et al. 2023.07, Stanford): LLM 在长 context 中, **首尾位置的内容回忆准确, 中间位置准确率塌**
+- 实验: 把答案放在 20 个文档的不同位置, GPT-4 / Claude 对**中间位置文档准确率比首尾低 30%+**
+- 业务影响: top-20 chunks 喂 LLM, 排在 7-15 位的 chunks 容易被忽略
 
-##### 实测数据
-- 答案在 top-1: 75% 准确率
-- 答案在中间 (第 5/10): 50% (-25%)
-- 答案在末尾: 70%
+##### 根因 (3 个理论)
+- 位置编码 (Position Encoding) 的 RoPE / ALiBi 在中段衰减
+- Transformer attention 对首末特殊 token 有 attention sink 现象
+- 训练数据偏向 (问答类训练数据多在文档首末)
+- 结论: 不是单一原因, 多重作用
 
-#### 6.6.2 LongContextReorder 读流程
+#### 6.6.2 业务场景
 
-##### 算法
-- 输入: 排序的 chunks (按 score 降序)
-- 输出: 重排为头-尾交替放置
-- 例: [c1, c2, c3, c4, c5] → [c1, c3, c5, c4, c2]
-- top-1 在头, top-2 在尾, top-3 在第 2 位...
+- ✅ context 长 (top-K ≥ 10) 的 RAG
+- ✅ 法律 / 医疗 (检索召回多个相关 chunk, 不能漏中间)
+- ✅ 多文档总结
+- ❌ top-K ≤ 5 (没有"中间", 不需修)
+- ❌ Anthropic Sonnet 4.5 / Claude Opus (新一代 LLM 大幅缓解, 但仍存在)
 
-##### LangChain 实现
-- from langchain_community.document_transformers import LongContextReorder
-- reordering = LongContextReorder()
-- reordered = reordering.transform_documents(docs)
+#### 6.6.3 LongContextReorder 算法 (3 选 1)
 
-##### 收益
-- 配 Cross-Encoder 重排: 答案准确率 +15-25% (高 K 场景)
-- 配 Contextual Retrieval: 进一步 +5%
+##### 方案 1: U 型重排 (LongContextReorder, LangChain)
+- 算法: 把高分 chunk 放首末, 低分放中间
+- 排序: chunks 按 RRF score 排好后, 用 [1, 3, 5, ..., 6, 4, 2] 顺序重组
+- 例: top-10 [c1, c2, c3, ..., c10] → 重排为 [c1, c3, c5, c7, c9, c10, c8, c6, c4, c2]
+- 直觉: 重要的放最前 + 最后, 利用 LLM 首末高 attention
 
-### 6.7 MMR (Maximum Marginal Relevance)
+##### 方案 2: Cross-Encoder 重排 + top-K 截断 (业界主流)
+- 跟方案 1 联用: 先 Reranker 精排到 top-5, 再 LongContextReorder
+- top-5 已经够小, "中间" 只 3 个位置, 影响小
+- 实测: top-5 + LongContextReorder 比 top-20 不重排 NDCG 高 5-10%
 
-#### 6.7.1 公式 + 为什么 λ=0.6-0.7
-- MMR(d_i) = λ × Sim(q, d_i) - (1-λ) × max_{d_j ∈ S} Sim(d_i, d_j)
-- 公式含义: 选下一个 chunk 时, 同时考虑 "与 query 的相关性" (前半) 和 "与已选 chunk 的差异性" (后半)
-- λ 的物理意义:
-  - λ=1.0: 只看相关性, 完全忽略多样性 → 退化为普通 top-K (5 条都讲同一件事)
-  - λ=0.0: 只看多样性, 完全忽略相关性 → 选出来的 chunk 话题五花八门但可能不相关
-  - λ=0.5: 相关性和多样性等权 — 理论上"公平", 但实践中多样性太强导致相关性不够
-- 为什么工业甜点是 0.6-0.7 而不是 0.5:
-  - RAG 场景的首要目标是"答对" (相关性), 其次才是"答全" (多样性)
-  - λ=0.5: 多样性权重 50% → 有些不太相关但"很不同"的 chunk 被选进来 → LLM 被无关 chunk 干扰 (Distraction Effect)
-  - λ=0.6-0.7: 相关性权重 60-70%, 多样性 30-40% → 确保选进来的 chunk 都足够相关, 在此基础上尽量多样
-  - 实验数据 (某新闻 RAG): λ=0.5 NDCG 0.72 / 多样性 0.85; λ=0.7 NDCG 0.78 / 多样性 0.65 — NDCG 提升更有业务价值
-- 不同场景的调参方向:
-  - 事实查询 (退款政策): λ=0.8-0.9 (只要最相关, 不需要多样)
-  - 比较/综述 (对比 A B C 三家方案): λ=0.5-0.6 (需要多角度信息)
-  - 推荐/创意: λ=0.4-0.5 (多样性更重要)
-  - 最佳实践: 按 query 类型动态调 λ (Router 模块可以根据 intent 输出不同 λ 值)
+##### 方案 3: 减小 K (粗暴但有效)
+- top-K = 3-5 直接避免中间问题
+- 适合: 高精度场景, 用 Reranker 选出最强的 3-5 chunks
 
-#### 6.7.2 算法步骤
-- 步 1: 初始 S = {} (已选空)
-- 步 2: 候选 R = top-N 召回 (top-50)
-- 步 3: 第 1 轮: 选 d_1 = argmax Sim(q, d_i), 加入 S
-- 步 4: 第 k 轮: 选 d_k = argmax MMR(d_i for d_i in R\S)
-- 步 5: 直到 |S| = K
+#### 6.6.4 反模式
 
-#### 6.7.3 真实场景
-- 某新闻 RAG top-5 全是同一篇报道 5 段
-- MMR λ=0.6 后多样性 + 18% CTR
+- ❌ 盲目 reorder 破坏因果顺序 — 法律 / 数学 / 时序文档需要按原顺序
+- ❌ top-K = 20+ 不重排 — 中间 10+ chunk 大概率漏
+- ❌ 信任 Anthropic / Claude 完全没问题 — 仍存在, 只是缓解
+- ✅ Reranker 缩 top-K 到 5 + LongContextReorder
 
-#### 6.7.4 适用 / 不适用
-- ✅ 比较类查询 / 综述 / 推荐
-- ❌ 精确事实查询 (要相关, 不要多样)
+#### 6.6.5 工具
+
+- LangChain LongContextReorder (官方)
+- LlamaIndex 暂无对应组件 (需自实现 5 行)
+- 自实现: list[::2] + list[1::2][::-1] 一行 Python
+
+#### 6.6.6 业界经验
+
+- Anthropic: Claude 模型在 needle-in-a-haystack 测试 95%+ 准确率, 但实战 RAG 仍需重排
+- 论文: Liu et al. 2023.07 "Lost in the Middle: How Language Models Use Long Contexts"
+- 业界共识: 任何 top-K ≥ 10 的 RAG 都应上 LongContextReorder
+
+### 6.7 MMR (Maximum Marginal Relevance, 最大边际相关性, Carbonell 1998)
+
+#### 6.7.1 解决什么问题 — 检索的多样性矛盾
+
+##### 现象
+- 用户 query "苹果产品" → 检索 top-10 都是 iPhone 不同型号 chunk
+- 用户其实想知道 iPhone / iPad / Mac / Apple Watch 多种产品, 但只看到 iPhone
+- 矛盾: **相关度排序高 ≠ 多样性好** (相关都集中在一个主题)
+
+##### MMR 解法
+- 在选 chunk 时同时考虑两个目标:
+  - 跟 query 相关 (relevance)
+  - 跟已选 chunks 不冗余 (diversity)
+- 公式: `MMR = arg max [λ × Sim(d, q) - (1-λ) × max Sim(d, d_selected)]`
+- λ 控制权衡: λ=1 纯相关 (无多样性) / λ=0 纯多样 (无相关) / λ=0.5 平衡
+
+#### 6.7.2 业务场景
+
+- ✅ 探索性 query (用户不知具体, 想看多角度)
+- ✅ 总结类任务 (LLM 需要多样素材综合)
+- ✅ 推荐系统 (避免推同质化内容)
+- ❌ 精确单点查询 (FAQ 客服, 需要最相关那一条)
+- ❌ 高 QPS 场景 (MMR 是 O(K×N), N 是候选数, 慢)
+
+#### 6.7.3 算法 (5 步) + Python 伪代码
+
+##### 算法步骤
+- 步 1: 候选池 = top-N 检索结果 (N=50, 已按相关度排好)
+- 步 2: selected = [候选池中相关度最高的 1 个]
+- 步 3: 循环 K 次 (K = 想选的数量, e.g. 5):
+  - 对剩余每个候选 d, 算 MMR 分数
+  - MMR(d) = λ × Sim(d, q) - (1-λ) × max(Sim(d, d_s) for d_s in selected)
+  - 选 MMR 分数最高的, 加入 selected
+- 步 4: 返回 selected (top-K, 平衡相关 + 多样)
+
+##### Python 伪代码
+- def mmr(query_emb, candidates, k=5, lambda_=0.5):
+- &nbsp;&nbsp;selected = [candidates[0]]  # 最相关的先加
+- &nbsp;&nbsp;remaining = candidates[1:]
+- &nbsp;&nbsp;while len(selected) < k and remaining:
+- &nbsp;&nbsp;&nbsp;&nbsp;mmr_scores = []
+- &nbsp;&nbsp;&nbsp;&nbsp;for c in remaining:
+- &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;rel = cosine(query_emb, c.emb)
+- &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;max_sim = max(cosine(c.emb, s.emb) for s in selected)
+- &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;mmr_scores.append(lambda_ * rel - (1 - lambda_) * max_sim)
+- &nbsp;&nbsp;&nbsp;&nbsp;best_idx = argmax(mmr_scores)
+- &nbsp;&nbsp;&nbsp;&nbsp;selected.append(remaining.pop(best_idx))
+- &nbsp;&nbsp;return selected
+
+##### 复杂度: O(K×N), K=5, N=50 → 250 次 cosine 计算 (~1ms)
+
+#### 6.7.4 关键参数: λ 的 ROC
+
+| λ | 行为 | 适用 |
+|---|---|---|
+| 1.0 | 退化为按相关度排序 | 无 (普通检索就够) |
+| 0.7 | 偏相关, 略多样 | FAQ + 想避免冗余 |
+| **0.5** | **平衡 (业界默认)** | 探索性 query |
+| 0.3 | 偏多样, 略相关 | 推荐系统 / 总结 |
+| 0.0 | 完全多样 (不看 query) | 不实用 |
+
+#### 6.7.5 退款例子 (前后对比)
+
+##### 不上 MMR (top-5 按相关度)
+- chunk_42: "退款流程: 用户提交申请..."
+- chunk_88: "退款流程详细: 第一步..."  ← 跟 42 高度相似
+- chunk_157: "退款时间: 3-5 工作日..."
+- chunk_211: "退款政策: 7 天内可退..."
+- chunk_318: "退款失败处理..."
+- 问题: 42 和 88 太相似, 信息冗余
+
+##### 上 MMR λ=0.5 (top-5)
+- chunk_42: "退款流程: 用户提交申请..." (最相关, 必选)
+- chunk_157: "退款时间: 3-5 工作日..." (跟 42 不同主题, MMR 高)
+- chunk_211: "退款政策: 7 天内可退..." (新主题)
+- chunk_318: "退款失败处理..." (新主题)
+- chunk_88: "退款流程详细: 第一步..." (排掉, 跟 42 太重)
+- 优势: 5 个 chunk 涵盖 4 个不同子主题
+
+#### 6.7.6 反模式
+
+- ❌ 用 MMR 处理精确 FAQ — 用户需要最相关那条, 不需多样性
+- ❌ λ = 0 — 完全不看 query, 选出来跟 query 无关
+- ❌ 候选池 N = 1000 — O(K×N) 慢, 应该 N = 50-100
+- ✅ FAQ 精确查询不上 MMR + 探索性查询 λ=0.5 是标配
+
+#### 6.7.7 跟其它多样化方法对比
+
+| 方法 | 原理 | 优势 | 适用 |
+|---|---|---|---|
+| **MMR** | 边际相关度 | 简单 + 快 | 通用 (业界主流) |
+| Diversity-aware Retrieval | 检索时直接优化多样性 | 一步到位 | 学术 |
+| Topic Modeling 后聚类 | 先聚类再每类选 1 | 显式多主题 | 推荐系统 |
+| LLM 后过滤 | 让 LLM 判断多样性 | 灵活 | 高价值少量场景 |
+
+#### 6.7.8 工具
+- LangChain MMRRetriever
+- LlamaIndex MMR built-in
+- 自实现 10 行 Python
+
+#### 6.7.9 论文出处
+- Carbonell & Goldstein 1998 SIGIR "The Use of MMR, Diversity-Based Reranking for Reordering Documents and Producing Summaries"
+- 26 年了仍工业主流, 经典算法
 
 ### 6.8 Adaptive K + 拒答机制
 
@@ -7415,61 +7655,25 @@ RRF 计算:
 - "这个答案是否完全基于提供的 chunk"
 - 阈值 0.85 (业界共识)
 
-### 6.9 CRAG (Corrective-RAG) 完整流程
+### 6.9 CRAG (Corrective-RAG, 索引 — 完整流程见 §8.5.2)
 
-#### 6.9.1 出处
-- Yan et al. 2024 (arXiv:2401.15884)
+> CRAG (Yan et al. 2024.01, arXiv:2401.15884) 完整算法 + 完整 LangGraph state 转移 + 三档分类 prompt + Web Search API 选型 详见 §8.5.2 高级 RAG-Agent 模式.
 
-#### 6.9.2 三阶段 State Machine
+#### 6.9.1 一句话 (在 §6 检索章的位置)
 
-##### State 1: Retrieve (标准 RAG)
-- 输入: query
-- 输出: top-K chunks
+CRAG 是 §6 检索的兜底机制 — 当内部 KB 召回质量差时 (Evaluator 给低分), 触发 web_search 兜底, 防止 LLM 凭弱召回胡答.
 
-##### State 2: Assess (评估)
-- 评估器 (LLM) 给三档标签
-- Correct → State 3a
-- Incorrect → State 3b
-- Ambiguous → State 3c
+#### 6.9.2 在 §6 检索章节的位置 (跟 §8.5.2 视角不同)
 
-##### State 3a: Knowledge Refinement (Correct)
-- 拆每 chunk 为 strips (短句)
-- 过滤无关 strips
-- 重组为更聚焦上下文
+- §6.9 视角: CRAG 作为"召回质量兜底" (在 §6 Retrieval 流程之后, 喂 LLM 之前)
+- §8.5.2 视角: CRAG 作为"Iterative RAG 模式之一" (Agent 多步循环里的子模式)
+- 两节是同一算法, 不同视角的应用
 
-##### State 3b: Web Search (Incorrect)
-- Query 重写
-- 触发 Web 搜索 (Bing / Google API)
-- 抓取 + parse top-N 网页
+#### 6.9.3 关键参数 (沿用 §8.5.2)
 
-##### State 3c: Both (Ambiguous)
-- 同时跑 3a + 3b
-- 合并
-
-##### State 4: Generate
-- 输入: 精炼上下文 + query
-- 输出: 答案 + 强制引用
-
-#### 6.9.3 Evaluator Prompt
-- "Evaluate if the context is sufficient to answer the query.
-  Query: {query}
-  Context: {chunks}
-  Output: Correct / Incorrect / Ambiguous"
-
-#### 6.9.4 LangGraph 实现
-- 用 langgraph.StateGraph 编排
-- 完整代码 < 200 行
-
-#### 6.9.5 vs Self-RAG 对比
-
-##### Self-RAG (Asai et al. 2023)
-- 训练专门的 reflection token
-- 需 fine-tune LLM (重)
-
-##### CRAG
-- prompt-based, 不需 fine-tune
-- 流程化 (state machine)
-- 工程上更易落地
+- Evaluator 阈值: cosine ≥ 0.7 视为"够好", < 0.5 触发 web_search, 中间 0.5-0.7 是"模糊" → 重写 query 重检
+- Web Search API: Tavily ($0.005/query) / SerpAPI ($0.01) / Bing Search ($0.005)
+- 详细决策树见 §8.5.2
 
 ### 6.10 完整 Read Path 端到端总结
 
@@ -7585,7 +7789,7 @@ RRF 计算:
 - Layer 2 语义 (覆盖 20-30%): 为每条路由写描述并 embed, cosine > 0.7 → 匹配, 10ms, $0
   - 例: "我的退款到哪了" 和预置描述 "退款状态查询" cosine=0.85 → 匹配
   - 为什么需要: 规则抓不住的变体表述 ("退款咋还没到" / "退钱呢")
-- Layer 3 LLM 兜底 (覆盖 10-20%): Claude Haiku / GPT-4o-mini 分类, 500ms, $0.0001
+- Layer 3 LLM 兜底 (覆盖 10-20%): Claude Haiku 4.5 / GPT-5-mini 分类, 500ms, $0.0001
   - 例: "日本那个特殊税" (意图模糊, 规则和语义都无法确定)
   - 为什么需要: 最后的兜底, 处理极端长尾 query
 
@@ -7915,7 +8119,7 @@ RRF 计算:
 - 易上手 (5 行代码起 Agent)
 - 适用: POC / 内容生成
 
-#### 8.2.5 OpenAI Agents SDK (前身 Swarm, 2025.03 取代) (2024.10)
+#### 8.2.5 OpenAI Agents SDK (2025.03 取代 Swarm, Swarm 2024.10 实验性发布)
 - 极简 Multi-Agent
 - 通过 handoff 转交
 - 适用: 学习 / 简单 demo
@@ -9080,40 +9284,78 @@ RRF 计算:
 - DPD 2024 客服骂用户 (prompt injection, 没 Guardrail)
 - NYC MyCity 2024.03 给违法建议 (法律领域没专项审核)
 
-### 10.6 Observability (可观测性)
+### 10.6 Observability (可观测性) — RAG 项目调试 + 监控的命脉
 
-#### 10.6.1 三个层次
+#### 10.6.1 解决什么问题
 
-##### Layer 1: 基础设施 (Prometheus + Grafana)
-- CPU / RAM / GPU 利用
-- QPS / latency / error rate
+- RAG / Agent 系统多步流水, 单纯日志看不到中间状态 (检索 chunk / LLM token / Tool 调用)
+- 调试 Bad case 需要"完整 trace" — 哪个 chunk 召回 / 为什么 Reranker 排错 / LLM 哪步幻觉
+- Observability 解法: **全链路 trace + 可视化 + 指标聚合 + Bad case 抽样**, 是 Agent 项目命脉
 
-##### Layer 2: 应用 (Sentry / Datadog)
-- 错误 / 性能 (APM)
+#### 10.6.2 业务场景
 
-##### Layer 3: LLM 链路追踪 (Phoenix / Langfuse / LangSmith)
-- 完整 trace (检索 → 重排 → LLM → 答案)
-- Token usage / cost / latency
-- bad case 钻取
+- ✅ 任何 Agent 项目 (无 trace 上线必栽)
+- ✅ 复杂 RAG 多步链路 (HyDE / Multi-Query / Reranker / LLM 综合)
+- ✅ 跑 A/B 实验
+- ✅ Bad case 闭环
+- ❌ 极简 demo (LangChain 1 行调用, 没必要)
 
-#### 10.6.2 OpenTelemetry (统一标准)
-- CNCF 项目, 标准化 trace/metric/log
-- 厂商无关 (一次 instrument, 多家可视化)
-- 集成: Jaeger / Zipkin / Phoenix / Langfuse / Datadog
+#### 10.6.3 主流工具完整对比 (8 大工具)
 
-#### 10.6.3 Phoenix (Arize)
-- 基于 OpenTelemetry
-- Web UI 可视化
-- 开源 + 商业云
+| 工具 | 类型 | 开源/商业 | OTEL 兼容 | RAG 评估 | Prompt 管理 | Dataset | 价格 (中型 SaaS) | 何时选 |
+|---|---|---|---|---|---|---|---|---|
+| **LangSmith** | LangChain 官方 | 商业 (有免费版) | 部分 | 内置 | ✅ | ✅ | $39/月起 (Plus) / $199/月 (Team) | 已用 LangChain (业界主流) |
+| **Phoenix (Arize)** | 开源 + Arize Cloud | 开源 (Apache 2.0) | ✅ | ✅ | ❌ | ✅ | 免费自托管 / $50-500/月 SaaS | 想自托管 + OTEL 标准 |
+| **Langfuse** | 开源 + Langfuse Cloud | 开源 (MIT) | ✅ | ✅ | ✅ | ✅ | 免费自托管 / $59/月起 | 自托管首选 (功能最全) |
+| **Traceloop OpenLLMetry** | 开源 | 开源 (Apache 2.0) | ✅ (基于) | 部分 | ❌ | ❌ | 免费 | OTEL 重度用户 |
+| **Helicone** | 开源 + SaaS | 开源 + 商业 | ✅ | 部分 | ✅ | ✅ | 免费 100K req/月 / $20-200/月 | 简单 LLM 监控 |
+| **Galileo** | 商业 | 商业 | 部分 | ✅ (强项) | ✅ | ✅ | $1500/月起 (Enterprise) | 大厂 RAG 评估深度 |
+| **Braintrust** | 商业 | 商业 | 部分 | ✅ (评估强) | ✅ | ✅ | $50/月起 / 企业谈 | 评估为主, 跑 A/B 实验 |
+| **TruLens** | 开源 | 开源 (MIT) | ❌ | ✅ (RAG triad) | ❌ | ✅ | 免费 | 学术 + 自实现 RAG 评估 |
 
-#### 10.6.4 Langfuse
-- 与 Phoenix 类似
-- LangChain 原生集成最好
-- 开源 + SaaS
+#### 10.6.4 选型决策树 (3 问题)
 
-#### 10.6.5 LangSmith (LangChain 商业)
-- prompt + chain + dataset 全套
-- 商业付费
+- Q1: 已用 LangChain? → **LangSmith** (官方深度集成)
+- Q2: 想自托管 + 全功能? → **Langfuse** (开源 MIT, 功能最齐)
+- Q3: 想 OTEL 标准 + 跟现有可观测打通? → **Phoenix** (Arize, 开源 OTEL 原生)
+
+#### 10.6.5 自托管 vs SaaS 成本临界点
+
+##### 流量门槛
+- 月 < 100 万 trace: SaaS 划算 ($50-200/月)
+- 月 100 万-1000 万: 看团队精力 (有 SRE 自托管, 否则继续 SaaS)
+- 月 > 1000 万: 自托管必划算 (SaaS 月费可达 $5K+)
+
+##### Langfuse 自托管成本估算
+- 单实例: AWS t3.large + Postgres + ClickHouse = $200/月
+- 月 1000 万 trace 跑得动
+- vs Langfuse Cloud Pro $999/月 (同流量)
+- 自托管省 $800/月 + 数据完全自控
+
+#### 10.6.6 关键功能必备清单
+
+- ✅ 全链路 trace (检索 / Reranker / Generator / Validator 每步可见)
+- ✅ Token / Cost 自动统计 (per query / per user)
+- ✅ Bad case 自动收集 (Faithfulness < 0.85 / 用户反馈差评)
+- ✅ Prompt 版本管理 (v1 / v2 / v3 + A/B 流量切分)
+- ✅ Dataset + Eval (Golden Set + 自动跑 RAGAS)
+- ✅ Alerting (P95 延迟 / 失败率 / cost 异常)
+
+#### 10.6.7 反模式
+
+- ❌ 上线后才上 Observability — 出事故没 trace 根本查不动
+- ❌ 信任 print + log 文件 — 多步链路日志读不动, 必须可视化
+- ❌ 不抽样收集 Bad case — 只看 Dashboard 看不到具体哪步错
+- ❌ Trace 100% 采样 — 高 QPS 时 Trace 自身成 5% 性能开销, 工业默认 1-10% 采样
+- ✅ Day 1 上 Observability + Bad case 闭环
+
+#### 10.6.8 业界标杆
+
+- **OpenAI**: 内部自研 (跟产品深度集成)
+- **Anthropic**: 自研 + 部分用 LangSmith
+- **Klarna**: LangSmith + 自定义 Dashboard
+- **Glean**: Langfuse 自托管 + Datadog 联用
+- **Cursor**: 自研 (代码 Agent 特殊需求)
 
 ### 10.7 部署模式 5 种 (完整架构 + 成本 + 选型)
 
@@ -9791,7 +10033,7 @@ RRF 计算:
 
 ---
 
-## 十二. 业务场景与案例库 — 7+1 大行业落地
+## 十二. 业务场景与案例库 — 8+1 大行业落地
 
 > 按场景组织. 每个场景写: 典型公司 + 架构特征 + 关键技术 + 真实痛点.
 
@@ -9960,7 +10202,7 @@ RRF 计算:
 
 ---
 
-## 十三. 22 真实生产案例完整复盘
+## 十三. 28 真实生产案例完整复盘 (含 4 个 2024H2-2025 新案例)
 
 > 按 8 部分写: 事件背景 / 发现 / 排查 / RCA / 临时缓解 / 永久修复 / 后续防范 / 行业影响.
 
@@ -12584,7 +12826,7 @@ A: 用 Haiku 评估准确率 ~85% (跟人工标注比). 用 Sonnet 90%+. 但 eva
 
 ##### 完整高分答案
 
-Modular RAG (Yunfan Gao 2024 综述, arXiv:2407.21059) 是把 RAG 从"刚性 3 段管道"重构为"7 模块化, 每模块独立可替换"的范式. 也是 Anthropic 三层模型 (§20.1.2) 中的"层次 1 Augmented LLM (增强型 LLM = 单 LLM + 检索 + 工具) (增强型 LLM = 单 LLM + 检索 + 工具)"的工程化实现.
+Modular RAG (Yunfan Gao 2024 综述, arXiv:2407.21059) 是把 RAG 从"刚性 3 段管道"重构为"7 模块化, 每模块独立可替换"的范式. 也是 Anthropic 三层模型 (§20.1.2) 中的"层次 1 Augmented LLM (增强型 LLM = 单 LLM + 检索 + 工具)"的工程化实现.
 
 ###### Naive RAG (Gen 1) vs Modular RAG (模块化 RAG, Gen 3) 对比
 
@@ -13219,7 +13461,7 @@ CrewAI:
 - 劣势: 灵活性不如 LangGraph / 生产级稳定性待提升
 - 适用: POC / Demo / 内容生成
 
-OpenAI Agents SDK (前身 Swarm, 2025.03 取代) (2024.10):
+OpenAI Agents SDK (2025.03 取代 Swarm, Swarm 2024.10 实验性发布):
 - 架构: 极简 Multi-Agent. 通过 handoff 在 Agent 间转交
 - 优势: 极简 (< 100 行核心代码) / OpenAI 官方
 - 劣势: 太简, 生产级要自加监控/cache/retry
@@ -14391,7 +14633,7 @@ A: 三层: (1) AST + LSP 抽 callgraph (静态分析) (2) RAG 检索相关文件
 - Cursor Composer Agent / Devin ACE 框架 / Anthropic Claude Code
 - SWE-Bench-Verified 当前 SOTA ~50% (2025)
 - 提到 AST-aware chunking (Cody / 通义灵码)
-- 给具体数字: $200/月 Pro 定价 vs 替代 0.1 全职工程师 ROI
+- 给具体数字: $20/月 Pro 定价 (Business Plan $40/月, 替代 0.1 全职工程师 ROI 极高)
 
 #### Q7.4 设计法律 RAG (Harvey AI 级别)
 
@@ -17676,8 +17918,8 @@ Anthropic 总结的 5 种 Workflow Pattern, 90% 业务用其中一种就解决, 
 #### 20.2.1 形态 1: Plan-and-Execute (规划-执行解耦)
 
 ##### 核心思想
-- 用强推理 LLM (Sonnet / GPT-4o / o1) 一次性出完整计划 (Plan)
-- 然后用便宜 LLM (Haiku / GPT-4o-mini) 按计划串行执行 (Execute)
+- 用强推理 LLM (Sonnet 4.5 / GPT-5 / o3, 或前代 GPT-4o / o1 兼容) 一次性出完整计划 (Plan)
+- 然后用便宜 LLM (Haiku 4.5 / GPT-5-mini) 按计划串行执行 (Execute)
 - 计划和执行解耦, 一次复杂规划摊销到多步执行
 
 ##### 算法伪代码 (核心循环)
@@ -17946,92 +18188,30 @@ Anthropic 总结的 5 种 Workflow Pattern, 90% 业务用其中一种就解决, 
   - 是, 有资源 fine-tune → Self-Reflection
   - 否 → ReAct (默认)
 
-### 20.3 6 大主流框架完整对比
+### 20.3 Agent 框架 (索引 — 完整 6 框架对比详见 §8.2)
 
-#### 20.3.1 LangGraph (LangChain 出品, 2024-2026 主流)
+> 完整 6 框架对比 (LangGraph / LlamaIndex / AutoGen / CrewAI / OpenAI Agents SDK / Anthropic Claude SDK) 详见 §8.2.
 
-##### 架构
-- 显式 graph: Node (LLM 调用 / Tool 调用 / 自定义函数) + Edge (条件跳转)
-- 状态机: 每个 Node 读 / 写 shared state (TypedDict)
-- 检查点: checkpointer 持久化 state (Postgres/SQLite/Redis), 支持中断 + 恢复
+#### 20.3.1 Agent 视角下的框架补充 (vs §8.2)
 
-##### 优
-- 灵活 (任意 graph, 不限范式) + 生产级 (LangSmith 追踪原生)
-- 中断恢复 (人在回路 / 多日任务必备)
-- 状态可观测 (debug 友好)
+§8.2 偏 "框架功能对比" (架构 / 优势 / 劣势 / 适合). 这里只补 Agent RAG 维度的扩展决策.
 
-##### 劣
-- 学习曲线高 (需理解 graph + state + checkpoint 三概念)
-- 配套 LangChain 重 (依赖一堆 community pkg)
+##### 跟 Anthropic 三层模型 (§20.1.2) 的映射
 
-##### 适合
-- 复杂工作流 (条件分支 / 并行 / 循环)
-- 长时任务需中断恢复
-- 已用 LangChain 生态
+| 框架 | 支持层次 | 备注 |
+|---|---|---|
+| LangGraph | Workflow + Agent | 跨两层最强 (graph 任意编排) |
+| LlamaIndex Agents | Workflow + Agent | RAG 为主, 跟 §19 Modular 集成最好 |
+| AutoGen | Agent (Multi-Agent) | 跨用户对话 / 角色化协作 |
+| CrewAI | Workflow (sequential) + Agent | sequential 偏 Workflow Pattern 1 |
+| OpenAI Agents SDK | Agent | 内置 MCP, 锁 OpenAI 生态 |
+| Anthropic Claude Agent SDK | Agent | 内置 MCP + extended thinking 最强 |
 
-##### 不适合
-- 极简 demo (overkill, 用 OpenAI Agents SDK 即可)
-- 不需要持久化的一次性任务
+##### 选型 3 问 (Agent RAG 视角)
 
-##### 真实采用
-- LinkedIn / Replit / Elastic / Klarna / Uber 公开博客
-- LangGraph Cloud (托管 SaaS, 2024.10 GA)
-
-#### 20.3.2 LlamaIndex Agents
-- 架构: ReAct Agent (默认) + Function Calling Agent + OpenAI Agent
-- 优: 与 LlamaIndex 检索深度集成, 默认配置最少 5 行
-- 劣: 偏 RAG-centric, Tool 编排略弱; 状态持久化弱
-- 适合: RAG 为主 + 已用 LlamaIndex 生态
-- 不适合: 复杂工作流 (LangGraph 更强), 多 Agent 协作 (AutoGen 更专)
-- 真实采用: 大量 RAG demo + 中小公司 RAG 起步项目
-
-#### 20.3.3 AutoGen (Microsoft)
-- 架构: Multi-Agent 对话 (User / Assistant / Critic / Executor) + Actor model (0.4+)
-- 优: 多 Agent 协作天然 + Microsoft 维护稳定
-- 劣: 单 Agent 任务过度复杂; 学习曲线高
-- 适合: 多 Agent 协作 (Researcher + Writer + Critic) / 研究性任务 / 内容创作
-- 不适合: 简单 RAG / 单 Agent 客服 (Multi-Agent 是 overkill)
-- 真实采用: Microsoft Copilot Workspace 内部 / 学术界研究 Agent 论文常用
-
-#### 20.3.4 CrewAI
-- 架构: 角色化 Agent (Researcher/Writer/Critic) + sequential / hierarchical / consensual 三种 process
-- 优: 极易上手 (5 行代码起跑通) + 角色抽象直观
-- 劣: 生产级特性弱 (无 checkpoint / 无中断恢复 / 无原生追踪)
-- 适合: POC / 内容生成 demo / 创意类任务
-- 不适合: 生产级长时任务 / 严格 SLA 场景 (用 LangGraph)
-- 真实采用: 个人开发者 + Hackathon 项目, 企业生产级少
-
-#### 20.3.5 OpenAI Agents SDK (前身 Swarm 2024.10, 2025.03 升级)
-- 架构: 极简 Multi-Agent, 通过 handoff 转交; 内置 MCP client (2025.Q2+)
-- 优: 极简 (核心 < 200 行) + OpenAI 官方维护 + MCP 支持
-- 劣: 生产级特性需自加 (监控 / cache / retry / checkpoint)
-- 适合: OpenAI 生态 + 学习概念 + 中小项目
-- 不适合: 跨多 LLM 后端 / 复杂 graph 编排 (用 LangGraph)
-- 真实采用: 2025 后大量起步项目 (替代 LangChain 的简化路径)
-
-#### 20.3.6 Anthropic Claude Agent SDK (2025.Q3+)
-- 架构: 原生 Plan-and-Execute + extended thinking 内嵌 + MCP 主导
-- 优: Anthropic 官方 + 原生 MCP 生态最丰富 + Sonnet 4.5 推理质量顶
-- 劣: 锁定 Anthropic LLM (其他模型支持有限)
-- 适合: 已用 Claude + 重 MCP 工具复用 + 高质量推理任务
-- 不适合: 多 LLM 后端 / 不需要 thinking 的场景 (浪费成本)
-- 真实采用: Anthropic Claude Code / Claude Desktop / 大量 Claude 客户
-
-#### 20.3.7 6 框架决策表 (4 维度)
-
-| 框架 | 支持层次 (§20.1.2) | 学习曲线 | 灵活性 | 生产级 | 何时选 | 何时不选 |
-|---|---|---|---|---|---|---|
-| LangGraph | Workflow + Agent | 高 | 极高 | 极高 | 复杂工作流 + 长时任务 + 已用 LangChain | 极简 demo (overkill) |
-| LlamaIndex Agents | Workflow + Agent | 中 | 中 | 中 | RAG 为主 + 已用 LlamaIndex | 复杂多 Agent 协作 |
-| AutoGen | Agent (Multi-Agent) | 高 | 高 | 高 | Multi-Agent 协作 + 研究类 | 单 Agent 客服 (overkill) |
-| CrewAI | Workflow (sequential) + Agent | 极低 | 中 | 低 | POC / 内容生成 demo | 生产级长时任务 |
-| OpenAI Agents SDK | Agent (Multi-Agent) | 低 | 中 | 中 | OpenAI 生态 + 学习 + MCP | 跨多 LLM / 复杂 graph |
-| Anthropic Claude Agent SDK | Agent | 低 | 中 | 高 | Claude + MCP + 高质量推理 | 多 LLM 后端 |
-
-##### 选型流程 (3 问题)
 - Q1: 已用 LangChain / LlamaIndex 生态? → 用对应 Agents
-- Q2: 多 Agent 协作必需? → AutoGen (Microsoft) 或 CrewAI (轻)
-- Q3: 单 LLM 厂 + 想最简? → OpenAI Agents SDK 或 Anthropic Claude Agent SDK
+- Q2: Multi-Agent 协作必需? → AutoGen 或 CrewAI
+- Q3: 单 LLM 厂 + 想最简? → OpenAI Agents SDK / Anthropic Claude Agent SDK
 
 ##### 反模式
 - ❌ Day 1 上 LangGraph multi-agent — 学习曲线高, 3 月调不通
@@ -18040,46 +18220,13 @@ Anthropic 总结的 5 种 Workflow Pattern, 90% 业务用其中一种就解决, 
 
 ### 20.4 Tool Calling (工具调用) 完整实现
 
-#### 20.4.1 三家 Tool Calling API 实现 (描述对比)
+#### 20.4.1 三家 Tool Calling API 详细差异 (索引 — 完整对比见 §8.3)
 
-##### OpenAI Function Calling (tool_calls 字段)
-- 调用形式: `tools=[{"type": "function", "function": {...}}]`, 响应在 `message.tool_calls[]`
-- 反馈形式: 追加 `{"role": "tool", "tool_call_id": ..., "content": ...}` 到 messages
-- 并行支持: parallel_tool_calls=True (默认开)
-- 强制选某 tool: tool_choice="required" 或 {"type": "function", "function": {"name": ...}}
-- 推理模型: o1/o3 不支持流式工具调用, 只能批量返回
+> 完整三家 (Anthropic / OpenAI / Gemini) Tool Calling API 实现差异 + 总结表 详见 §8.3.
 
-##### Anthropic Tool Use (content blocks)
-- 调用形式: `tools=[{"name", "description", "input_schema"}]`, 响应在 `content[]` 含 `type=tool_use` block
-- 反馈形式: user message 中放 `{"type": "tool_result", "tool_use_id": ..., "content": ...}`
-- 并行支持: 自然在 content blocks 列表里, 一次响应可含多个 tool_use
-- 强制选某 tool: tool_choice={"type": "tool", "name": ...}
-- 推理模型: extended thinking 内嵌工具调用 (Sonnet 4.5)
+§20.4 这里只补 Agent RAG 视角的 MCP + 选型决策.
 
-##### Google Gemini Function Calling (Part 列表)
-- 调用形式: `tools=[FunctionDeclaration(...)]`, 响应在 `parts[]` 含 function_call
-- 反馈形式: 追加 Part with function_response
-- 并行支持: parts 列表自然并行
-- 强制选某 tool: tool_config={"function_calling_config": {"mode": "ANY"}}
-- 推理模型: Gemini 2.0 Flash Thinking 支持
-
-##### 关键差异速记
-- API 形态: OpenAI 字段最简 / Anthropic content block 最规范 / Gemini Part 最灵活
-- Schema 严格度: Anthropic > OpenAI > Gemini (按"输出格式严格度"排)
-- 并行调用: 三家都原生支持
-- 反馈方式: OpenAI 用 tool role / Anthropic 用 user content / Gemini 用 Part
-
-#### 20.4.2 三家差异总结表
-
-| 维度 | OpenAI | Anthropic | Gemini |
-|---|---|---|---|
-| Schema 字段 | parameters | input_schema | parameters |
-| 反馈 role | tool | user (with tool_result) | function (with response) |
-| Parallel call | 是 | 是 (Sonnet 3.5+) | 是 |
-| Computer Use | 无 | 是 (Claude 3.5 Sonnet 起) | 无 |
-| 兼容 OpenAPI | 需转 | 需转 | 是 |
-
-#### 20.4.3 MCP 协议 (Model Context Protocol, Anthropic 2024.11)
+#### 20.4.2 MCP 协议 (Model Context Protocol, Anthropic 2024.11)
 
 ##### 是什么
 - Anthropic 主导的开放协议, 标准化 LLM 与外部工具 / 数据源的通信
@@ -18112,7 +18259,7 @@ Anthropic 总结的 5 种 Workflow Pattern, 90% 业务用其中一种就解决, 
 - 性能极敏感 (μs 级 RTT 不接受协议开销)
 - 工具非常专有 (没有公开 server 也没必要按 MCP 暴露)
 
-#### 20.4.4 三家 Tool Calling 选型决策表
+#### 20.4.3 三家 Tool Calling 选型决策表
 
 | 维度 | Anthropic (tool_use blocks) | OpenAI (tool_calls) | Gemini (function_call parts) |
 |---|---|---|---|
@@ -18130,158 +18277,38 @@ Anthropic 总结的 5 种 Workflow Pattern, 90% 业务用其中一种就解决, 
 - Q2: 极致成本 + 大 context? → Yes → Gemini (Flash + Context Cache)
 - Q3: 复杂多步推理 + 工具? → Yes → OpenAI o3 / Anthropic Sonnet 4.5 + extended thinking
 
-### 20.5 Memory (记忆层) 三层架构 (完整 Schema)
+### 20.5 Memory 三层架构 (索引 — 完整 schema 见 §8.4)
 
-#### 20.5.1 L1 Session Memory (短期)
+> 完整 Memory L1/L2/L3 schema + Postgres/Redis/Vector DB 实现 + Prompt 拼接 详见 §8.4.
 
-##### 用途
-- 本次会话历史
-- 跨多轮 (用户上下文连续)
+§20.5 这里只补 Agent RAG 视角的 Memory 应用要点.
 
-##### Schema (Redis 多键策略)
-- 消息列表 (List): `session:{session_id}:messages` — RPUSH 添加, LRANGE 查询
-  - 每元素 JSON: `{"role": "user", "content": "...", "ts": 1714000000}`
-- 元数据 (Hash): `session:{session_id}:meta` — HSET/HGETALL
-  - 字段: user_id / started_at / last_active / workspace_id
-- TTL: 6 小时 (EXPIRE 21600)
-- 选 List 而非 Hash 原因: 历史天然有序, RPUSH/LRANGE 比 Hash 更适合 append-only + 范围查询
+#### 20.5.1 Agent 跟 RAG 在 Memory 上的差异
 
-##### 容量
-- 单 session 20 messages × 2KB = 40KB
-- 1 万活跃 session = 400MB Redis
+| 维度 | 普通 RAG | Agent RAG |
+|---|---|---|
+| L1 Session 用法 | 多轮对话历史 | 多步执行的中间结果 (工具调用/决策) |
+| L1 容量 | 每 user 5KB | 每 step 1-3KB × 5-15 步 |
+| L2 User Pref | 用户偏好 | 用户偏好 + Agent 性格 (e.g. 积极探索 vs 保守) |
+| L3 Business | 业务知识 | 业务知识 + Tool 使用历史 (哪些工具效果好) |
+| 摘要触发 | 超 6K context | 超 6K context 或 step > 10 |
 
-##### 实现
-```python
-async def add_to_session(session_id: str, role: str, content: str):
-    msg = {"role": role, "content": content, "ts": time.time()}
-    await redis.rpush(f"session:{session_id}:messages", json.dumps(msg))
-    await redis.expire(f"session:{session_id}:messages", 21600)
+#### 20.5.2 Memory 在 Agent 循环中的作用 (跟 §20.1.6 7 层架构 Layer 5 对应)
 
+- 步 1: Loop 开始, 从 L1 取上一步的 state (query + history + tool_results)
+- 步 2: LLM 决定下一动作 (基于 L1 完整 state)
+- 步 3: 执行动作, 结果写回 L1 (append-only)
+- 步 4: 跨会话时, 关键决策摘要到 L2 (用户特征更新)
+- 步 5: 跨用户时, 团队约定 / 重要 case 进 L3 (Vector DB)
 
-async def get_session_history(session_id: str, last_n: int = 20):
-    msgs = await redis.lrange(f"session:{session_id}:messages", -last_n, -1)
-    return [json.loads(m) for m in msgs]
-```
+#### 20.5.3 反模式 (Agent 视角)
 
-#### 20.5.2 L2 User Preference (长期)
+- ❌ L1 不带 step_id — 多步 state 混乱, 无法回溯
+- ❌ L2 不分 Agent — 用户切 Agent (客服 → Coding) 时偏好串
+- ❌ L3 跨用户共享, 但忘 ACL — §13.9 Notion 类越权事故
+- ❌ 不做 Conversation Summary — 多步 Agent context 爆 16K
 
-##### 用途
-- 跨会话用户偏好 (语气 / 角色 / 兴趣)
-- LLM 个性化
-
-##### Schema (PostgreSQL JSONB)
-```sql
-CREATE TABLE user_preferences (
-    user_id TEXT PRIMARY KEY,
-    preferences JSONB,  -- {language, tone, expert_level, favorites}
-    learned_facts TEXT[],  -- ["works at Acme", "prefers concise"]
-    updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-```
-
-##### 异步更新 (LLM 提取 facts)
-```python
-async def extract_facts(session_messages: list):
-    facts = await llm.complete(
-        prompt=f"""从以下对话提取 1-3 条关于用户的事实:
-        {session_messages}
-
-        输出 JSON: {{"facts": ["fact 1", ...]}}"""
-    )
-    return json.loads(facts)["facts"]
-
-
-async def update_user_facts(user_id: str, new_facts: list):
-    # 去重 + 更新
-    existing = await db.fetch_one("SELECT learned_facts FROM user_preferences WHERE user_id=$1", user_id)
-    merged = list(set(existing["learned_facts"] + new_facts))
-    await db.execute(
-        "UPDATE user_preferences SET learned_facts=$1, updated_at=NOW() WHERE user_id=$2",
-        merged, user_id
-    )
-```
-
-##### 大小
-- 单 user ~5KB; 10 万 user = 500MB
-
-#### 20.5.3 L3 Business Memory (业务上下文)
-
-##### 用途
-- 客户 / 项目 / 任务相关上下文
-- 跨用户共享
-
-##### Schema (Vector DB + 关系库)
-```sql
-CREATE TABLE business_memories (
-    id UUID PRIMARY KEY,
-    project_id TEXT,
-    client_id TEXT,
-    topic TEXT,
-    content TEXT,
-    embedding VECTOR(1024),
-    created_at TIMESTAMPTZ
-);
--- pgvector HNSW 索引 (注意: vector_cosine_ops 需 pgvector 0.5+ 版本; 0.4 及以下只有 vector_l2_ops / vector_ip_ops)
--- BGE/Qwen3 归一化向量 → 用 vector_ip_ops (内积, 等价 cosine 但快 30%)
--- 未归一化 → 用 vector_cosine_ops (pgvector 0.5+) 或 vector_l2_ops
-CREATE INDEX ON business_memories USING hnsw (embedding vector_ip_ops);
-```
-
-##### 检索
-```python
-async def get_relevant_business_memories(
-    query: str, project_id: str, top_k: int = 3
-):
-    query_vec = await embedder.embed_query(query)
-    return await db.fetch(
-        """
-        SELECT * FROM business_memories
-        WHERE project_id = $1
-        ORDER BY embedding <#> $2  -- IP 内积 (与 vector_ip_ops 索引匹配, BGE/Qwen3 归一化向量)
-        LIMIT $3
-        """,
-        project_id, query_vec, top_k
-    )
-```
-
-#### 20.5.4 三层组合 — Prompt 拼接 (16K context budget)
-
-```python
-async def build_agent_prompt(
-    query: str, user_id: str, session_id: str, project_id: str | None
-):
-    # 1. System (skill prompt)
-    system = SKILL_PROMPT  # 1K tokens
-
-    # 2. User Preference (压缩 1-2 行)
-    prefs = await get_user_preferences(user_id)
-    pref_str = f"用户偏好: {prefs['tone']} 语气, {prefs['language']} 语言"  # 0.5K
-
-    # 3. Business Memory (top-3 相关)
-    if project_id:
-        memories = await get_relevant_business_memories(query, project_id, 3)
-        memory_str = "\n".join(m["content"] for m in memories)  # 2K
-    else:
-        memory_str = ""
-
-    # 4. Session History (最近 20 条)
-    history = await get_session_history(session_id, last_n=20)  # 2K
-
-    # 5. RAG context (从 retriever 拿)
-    chunks = await retriever.retrieve(query, top_k=5)
-    rag_context = format_chunks(chunks)  # 8K
-
-    # 6. Current query (1K)
-    # 留 1.5K 给 LLM 输出
-
-    return [
-        {"role": "system", "content": system},
-        {"role": "system", "content": f"{pref_str}\n\n{memory_str}"},
-        *history,
-        {"role": "system", "content": f"<context>{rag_context}</context>"},
-        {"role": "user", "content": query},
-    ]
-```
+详细 schema + 真实代码示例: §8.4 Memory 三层架构 (完整 Schema)
 
 ### 20.6 真实业界采用 — 5 个标杆案例摘要
 
@@ -18482,7 +18509,7 @@ async def build_agent_prompt(
 | 覆盖任务 | 28 任务 (跨 6 类: API / SQL / 工具组合) | 8 环境 (操作系统 / DB / web 浏览 / 知识图谱 / 卡牌游戏 / 家务规划等) | 真实 GitHub Issue → PR (2294 instance, 12 大开源项目) |
 | 评估粒度 | step-level (单步成功率) | task-level (任务完成率) | end-to-end (PR 是否合并) |
 | 难度 | 中 (单领域) | 中-高 (跨域) | 高 (生产级 codebase) |
-| 当前 SOTA | GPT-4 ~70% | GPT-4 ~50% | Claude Sonnet 4.5 + tool harness ~50% (2025) |
+| 当前 SOTA | GPT-4 ~70% | GPT-4 ~50% | Claude Sonnet 4.5 + tool harness ~65%+ (2025.Q4, swebench.com leaderboard 持续刷新) |
 | 适合评估 | 工具调用准确性 | 通用 Agent 能力 | Coding Agent (Cursor/Devin/Aider) |
 | 复用度 | 中 | 高 (论文常引) | 极高 (Coding Agent 必跑) |
 
@@ -18635,7 +18662,46 @@ async def build_agent_prompt(
 
 ---
 
-### B.X 新增 — Anthropic Workflow 5 Pattern 术语 (2024.12 引入)
+### B.X 新增 — Anthropic Workflow 5 Pattern + Agent RAG 完整术语 (2024.12+)
+
+##### Anthropic Workflow 5 Pattern (§20.1.4)
+- **Augmented LLM** (增强型 LLM) — 单 LLM + 检索 + 工具调用 + 记忆, 是所有 agentic 系统的原子单位 (Anthropic 三层模型层次 1)
+- **Workflow** (工作流) — LLM + 工具按预定义代码路径编排的系统 (路径固定可预测, Anthropic 三层模型层次 2)
+- **Agent** (智能体) — LLM 动态指导自己流程和工具使用, 保持对任务完成方式的控制 (Anthropic 三层模型层次 3)
+- **Prompt Chaining** — Workflow Pattern 1, 任务拆成线性多步, 每步处理上一步输出
+- **Routing** — Workflow Pattern 2, 分类输入后转发到不同的专门处理分支
+- **Parallelization** — Workflow Pattern 3, 同时跑多个独立 LLM 任务后聚合 (sectioning / voting)
+- **Orchestrator-Workers** — Workflow Pattern 4, 中枢 LLM 动态拆任务分给 Worker LLM 后综合
+- **Evaluator-Optimizer** — Workflow Pattern 5, 一 LLM 生成 + 一 LLM 评估的迭代循环
+
+##### Agent RAG 5 形态 (§20.2)
+- **Plan-and-Execute** (规划-执行) — 开局先全规划, Sonnet Planner + Haiku Executor, 适合可预测任务
+- **ReAct** (Reasoning + Acting, 推理-行动) — 每步规划下一步, 灵活适合不可预测任务 (Coding)
+- **Multi-Agent** (多智能体) — 多角色协作 (Researcher + Writer + Critic), AutoGen / CrewAI
+- **Self-Reflection** (自反思) — 输出后自评, 不满意则重做 (Self-RAG / Reflexion)
+- **Iterative RAG** (迭代检索) — 检索→评估→不够则重检, 直到信息充分 (CRAG)
+
+##### 评估 + 监控 (§20.9)
+- **TaskBench** (THUDM 2023) — 28 任务跨 6 类评估 Agent, step-level 成功率
+- **AgentBench** (THUDM 2023) — 8 环境 (OS / DB / web / KG / 卡牌 / 家务) task-level
+- **SWE-Bench** (Princeton 2024) — 真实 GitHub Issue → PR, end-to-end 评估 Coding Agent
+- **NDCG@K** (Normalized Discounted Cumulative Gain) — 检索评估主流指标, 看排名 + 分级相关度的综合分 (0-1)
+
+##### 三存储 + Memory (§5.5b + §8.4)
+- **Three-Tier Storage** (三存储) — RAG 工业标准: 向量库 + 倒排索引库 + 文档库, chunk_id 是连接键
+- **Three-Tier Memory** (Memory 三层) — Agent 记忆架构: L1 Session (Redis) + L2 User Pref (Postgres) + L3 Business (Vector DB)
+
+##### FinOps + 优化 (§20.8)
+- **FinOps** — 财务运营, 云成本管理学科, RAG / Agent 项目必修
+- **Prompt Caching** (Anthropic) — 缓存 prompt prefix 中间状态, hit 是 0.1× 成本, 实测省 35-49%
+- **Batch API** (OpenAI / Anthropic) — 异步批量调用, 50% 折扣, 适合 nightly eval / 文档预处理
+
+##### 其它常用 (audit 提及)
+- **MCP** (Model Context Protocol) — Anthropic 主导的 Agent 工具调用协议, 2024.11 发布, 1000+ Server 生态
+- **DLQ** (Dead Letter Queue) — 死信队列, 失败消息进 DLQ 人工处理
+- **WAL** (Write-Ahead Log) — 预写日志, 故障恢复
+- **CDC** (Change Data Capture) — 变更数据捕获, 数据库实时同步
+- **ABAC** (Attribute-Based Access Control) — 基于属性的访问控制, vs RBAC 更灵活
 
 - **Augmented LLM** (增强型 LLM) — 单 LLM + 检索 + 工具调用 + 记忆, 是所有 agentic 系统的原子单位
 - **Workflow** (工作流) — LLM + 工具按预定义代码路径编排的系统 (路径固定可预测)
@@ -18654,7 +18720,24 @@ async def build_agent_prompt(
 - Anthropic — "Contextual Retrieval" (2024.09) — RAG 性能提升 49% 的方法
 - Anthropic — Claude Agent SDK 文档 (2025) — Tool use + MCP 官方实现
 
-### C.1 论文 / 官方 Blog
+### C.1 论文 (按章节相关度)
+
+##### Agent / Workflow (§20)
+- **ReAct** (Yao et al. 2022) — arXiv:2210.03629 "ReAct: Synergizing Reasoning and Acting in Language Models" — Agent 推理-行动循环始祖
+- **Reflexion** (Shinn et al. 2023) — arXiv:2303.11366 "Reflexion: Language Agents with Verbal Reinforcement Learning" — Self-Reflection Agent
+- **Plan-and-Solve** (Wang et al. 2023) — arXiv:2305.04091 "Plan-and-Solve Prompting" — Plan-and-Execute 雏形
+- **Magentic-One** (Microsoft 2024.11) — Multi-Agent 5 角色编排
+- **Modular RAG** (Yunfan Gao 2024.07) — arXiv:2407.21059 "Modular RAG: Transforming RAG Systems into LEGO-like Reconfigurable Frameworks"
+
+##### 检索 + Reranking (§5/§6)
+- **HNSW** (Malkov 2018) — arXiv:1603.09320 "Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs"
+- **BM25** (Robertson 1994) — Okapi BM25 经典论文
+- **HyDE** (Gao et al. 2022) — arXiv:2212.10496 "Precise Zero-Shot Dense Retrieval without Relevance Labels"
+- **Contextual Retrieval** (Anthropic 2024.09) — anthropic.com blog, +49% 召回提升
+- **Late Chunking** (Jina AI 2024.08) — arXiv:2409.04701
+- **ColBERT-v2** (Stanford 2021) — arXiv:2112.01488
+
+### C.0 必读官方博客 (优先级最高) / 官方 Blog
 - HNSW: Malkov & Yashunin 2018
 - HyDE: Gao et al. 2022 (arXiv:2212.10496)
 - Self-RAG: Asai et al. 2023 (arXiv:2310.16622)
