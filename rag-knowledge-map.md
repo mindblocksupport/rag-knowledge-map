@@ -4155,6 +4155,259 @@ Gen 4 (Agent) 解决方式:
 
 ---
 
+### 4.16 脏数据处理 — 端到端实战 SOP (集大成 walkthrough)
+
+> §4.1-§4.15 是各子组件独立讲. 这一节集大成: 从"面前一堆脏 PDF"开始, 一步步讲清整个治理过程, 含具体工具命令 + 参数 + 验证.
+
+#### 4.16.1 完整决策图 — 看到一份数据该走什么治理
+
+##### 第一步: 识别数据形态 (决定后续所有路径)
+
+| 文档形态 | 关键特征 | 必走治理 | 跳过的治理 |
+|---|---|---|---|
+| 标准 PDF (财报 / 合同) | 固定排版 + 表格 | Parser (LlamaParse) + Boilerplate (位置法) + 全 6 道 | / |
+| 扫描件 PDF | OCR 噪声大 | Parser (Reducto/GPT-5 Vision) + Quality Gating 严格 + 6 道 | / |
+| HTML 网页 | DOM 结构 + 广告 | Parser (trafilatura) + 不需 Boilerplate (trafilatura 已含) + 6 道 | Boilerplate (重复) |
+| Markdown | 几乎纯净 | Parser (markdown lib) + 仅去重 + PII | Boilerplate, Quality (默认通过) |
+| 邮件 (Outlook/Gmail) | 含签名 + 历史回复 | mailparse + 去签名 + 去历史 + PII (邮箱内容含敏感) | / |
+| 代码文件 | 无传统脏数据 | AST-aware Parser + 不去噪 + 不去重 (代码重复合理) | Boilerplate, Dedup |
+| 聊天记录 (Slack) | 短消息 + 表情 + 引用 | 自定义 Parser + Quality Gating 严格 (大量短噪声) + PII | Boilerplate |
+| Salesforce / CRM | 结构化字段 + 长文本 | API 拉结构化 + 长文本走 6 道 | Parser (已结构化) |
+
+##### 第二步: 选择治理强度 (按业务场景)
+
+| 业务场景 | 必走治理 | 强度 | 月成本 (100 万文档) |
+|---|---|---|---|
+| 内部 KB (员工可见) | 5 道 (跳严格 PII) | 中 | $1.5K |
+| 客户场景 (面向用户) | 6 道全做 | 高 | $3K |
+| 医疗 / 金融 (合规严) | 6 道 + 5% 人工 review | 极高 | $10K+ |
+| 极致低成本 (PoC) | 仅去噪 + 去重 + 质量过滤 (3 道) | 低 | $500 |
+
+#### 4.16.2 端到端真实 Walkthrough — 100MB 公司年报 PDF 入库
+
+> 假设: ACME 公司给你一份 50 页年报 PDF (含 12 个表格 + 30 张图), 要进 RAG 知识库. 完整 SOP 走一遍.
+
+##### 步 0: 准备
+- 工具准备: pip install llama-parse presidio-analyzer datasketch ftfy beautifulsoup4 spacy
+- 模型: BGE-M3 (本地 GPU) + Anthropic Claude Haiku 4.5 (API)
+- 存储: PostgreSQL + pgvector + Redis
+
+##### 步 1: Parse — LlamaParse 解析复杂 PDF
+- 命令 (Python pseudo): `parser = LlamaParse(api_key="...", result_type="markdown", num_workers=4)`
+- 调用: `documents = parser.load_data("acme_annual_report.pdf")`
+- 输出: 50 页 → 50 个 Document 对象 (含 markdown 文本 + 表格转 markdown 表格 + 图描述)
+- 关键参数:
+  - `result_type="markdown"` (而不是 text, 保留表格结构)
+  - `parsing_instruction="保留所有表格, 数字精确, 图描述详细"` (新版 LlamaParse 支持自然语言指令)
+- 成本: 50 页 × $0.003 = $0.15
+- 验证: 抽 3 页人工对比原 PDF, 数字 / 表格行列对得上才进下一步
+
+##### 步 2: Cleaning — 去噪 + 格式化
+- 命令 1 (去 HTML/markdown 杂物): `text = BeautifulSoup(doc.text, 'html.parser').get_text(separator=' ', strip=True)`
+- 命令 2 (Unicode 归一化): `import unicodedata; text = unicodedata.normalize('NFKC', text)`
+- 命令 3 (修编码错): `import ftfy; text = ftfy.fix_text(text)`  # 处理 mojibake (常见乱码)
+- 命令 4 (统一换行 + 全半角): `text = text.replace('\\r\\n', '\\n'); text = text.translate(str.maketrans('，。：；', ',.:;'))`
+- 命令 5 (去页眉页脚): 先识别重复段 — 把 50 页每页文本 split 成段, 跨页统计, 出现 > 80% 页的段标为页眉/页脚 → 删
+- 验证: 处理后随机抽 5 个 chunk 看是否还有 "© 2024 ACME" / "Page 1 of 50" 等噪声
+
+##### 步 3: Dedup — 文档级 + 段落级双层去重
+- 命令 1 (文档级 SHA256): 
+  ```
+  import hashlib
+  doc_hash = hashlib.sha256(text.encode()).hexdigest()
+  if doc_hash in seen_hashes: skip
+  ```
+- 命令 2 (段落级 MinHash + LSH):
+  ```
+  from datasketch import MinHash, MinHashLSH
+  lsh = MinHashLSH(threshold=0.85, num_perm=128)
+  for i, paragraph in enumerate(paragraphs):
+      shingles = {paragraph[j:j+3] for j in range(len(paragraph)-2)}  # 3-shingle
+      m = MinHash(num_perm=128)
+      for s in shingles: m.update(s.encode())
+      duplicates = lsh.query(m)
+      if not duplicates: lsh.insert(f"para_{i}", m)
+      else: skip  # 跟 duplicates[0] 重复
+  ```
+- 真实数据: 50 页年报 + 公司其他文档 100 份, 跑完 LSH 发现 30% 段落重复 (年报里有重复多份的财务披露)
+- 验证: 检查 Jaccard 阈值, 0.85 太低会误杀 (相似不等于重复), 0.95 太高漏检. 业界默认 0.85.
+
+##### 步 4: PII 检测脱敏
+- 命令 1 (英文): `from presidio_analyzer import AnalyzerEngine; analyzer = AnalyzerEngine()`
+  - `results = analyzer.analyze(text=text, language='en')`
+  - 返回 [(entity_type, start, end, score)] e.g. `[('EMAIL_ADDRESS', 100, 120, 0.95), ...]`
+- 命令 2 (中文): 通用 Presidio 中文 NER 准确率 50-70%, 必须 fine-tune
+  - fine-tune 数据: 收集 5000 条标注样本 (身份证 / 手机 / 邮箱) → spaCy training format
+  - 训练: `python -m spacy train config.cfg --paths.train ./train.spacy --paths.dev ./dev.spacy`
+  - 上线后准确率 95%+
+- 命令 3 (脱敏): `from presidio_anonymizer import AnonymizerEngine`
+  - `anonymizer.anonymize(text=text, analyzer_results=results, operators={"EMAIL_ADDRESS": OperatorConfig("replace", {"new_value": "[EMAIL]"})})`
+  - 输出: "联系 john.doe@acme.com" → "联系 [EMAIL]"
+- 处理策略 3 选 1:
+  - 脱敏 (推荐): 替换为 `[EMAIL_001]`, 保留 type 信息
+  - 删除: 整 chunk 含 PII 直接丢弃 (合规严的)
+  - 标记: 入库但加 `sensitivity=high`, 检索时按用户权限过滤
+- 真实问题: 年报里"董事长张三"是公开信息不脱敏, 但"联系人 13800138000"必须脱敏 → 用 entity score + 业务规则判断
+- 验证: 跑完后 grep 看是否还有 \\d{11} (中国手机) 或 \\d{17}[\\dX] (身份证)
+
+##### 步 5: Quality Gating — LLM-as-judge 质量评分
+- prompt 模板:
+  ```
+  你是 RAG 知识库质量评估员. 请给以下文本片段打分:
+  
+  [文本]
+  {text}
+  
+  按 3 维度评 1-5 分:
+  1. 信息密度 (1=废话/2=低/3=中/4=高/5=极高)
+  2. 可读性 (1=乱码/2=断句烂/3=尚可/4=好/5=极好)
+  3. 完整性 (1=断章/2=缺关键/3=可读/4=完整/5=自包含)
+  
+  输出 JSON: {"density": X, "readability": Y, "completeness": Z, "reason": "..."}
+  ```
+- 调用: `response = anthropic.messages.create(model="claude-haiku-4-5", messages=[...])`
+- 阈值过滤: 三维度乘积 < 27 (3 维都 ≥ 3 ≈ 27) 视为低质, 丢弃
+- 成本: 50 页 × 平均 5 chunk/页 = 250 chunk, 每 chunk Haiku 调用 $0.001 = $0.25
+- 真实通过率: 年报场景 85-95% 通过 (年报本身质量高), FAQ/聊天场景 60-70% 通过 (大量短噪声)
+- ROC 调优: 在 100 个标注 chunk 上扫阈值 (24/27/30/33), 选 F1 最高的
+
+##### 步 6: 分类打标 + 版本管理
+- 命令 1 (Topic 自动分类): Haiku 调用 `给以下文本打 1-3 个 topic 标签 (从 [财务/法律/产品/人事/技术] 中选)`
+- 命令 2 (Language 检测): `from langdetect import detect; lang = detect(text)`
+- 命令 3 (Sensitivity 评级): 规则 (含 PII → high, 含财务数字 → medium, 其它 → low)
+- 命令 4 (版本管理 schema):
+  ```
+  CREATE TABLE chunks (
+    id BIGSERIAL PRIMARY KEY,
+    canonical_id UUID NOT NULL,        -- 同 doc 多版本共享
+    version INT NOT NULL,
+    is_active BOOLEAN DEFAULT true,    -- 旧版自动 false
+    text TEXT,
+    embedding VECTOR(1024),
+    metadata JSONB,
+    created_at TIMESTAMP
+  );
+  CREATE INDEX ON chunks (canonical_id, version);
+  ```
+- 入库时: 同 canonical_id 已存在 → 旧版 `is_active=false` + 新版 insert
+- 检索时: WHERE is_active = true 默认过滤旧版
+
+#### 4.16.3 处理后的质量验证 (KB Health)
+
+##### 立即验证 (入库后)
+- 总 chunk 数: 50 页 → 250 chunk → 治理后 175 chunk (-30%, 主要是去重 + 质量过滤)
+- 重复率检查: SELECT count(*) FROM chunks GROUP BY embedding HAVING count > 1 → 应为 0
+- PII 残留检查: SELECT * FROM chunks WHERE text ~ '\\d{11}' → 应为空
+- 质量分布: 看 quality_score 直方图, 应集中在 3-5 区间
+- ACL 完整性: 每 chunk 必有 acl_tags 字段 (不能 NULL)
+
+##### 上线后持续监控 (KB Health 7 大指标)
+- 1. 入库速度 (文档/小时, 目标 > 500)
+- 2. 失败率 (目标 < 1%)
+- 3. 重复率 (目标 < 10%)
+- 4. 过期率 (6 月未更新, 目标 < 30%)
+- 5. 覆盖率 (用户 query 命中率, 目标 > 80%)
+- 6. PII 漏检率 (周抽样 100 chunk 人工查, 目标 < 0.1%)
+- 7. 平均质量分 (目标 ≥ 4.0/5)
+
+##### Golden Set 制作 (评估治理质量)
+- 抽 100 个 query (典型 + 边缘 + 极端)
+- 人工标注 ground truth chunk (哪个/哪些 chunk 含答案)
+- 治理前后跑两次, 看 Recall@10 / Precision@5 / Faithfulness 三指标
+- 真实数字: 完整 6 道治理 vs 不治理, Recall@10 提升 0.45 → 0.78 (+0.33)
+
+##### Bad case 闭环
+- 用户反馈"答错"或"答非所问" → 反查检索结果 → 反查 chunk → 反查源文档
+- 标根因 5 类: Parser 错 / 噪声混入 / PII 没脱 / 过期未清 / 重复占满 top-K
+- 每周 review 50 个 bad case, 调整治理流程
+
+#### 4.16.4 完整 Spark Pipeline 架构 (100 万文档生产)
+
+##### 端到端架构
+
+- 数据源: S3 / GCS (上传的 PDF / Word / 抓的 HTML)
+- 触发: AWS Lambda (S3 PutObject) / 定时调度 (Airflow)
+- 处理: Spark Cluster (50 worker × 8 core × 32GB) 跑 6 道治理
+- 存储: PostgreSQL (chunks + metadata + acl) + Redis (session) + pgvector (embedding)
+- 监控: Datadog / Prometheus + Slack 告警
+
+##### 关键并行化设计
+
+- Parse 阶段: 单 PDF 不并行 (LlamaParse API 限流), 但跨 PDF 并行 (50 worker 同时跑 50 PDF)
+- Cleaning / Dedup 阶段: Spark RDD partition by doc_id 并行
+- PII / Quality Gating: 调外部 LLM API, 用异步 + rate limit 控制 (Anthropic 1000 req/min)
+- Embedding: 自托管 BGE-M3 on GPU cluster (4 × A10), 单卡 640 doc/s
+- 入库: pgvector batch insert + COPY 命令 (10× 比 INSERT 快)
+
+##### 100 万文档实测账本
+
+| 阶段 | 工具 | 耗时 | 成本 |
+|---|---|---|---|
+| Parse (LlamaParse) | LlamaParse API | 4 小时 (并行 100) | $3000 |
+| Cleaning | Spark CPU | 1 小时 | $50 |
+| Dedup (MinHash + LSH) | Spark + datasketch | 1 小时 | $100 |
+| PII (Presidio + 中文 NER) | Spark CPU | 30 分钟 | $50 |
+| Quality (Haiku) | Anthropic API | 2 小时 (rate limit) | $1000 |
+| 分类打标 (Haiku) | Anthropic API | 1 小时 | $300 |
+| Embedding (BGE-M3) | 4 GPU | 1 小时 | $50 |
+| 入库 (pgvector) | Postgres | 30 分钟 | $0 |
+| **总计** | | **10 小时** | **$4550** |
+
+#### 4.16.5 不同业务场景的实操强度对比
+
+##### 内部 KB (员工可见, 5 道, 跳严格 PII)
+- 跳过: 严格 PII 脱敏 (内部员工本就能看)
+- 强度: 中 (Quality Gating 阈值放低到 24)
+- 真实公司: Glean 内部 / 字节飞书 KB
+
+##### 客户场景 (面向用户, 6 道全做)
+- 全做: PII 严格脱敏 (客户邮箱 / 卡号 / 身份证)
+- 强度: 高 (Quality Gating 阈值 27, 双 LLM 评分确保)
+- 真实公司: Klarna 客服 / Notion / Slack AI
+
+##### 医疗 / 金融 (合规严, 6 道 + 5% 人工 review)
+- 加: HIPAA / GDPR / 个保法专项检测 + 人工抽查 5%
+- 强度: 极高 (Quality Gating 阈值 30, 三 LLM 投票)
+- 真实公司: Harvey AI / Epic 病历 RAG / Bloomberg 法律
+
+#### 4.16.6 反模式 (业界踩过的真实坑)
+
+- ❌ **Parse 完直接入库** — 跳过其它 5 道. Bloomberg 案 (§13.5), 表格数字错答案错
+- ❌ **去重 Jaccard 阈值 0.95+** — 太严, 漏检大量近似重复, KB 仍然臃肿
+- ❌ **PII 只用规则不用 NER** — 中文姓名 / 公司名 (含个人信息) 漏检, 合规事故 (§13.27 MS Recall)
+- ❌ **Quality Gating 用 GPT-5 / Sonnet** — 单 chunk 评分成本 $0.05+, 100 万 chunk = $50K, ROI 负
+- ❌ **不做 Bad case 闭环** — 治理后上线就完事, 用户反馈不复盘, 治理质量逐月衰减
+- ❌ **每次入库重做全量治理** — 100 万文档每天重跑 = 24h 跑不完, 必须增量 (新文档 + 改的 chunk)
+- ❌ **PII 检测放在检索时** — §13.27 MS Recall 真实事故, PII 已落盘后才过滤太晚
+- ❌ **不做版本管理** — 旧版本未下线, 用户问 "退款政策" 召回 5 个版本里的旧版 (Air Canada §13.1)
+- ❌ **治理工具栈分散 (Python / Spark / Java 混用)** — 维护成本高, 推荐统一 Spark + Python UDF
+- ❌ **Golden Set 只用一次** — 治理流程改了不重测, 不知道是不是退化
+
+#### 4.16.7 工具栈速查
+
+| 用途 | 推荐工具 | 备选 | 中文支持 | 成本 |
+|---|---|---|---|---|
+| Parse PDF (普通) | pypdfium2 | PyMuPDF | 弱 | 免费 |
+| Parse PDF (复杂表格) | LlamaParse | Reducto | 中 | $0.003-0.05/页 |
+| Parse 扫描件 | GPT-5 Vision | Reducto | 强 | $0.01-0.05/页 |
+| Parse HTML | trafilatura | readability-lxml | 中 | 免费 |
+| 编码修复 | ftfy | unicodedata | 强 | 免费 |
+| Boilerplate 检测 | trafilatura (HTML) | jusText | 中 | 免费 |
+| 去重 | datasketch (MinHash + LSH) | Spark MinHashLSH | 强 | 免费 |
+| PII 检测 | Microsoft Presidio | spaCy NER + 自定义 | 弱 (需 fine-tune) | 免费 |
+| 质量评分 | Anthropic Haiku 4.5 | Gemini 2.0 Flash | 强 | $0.001/chunk |
+| 分类打标 | Anthropic Haiku 4.5 | spaCy 分类器 | 强 | $0.0005/chunk |
+| 版本管理 | Postgres + canonical_id | / | / | 免费 |
+| 处理 Pipeline | Spark + Airflow | Dask + Prefect | / | 自托管 |
+| 监控 | Datadog + Prometheus | Grafana | / | $50-500/月 |
+
+#### 4.16.8 一句话总结
+
+脏数据治理不是"做不做"的问题, 是"按业务场景做几道 + 怎么验证不退化"的问题. 6 道治理 + Bad case 闭环 + KB Health 监控, 三件齐全才算完整生产级.
+
+
+---
+
 ## 五. Layer 2 索引质量 — 索引构建流程 (Index Build Path)
 
 > 决定召回的"上限". 同一检索算法, 索引差 vs 好的 NDCG 差 30-50%.
