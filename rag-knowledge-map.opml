@@ -279,15 +279,16 @@
           <outline text="为什么用 RRF: BM25 score 范围 0-30, cosine score 范围 0-1, 直接加权不可比, RRF 只用 rank 排序天然兼容"/>
         </outline>
         <outline text="步 5: Reranker 精排 (可选, 但生产必加)">
-          <outline text="输入: top-20 chunk_id → Doc Store 取原文 → (query, chunk) pair list"/>
+          <outline text="注: Reranker 内部需要原文打分, 此时临时回查 top-20 原文供 Cross-Encoder 处理"/>
+          <outline text="输入: top-20 chunk_id + 临时取的 chunk text → (query, chunk) pair list"/>
           <outline text="Cross-Encoder (BGE-Reranker-v2-M3) 推理 → 0-1 相关分"/>
           <outline text="输出: top-5 chunk_id (精排后)"/>
           <outline text="收益: NDCG +5-15%, 延迟 +50-150ms"/>
         </outline>
-        <outline text="步 6: 回查原文 (Doc Store Lookup) ⭐ 关键步骤">
-          <outline text="用 top-5 chunk_id 去文档库取原文"/>
-          <outline text="SELECT text, metadata, sourceurl FROM docs WHERE chunkid IN (...)"/>
-          <outline text="输出: top-5 原文片段 (str list)"/>
+        <outline text="步 6: 最终回查原文 (Doc Store Lookup) ⭐ 关键转折点 (chunk_id → 原文)">
+          <outline text="用 top-5 chunkid 去文档库最终取原文 + metadata + sourceurl + ACL"/>
+          <outline text="SQL: SELECT chunkid, text, sourceurl, metadata FROM chunks WHERE chunkid IN (...) AND isactive = true AND acl_tags &amp;&amp; user.groups"/>
+          <outline text="输出: top-5 原文片段 (含 metadata + source_url, 用于喂 LLM + 引用反查)"/>
         </outline>
         <outline text="步 7: Prompt 拼接">
           <outline text="system_prompt + "参考资料:\n" + chunks 原文 + "\n问题: " + query"/>
@@ -475,7 +476,9 @@
             <outline text="客户问 "RF12345 退款流程是什么", 检索找到最相关的是 chunk_42"/>
             <outline text="喂给 LLM 的 "原文" = chunk_42.text (~500 字), 不是整份 refund.md (5000 字)"/>
           </outline>
-          <outline text="chunk_id 是干什么的 — 检索系统跟 Doc Store 之间的主键" _note="存储 | 存了什么 | chunkid 的作用
+          <outline text="chunk_id 是干什么的 — 检索系统跟 Doc Store 之间的主键" _note="⭐ chunk_id 必须由 Doc Store 单一权威生成 (Postgres BIGSERIAL), 三存储共用. 各自生成 ID 是反模式 — 同一 chunk 在三库 ID 不同, 无法跨库 JOIN (详见 §5.5b.5 挑战 2).
+
+存储 | 存了什么 | chunkid 的作用
 向量库 (Pinecone / pgvector) | (chunkid, 1024 维向量) | 检索返回 chunkid
 倒排索引 (Elasticsearch) | (term, chunkid 倒排表) | 检索返回 chunkid
 文档库 (Doc Store, Postgres / Redis) | (chunkid, chunk 原文 text, sourceurl, metadata) | 用 chunkid 反查原文">
@@ -668,7 +671,7 @@ Claude Sonnet 4.5 | 闭源 | 估 8192-16384 | 闭源 (推测)">
         </outline>
       </outline>
       <outline text="0.1.6 5 个最容易被忽略的事实 (面试高频)">
-        <outline text="事实 1: 真实工业 RAG 是三存储, 不是双存储">
+        <outline text="事实 1: 真实工业 RAG 是三存储, 不是双存储 (三库以 chunk_id 为连接键)">
           <outline text="误区: "RAG = 向量库 + LLM, 两个组件够了""/>
           <outline text="真相: 工业标准是 Vector DB + Inverted Index (BM25) + Doc Store 三存储并存"/>
           <outline text="60% 单 Dense 项目栽倒, 就是因为漏了 BM25 倒排索引"/>
@@ -697,7 +700,7 @@ Claude Sonnet 4.5 | 闭源 | 估 8192-16384 | 闭源 (推测)">
       <outline text="0.1.7 一图胜千言 — 完整 RAG 数据流 (索引)" _note="完整离线 8 步 + 在线 9 步流程详见 §0.1.4 + §0.1.5. 此节只列三存储职责对照.">
         <outline text="三存储职责一图">
           <outline text="向量库 (pgvector / Pinecone / Milvus): 存 (chunkid, vector), 用 ANN 查 → 返 chunkid"/>
-          <outline text="倒排索引 (Elasticsearch / tsvector): 存 (term, chunkid 倒排表), 用 BM25 查 → 返 chunkid"/>
+          <outline text="倒排索引库 (Elasticsearch / tsvector): 存 (term, chunkid 倒排表), 用 BM25 查 → 返 chunkid"/>
           <outline text="文档库 (Postgres / Redis): 存 (chunkid, text, sourceurl, metadata), 用主键查 → 返原文"/>
         </outline>
         <outline text="chunk_id 是连接键">
@@ -2228,7 +2231,7 @@ maxcost | [1 / ]5 / [50 | 客服 / Coding / 科研 | 不限 (单 query 烧 ]200)
       </outline>
       <outline text="3.1.2 L2 → L3 (写完后等读)">
         <outline text="输入: chunks + embeddings + metadata"/>
-        <outline text="输出: searchable indexes (vector + sparse + metadata)"/>
+        <outline text="输出: 三存储就位 (向量库 + 倒排索引库 + 文档库 Doc Store, 三库以 chunk_id 为连接键)"/>
       </outline>
       <outline text="3.1.3 用户 query → L4 (读入口)">
         <outline text="输入: raw query + user context (userid, role, workspaceid)"/>
@@ -2527,7 +2530,7 @@ PII 敏感信息 | 5-20% | 合规风险 + 输出泄露 | §4.6 PII
       </outline>
     </outline>
     <outline text="4.3 Ingestion 完整写流程 (端到端 + 企业级架构)">
-      <outline text="4.3.1 7 步流水线 (按数据流顺序)">
+      <outline text="4.3.1 7 步流水线 (按数据流顺序)" _note="⭐ chunk_id 由 L2 Chunking 阶段从 Doc Store BIGSERIAL 单一生成, 三存储 (向量库 + 倒排索引库 + 文档库) 共用此键. 各自生成 ID = 反模式 (§5.5b.5 挑战 2).">
         <outline text="步 1: 上传 / 同步 (Upload / Sync) — 入口"/>
         <outline text="步 2: 解析 (Parse) — PDF/Word/HTML 转纯文本"/>
         <outline text="步 3: 噪声过滤 (Boilerplate Detection) — 去页眉页脚"/>
@@ -5873,7 +5876,7 @@ updatedat | TIMESTAMPTZ | 更新时间">
         <outline text="写流程 (离线 Index Build, §0.1.4)">
           <outline text="步 1: 文档 Parse + 6 道治理 → cleaned chunk"/>
           <outline text="步 2: 分配 chunk_id (从 BIGSERIAL 拿, 全局唯一)"/>
-          <outline text="步 3: 三存储并行入库:">
+          <outline text="步 3: 文档库为权威源先写, 通过 outbox 模式异步同步到向量库 + 倒排索引库 (eventual consistency, 详见 §5.5b.5 挑战 1):">
             <outline text="向量库: INSERT (chunk_id, BGE-M3 embedding[1024])"/>
             <outline text="倒排索引: INSERT (terms 倒排表 with chunk_id)"/>
             <outline text="文档库: INSERT (chunkid, text, sourceurl, metadata, acl_tags)"/>
@@ -5903,7 +5906,7 @@ updatedat | TIMESTAMPTZ | 更新时间">
         </outline>
         <outline text="删除流程 (源文档删除)">
           <outline text="步 1: Connector 检测 doc_id 在源系统不存在了"/>
-          <outline text="步 2: 三存储级联删除 (cascade delete):">
+          <outline text="步 2: 三存储级联删除 (cascade delete + 周度 reconcile 兜底, 见 §5.5b.5 挑战 3):">
             <outline text="文档库: DELETE FROM chunks WHERE doc_id=..."/>
             <outline text="向量库: 对应 chunk_id 的 vector 删除"/>
             <outline text="倒排索引: 倒排表条目删除"/>
