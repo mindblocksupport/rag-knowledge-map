@@ -12,6 +12,10 @@
 
 ## 〇. 速览 + 4 个核心决策 + 学习路径
 
+### 0.0 Agentic RAG 速览思维导图 ⭐
+
+> 进入本章前先看这张思维导图建立全章认知.
+
 ### 0.1 一句话定义 Agentic RAG
 
 - **Agentic RAG** (智能体增强检索) = LLM 在循环里**自主决定**"下一步检什么 / 调什么 / 何时停"的多步 RAG
@@ -91,6 +95,10 @@ Anthropic "Building Effective Agents" (2024.12) 推出的三层架构, 是当前
 ---
 
 ## 一. Anthropic 三层模型 — Agent vs Workflow vs Augmented LLM
+
+### 1.0 Anthropic 三层模型思维导图 ⭐
+
+> 进入本章前先看这张思维导图建立全章认知.
 
 ### 1.1 三层模型来源
 
@@ -191,54 +199,303 @@ Anthropic "Building Effective Agents" (2024.12) 推出的三层架构, 是当前
 
 数据来源: Klarna 2024 Q1 公开年报 + Glean 内部分享.
 
-### 1.4 三大常见误区 (面试高频)
+### 1.4 三大常见误区 (面试高频, 完整深度版)
 
 #### 1.4.1 误区 1 — "Agent 替代 RAG"
 
-- **错在哪**: 以为有了 Agent 就不需要 RAG 管道了
-- **真相**: Agent 内部 80-90% 时间还在调 RAG (检索是 Agent 工具池里的核心工具之一)
-- **正解**: Agent 是 RAG 的上层调度, 是叠加不是替代
-- **量化证据**: Klarna 95% query 走纯 Modular RAG, 5% 走 Agent (而 Agent 内部仍多次调 RAG)
+##### 错在哪
+- 听到 "Agent" 觉得是更高级的东西, 以为有了 Agent 就不需要 RAG 管道了
+- 部分团队 PoC 时直接上 LangGraph 重写整个系统, 把原来 Modular RAG 删掉
+- 误以为 "Agent + LLM" 就是完整方案, 不需要"老的"检索流水线
+
+##### 真相
+- Agent 内部 80-90% 时间还在调 RAG (检索是 Agent 工具池里的核心工具之一)
+- Agent 没有取代 RAG, 而是把 RAG 当工具用
+- 所以 "Agent vs RAG" 是错误问题, 正确问题是 "Agent + RAG vs 单 RAG"
+
+##### 量化证据
+- **Klarna 公开年报数字**: 95% query 走纯 Modular RAG, 5% 走 Agent (而 Agent 内部仍多次调 RAG)
+- **Glean 内部分享**: 90% query 走纯 RAG (Confluence 检索), 10% 走 Agent (跨多源诊断)
+- **Cursor 例外**: 几乎全 Agent (Coding 任务无法预先分解), 但 Agent 内部仍频繁 grep 代码 (本质是检索)
+
+##### 正解
+- Agent 是 RAG 的**上层调度**, 是叠加不是替代
+- Agent 5 部件公式: Agent RAG = Modular RAG (基座) + Planner + Tool Calling + Memory + 多步推理
+- 没 Modular RAG 这个基座, Agent 检出来的全是垃圾, 循环报错
+
+##### 反模式
+- ❌ 删除原 Modular RAG 改全 Agent: 月成本翻 50× (Klarna 早期就栽过)
+- ❌ Agent 不调 RAG 工具, 让 LLM 凭训练知识答: 知识过时 + 幻觉爆
+- ❌ 部分团队上 Agent 时把 Embedder / Reranker / Hybrid 这些 Modular RAG 组件全删: 一定召不准
+
+##### 决策建议
+- 永远先做 Modular RAG (Recall@10 ≥ 0.85) 才考虑上 Agent
+- Agent 是"在 Modular RAG 之上加智能调度", 不是替代
+- 详见 §13 落地路径 (待写) 4 阶段渐进
 
 #### 1.4.2 误区 2 — "多步 LLM 调用 = Agent"
 
-- **错在哪**: 把固定脚本调多次 LLM 也叫 Agent
-- **真相**: 多步 ≠ Agent. 工程师写死的 5 步管道不算 Agent, 算 Workflow
-- **正解**: Agent 的核心标志是 "LLM 看上一步结果决定下一步" 这个反馈环
-- **鉴别口诀**: 流程图能预先画出来 → Workflow; 流程图取决于运行时 LLM 输出 → Agent
+##### 错在哪
+- 看到 "Agent" 概念, 以为多步 LLM 调用 = Agent
+- 工程师写死的 5 步固定脚本调 5 次 LLM, 自称 "我的 Agent"
+- 把 Workflow Pattern 1 (Prompt Chaining) 当 Agent 卖
+
+##### 真相
+- 多步 ≠ Agent. **关键看路径是不是 LLM 决定的, 不是步数**
+- 5 步固定脚本是 Workflow (Anthropic 三层模型层次 2)
+- Agent 的核心标志是 "LLM 看上一步结果决定下一步" 这个**反馈环**
+
+##### 鉴别口诀
+- **能预先画出流程图** (即使有 if/else 分支) → Workflow
+- **流程图取决于运行时 LLM 输出, 不能预先画** → Agent
+- 例子: 客服分类 → 走对应路径 (3 路分类预先固定) = Workflow Pattern 2 Routing
+- 例子: Cursor 改 bug (LLM 自己决定 read 哪个文件 / 改哪一行 / 跑哪个测试) = Agent ReAct
+
+##### 量化证据 (架构对比)
+- Workflow 单 query LLM 调用次数: 1-3 (含 Query Transform / Validator)
+- Agent 单 query LLM 调用次数: 5-50 (循环动态)
+- Workflow 同输入相同流程 (确定性): YES
+- Agent 同输入流程不同 (LLM 决策有方差): YES
+
+##### 正解
+- 多步 LLM 调用 ≠ Agent
+- 评估标准: 路径是不是 LLM 在运行时决定
+- Workflow + Agent 都属于"超越单次 LLM 调用", 但路径决定者不同
+
+##### 反模式
+- ❌ 把 Prompt Chaining (Pattern 1) 包装成"我的 Agent"卖: 客户被坑, 真正需要 Agent 时上不去
+- ❌ 用 LangGraph 写 5 步固定脚本: overkill, 用 LangChain SequentialChain 几行搞定
+- ❌ 用 Agent 框架做 Workflow 任务: 调试成本 5-10×, 不值
+
+##### 决策建议
+- 任务能预先画出流程图 → Workflow (5 Pattern 选一)
+- 任务路径必须 LLM 运行时决定 → Agent (5 形态选一)
+- 详见 §1.3 三层选型决策树
 
 #### 1.4.3 误区 3 — "上 Agent 就解决质量问题"
 
-- **错在哪**: 检索召回差, 想用 Agent 抢救
-- **真相**: Agent 解决 "一次性管道解不了" 的问题, 不解决 "检索本身差" 的问题
-- **正解**: Recall@10 < 0.7 时上 Agent 只会循环报错, 必须先治 L1+L2+L3
-- **正确顺序**: 先把 Modular RAG 调到 Recall@10 ≥ 0.85, 再上 Agent
+##### 错在哪
+- RAG 召回质量差 (Recall@10 = 0.5), 想用 Agent 抢救
+- 觉得 Agent "更智能", 应该能弥补检索的不足
+- 期待 Agent "自动找资料, 自动判断, 自动答对"
 
-### 1.5 跟其它框架的关系
+##### 真相
+- Agent 解决的是 "**一次性管道解不了**" 的问题, 不解决 "检索本身差" 的问题
+- Recall@10 < 0.7 时上 Agent 只会**循环报错** (LLM 反复检索同一查询拿到相同的差结果)
+- max_steps 限制再严, Agent 也只是"循环烧钱", 答案质量不会变好
 
-#### 1.5.1 跟 OpenAI 的 GPT 模式
-- OpenAI 没有公开等价的"三层模型"分类, 但 Function Calling / Agents SDK 实质对应 Anthropic 的 Workflow + Agent
+##### 量化证据 (反模式真实事故)
+- 某厂 Modular RAG Recall@10 = 0.5, 上 LangGraph 期待 Agent 救场
+- 结果: Agent 循环 8 步, 每步检索拿到相同的差 chunk, LLM 综合答案仍差
+- 单 query 成本 $0.40 (vs 普通 RAG $0.005), 月预算翻 80×, 满意度反而降 5pt
+- 修复: 砍掉 Agent, 回头治 L1 数据治理 + L2 索引 + L3 检索, Recall@10 0.5 → 0.85, 用户满意度回升
 
-#### 1.5.2 跟 LangChain 的 Chain / Agent 对应
-- LangChain Chain ≈ Workflow Pattern (Prompt Chaining / Sequential Chain)
-- LangChain Agent ≈ Anthropic Agent (ReAct Agent / OpenAI Function Agent)
-- LangGraph 跨两层 (graph 任意编排, 既支持 Workflow 也支持 Agent)
+##### 正解
+- Agent 跟检索质量是**正交**关系, 不是补救
+- 必须先把 **Modular RAG 调到 Recall@10 ≥ 0.85** 才考虑上 Agent
+- 顺序: L1 数据治理 → L2 索引 → L3 检索 → L4 Router → L5 Agent (5 层渐进, 详见通用 RAG §3)
 
-#### 1.5.3 跟 Modular RAG (Yunfan Gao 2024) 关系
-- Modular RAG 7 模块 = Anthropic 三层中的"层次 1 Augmented LLM" 工程化实现
-- Modular RAG 是"模块化的 Augmented LLM"
-- Agent 是 Modular RAG + Planner + Tool Loop + Memory + 多步推理
+##### 量化对比 (Klarna 实测)
+- Recall@10 < 0.7 时上 Agent: ROI 负 (成本翻 50× + 满意度降)
+- Recall@10 ≥ 0.85 时上 Agent: ROI 正 (5% 复杂 query 满意度 +5pt, 解决跨系统诊断)
 
-### 1.6 关键金句 (Anthropic 原话)
+##### 反模式
+- ❌ Modular RAG 没调好就上 Agent: 必栽
+- ❌ 期待 Agent "自动学会"修复检索质量: LLM 再强也救不了垃圾 chunk
+- ❌ 把 Agent 当"质量提升神器"卖给业务方: 上线后体验崩, 业务方失去信任
 
-- > "成功不在于构建最复杂的系统, 而在于为你的需求构建正确的系统"
-- > "从简单提示开始, 用全面的评估优化它们, 仅在简单方案不足时添加多步 agentic 系统"
-- > "agentic 系统通常会用延迟和成本换取更好的任务性能"
-- > "对框架的错误假设是客户错误的常见来源"
+##### 决策建议
+- **正确顺序**: 先治 L1 数据治理 + L2 索引 + L3 检索, 再上 L5 Agent
+- 检验标准: Modular RAG 在 Golden Set 上 Recall@10 ≥ 0.85 + Faithfulness ≥ 0.90 才能上 Agent
+- 详见 §13 落地路径 4 阶段渐进 (待写)
 
----
+### 1.5 跟其它框架的关系 (完整深度版)
+
+#### 1.5.1 跟 OpenAI 的 GPT 模式 / Agents SDK
+
+##### OpenAI 立场
+- OpenAI 没有公开等价的"三层模型"分类
+- 实践中 OpenAI 把 Agent 等所有"超越单次 GPT 调用"的统称 "Agentic" 或 "Function Calling"
+
+##### 实质对应关系
+- **OpenAI Function Calling** ≈ Anthropic 的 Workflow + Agent (取决于工程师怎么用)
+  - 单步 Function Calling (GPT 决定调一个工具就完事) ≈ Augmented LLM (层次 1)
+  - 多步 Function Calling (GPT 决定调多个工具串起来) ≈ Workflow / Agent
+- **OpenAI Agents SDK** (前 Swarm, 2025.03 升级) ≈ Anthropic 的 Multi-Agent Agent
+  - 内置 handoff (Agent 之间转交) + MCP client
+  - 主推 Multi-Agent 模式
+
+##### 关键差异
+- Anthropic 偏概念化 (三层模型), OpenAI 偏实操工具 (SDK + API)
+- Anthropic 推 "simple, composable patterns", OpenAI 推完整 SDK
+- 但底层概念可互换, 工程师跨平台都能用
+
+##### 跨平台兼容
+- LangGraph / LlamaIndex 跨 Anthropic + OpenAI 都能跑
+- MCP (Model Context Protocol) 是跨平台标准, Anthropic 主导, OpenAI 2025 接入
+
+#### 1.5.2 跟 LangChain / LangGraph 的 Chain / Agent 对应
+
+##### LangChain Chain (经典)
+- **SimpleSequentialChain** ≈ Workflow Pattern 1 Prompt Chaining
+- **RouterChain** ≈ Workflow Pattern 2 Routing
+- **MapReduceChain** ≈ Workflow Pattern 3 Parallelization (sectioning)
+- **RefineChain** ≈ Workflow Pattern 5 Evaluator-Optimizer
+
+##### LangChain Agent (经典)
+- **ZeroShotAgent / ReActAgent** ≈ Anthropic ReAct Agent (5 形态形态 2)
+- **OpenAIFunctionsAgent** ≈ ReAct Agent 但用 Function Calling
+- **SelfAskWithSearchAgent** ≈ Iterative RAG (5 形态形态 5)
+
+##### LangGraph (跨两层)
+- **graph + node + edge** 抽象, 任意编排 Workflow + Agent
+- 既能写 Workflow (固定 graph) 也能写 Agent (动态决策的 graph)
+- 业界主流的"二选一框架": 简单用 LangChain, 复杂用 LangGraph
+
+##### LlamaIndex Agents
+- **ReActAgent** ≈ Anthropic ReAct
+- **SubQuestionQueryEngine** ≈ Workflow Pattern 4 Orchestrator-Workers
+- **OpenAIAgent** ≈ OpenAI Function Calling 风格
+- 跟 LlamaIndex RAG 检索深度集成
+
+#### 1.5.3 跟 Modular RAG (Yunfan Gao 2024) 的关系
+
+##### Modular RAG 是什么
+- Yunfan Gao 2024.07 综述 "Modular RAG: Transforming RAG Systems" (arXiv:2407.21059)
+- 把 RAG 系统重构为 7 个模块化组件 (Indexing / Pre-Retrieval / Retrieval / Post-Retrieval / Generation / Routing / Orchestration)
+- 每模块独立可替换, 接口标准化
+
+##### 跟 Anthropic 三层模型对应
+- **Modular RAG = 层次 1 Augmented LLM 的工程化实现**
+- 7 模块化的 Augmented LLM, 主推理仍是 1 次 LLM 调用 (Generator)
+- 周边 Pre-Retrieval / Post-Retrieval / Validator 是辅助调用
+
+##### 跟 Agent 的关系
+- **Agent = Modular RAG (基座) + Planner + Tool Calling + Memory + 多步推理**
+- Modular RAG 是 Agent 的"内部工具", 即 Agent Layer 4 Tool Loop 里的"RAG 工具" 就是 Modular RAG 完整管道
+- 没 Modular RAG, Agent 检出来的全是垃圾, 循环报错
+
+##### 演化路径
+- Naive RAG (2020-2022, Gen 1) — 3 段固定管道
+- Advanced RAG (2023, Gen 2) — Naive + 增强 (HyDE / Multi-Query / Reranker / Hybrid)
+- **Modular RAG (2024, Gen 3) — 7 模块化, 是 Anthropic 层次 1 Augmented LLM 工程实现**
+- **Agent RAG (2024-2025, Gen 4) — 在 Modular RAG 之上加 Planner / Tool Loop / Memory**
+
+#### 1.5.4 跟 Google Gemini 生态
+
+##### Google ADK (Agent Development Kit, 2025)
+- Google 2025 推出的 Agent 开发框架
+- 跟 Vertex AI Agent Builder 集成
+- 类似 OpenAI Agents SDK + Anthropic Claude Agent SDK 的角色
+
+##### Project Mariner (Browser Agent, 2024.12)
+- Google 浏览器 Agent, 类似 Anthropic Computer Use
+- 但聚焦 Chrome 浏览器场景
+
+##### 三家差异
+- Anthropic: 偏概念化 + 主导 MCP 协议 + Computer Use
+- OpenAI: 偏 SDK + Operator (浏览器 Agent)
+- Google: 偏 enterprise + Vertex AI 集成 + Mariner
+
+#### 1.5.5 跟国内 Agent 生态
+
+##### 字节: Coze
+- 飞书生态内的 Agent 平台, 拖拽式构建
+- 偏 no-code, 适合 PM / 业务方
+- 跟 Anthropic 三层模型对应: Workflow + Agent 都支持
+
+##### 阿里: 百炼 + Spring AI Alibaba
+- 通义千问 + 工具调用 + Multi-Agent
+- Spring AI Alibaba 是 Java 生态 Agent 框架
+- 适合 Java 重度企业
+
+##### 智谱: GLM-4 系列
+- GLM-4 / GLM-4.5 / GLM-Z1 系列
+- Agent 能力跟 Sonnet 4.5 类似
+- 国产化合规首选
+
+### 1.6 关键金句 + 解读 (Anthropic 原话深度展开)
+
+#### 1.6.1 金句 1 — 设计哲学
+
+> "成功不在于构建最复杂的系统, 而在于为你的需求构建正确的系统"
+
+##### 解读
+- Anthropic 反复强调"反过度工程化"
+- 业界常见错误: 看到 LangGraph 就想用, 看到 Multi-Agent 就跟风
+- 正确做法: **从最简单方案开始, 验证不够才升级**
+
+##### 实操建议
+- PoC 阶段: 用 Augmented LLM (单 LLM + 检索) 跑通
+- 验证不够: 加 Workflow (5 Pattern 选一)
+- 仍不够: 才上 Agent (单 Agent ReAct 起步)
+- 最后: Multi-Agent (绝对必要时)
+
+#### 1.6.2 金句 2 — 演化路径
+
+> "从简单提示开始, 用全面的评估优化它们, 仅在简单方案不足时添加多步 agentic 系统"
+
+##### 解读
+- Anthropic 推荐"Eval-driven"开发
+- 不要凭感觉决定是否上 Agent, 要看 evaluation 数据
+- "全面的评估" = RAGAS 4 指标 + Golden Set + 用户反馈
+
+##### 实操建议
+- 上线前必跑 evaluation (Recall@10 / Faithfulness / 用户满意度)
+- 单 LLM 调用 evaluation 不达标 → 加 Workflow Pattern
+- Workflow evaluation 不达标 → 才考虑 Agent
+- 详见 §10 评估 (待写) + 通用 RAG §14
+
+#### 1.6.3 金句 3 — Agent 的代价
+
+> "agentic 系统通常会用延迟和成本换取更好的任务性能"
+
+##### 解读
+- Agent 不是"免费午餐", 必须明确知道 trade-off
+- 延迟 5-30s vs Modular RAG 1-3s (慢 5-10×)
+- 成本 $0.05-1/query vs Modular RAG $0.005-0.05 (贵 10-50×)
+- "更好的任务性能" 必须能量化, 否则不值
+
+##### 实操建议
+- 上 Agent 前算 ROI: (满意度提升) × (复杂 query 数) > (成本增量)?
+- Klarna 案例: 5% Agent 流量解决"跨系统诊断", 满意度 +5pt, ROI 正
+- 反例: 简单 FAQ 上 Agent, 满意度无提升 + 成本翻 50×, ROI 负
+
+#### 1.6.4 金句 4 — 框架陷阱
+
+> "对框架的错误假设是客户错误的常见来源"
+
+##### 解读
+- 框架 (LangGraph / AutoGen / CrewAI) 创建抽象层, 隐藏底层 prompt + LLM 调用
+- 工程师容易"信任框架不读源码", 出错时不知道为什么
+- Anthropic 建议: 从直接调用 LLM API 开始, 理解原理再用框架
+
+##### 实操建议
+- PoC 阶段: 直接用 anthropic SDK / openai SDK 写, 看清楚每个 prompt 长啥样
+- 验证 OK 再迁移到框架 (LangChain / LangGraph)
+- 用框架时**必读源码** (尤其错误处理 / retry / cache 部分)
+- 反模式: 上线后出 bug, 改完不验证, 凭运气
+
+#### 1.6.5 金句 5 — 工具是核心 (新加, Anthropic 2024.12 后续 blog)
+
+> "我们在 SWE-bench Agent 中花在工具优化上的时间, 比花在 prompt 优化上还多"
+
+##### 解读
+- Tool Calling 是 Agent 的核心, 但常被低估
+- 工具描述 (description) + 输入输出 schema 决定 LLM 选错率
+- Anthropic 实测: 优化工具描述 (清晰 / 含 few-shot) 比改 prompt 收益高 2-3×
+
+##### 实操建议
+- 工具描述要写清"什么场景用 / 输入输出 / 失败行为"
+- 工具池 5-12 个 (太多 LLM 选错率塌)
+- 详见 §5 Tool Calling 深度 (待写)
+
 
 ## 二. Agent 5 大形态深度 (Plan-and-Execute / ReAct / Multi-Agent / Self-Reflection / Iterative)
+
+### 2.0 Agent 5 大形态思维导图 ⭐
+
+> 进入本章前先看这张思维导图建立全章认知.
 
 ### 2.1 5 大形态总览
 
@@ -584,6 +841,10 @@ Anthropic "Building Effective Agents" (2024.12) 推出的三层架构, 是当前
 ---
 
 ## 三. 7 层架构 + 决策循环 (Agentic RAG 解剖图)
+
+### 3.0 Agentic 7 层架构思维导图 ⭐
+
+> 进入本章前先看这张思维导图建立全章认知.
 
 ### 3.1 7 层架构总览 — 为什么是这 7 层
 
@@ -1040,6 +1301,10 @@ Anthropic "Building Effective Agents" (2024.12) 推出的三层架构, 是当前
 
 
 ## 四. Workflow 5 Pattern 深度 (Anthropic 2024.12 官方框架)
+
+### 4.0 Workflow 5 Pattern 思维导图 ⭐
+
+> 进入本章前先看这张思维导图建立全章认知.
 
 ### 4.1 5 Pattern 总览 — 在考虑 Agent 前先看这 5 种
 
