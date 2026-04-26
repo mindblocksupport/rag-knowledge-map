@@ -28,13 +28,22 @@
 :root {
   --bg: #ffffff;
   --bg-alt: #f6f8fa;
+  --bg-soft: #fafbfc;
   --text: #1f2328;
   --text-muted: #656d76;
   --border: #d1d9e0;
+  --border-light: #e5e9ee;
   --accent: #0969da;
+  --accent-light: #54aeff;
   --code-bg: #f6f8fa;
+  --code-inline-bg: #fff5e6;
+  --code-inline-fg: #c25e00;
   --link: #0969da;
   --table-stripe: #f6f8fa;
+  --table-header-bg: #eaeef2;
+  --quote-bg: #fffbeb;
+  --quote-border: #f0c850;
+  --quote-fg: #5c4a00;
   --caption-bg: #fff8e1;
   --caption-fg: #6e5400;
 }
@@ -42,13 +51,22 @@
   :root {
     --bg: #0d1117;
     --bg-alt: #161b22;
+    --bg-soft: #11161d;
     --text: #e6edf3;
     --text-muted: #7d8590;
     --border: #30363d;
+    --border-light: #21262d;
     --accent: #58a6ff;
+    --accent-light: #79b8ff;
     --code-bg: #161b22;
+    --code-inline-bg: #2d2419;
+    --code-inline-fg: #ffa657;
     --link: #58a6ff;
     --table-stripe: #161b22;
+    --table-header-bg: #21262d;
+    --quote-bg: #2a2310;
+    --quote-border: #d4a72c;
+    --quote-fg: #e8c547;
     --caption-bg: #2a2310;
     --caption-fg: #f5d57c;
   }
@@ -59,14 +77,14 @@ body {
   margin: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue",
     "PingFang SC", "Microsoft YaHei", sans-serif;
-  font-size: 15px;
-  line-height: 1.7;
+  font-size: 16px;
+  line-height: 1.75;
   color: var(--text);
   background: var(--bg);
 }
 .layout {
   display: grid;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 280px 1fr;
   min-height: 100vh;
 }
 nav.toc {
@@ -78,15 +96,13 @@ nav.toc {
   position: sticky;
   top: 0;
   font-size: 13px;
-  /* 自定义滚动条 */
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
 nav.toc::-webkit-scrollbar { width: 8px; }
 nav.toc::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
 nav.toc::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
-
-nav.toc > h2 {  /* TOC 标题 — 不要继承 main 的 h2 样式 */
+nav.toc > h2 {
   font-size: 13px;
   margin: 0 0 14px;
   padding: 0;
@@ -132,20 +148,19 @@ nav.toc .toc-h3 {
 }
 
 main {
-  padding: 48px 64px;
-  max-width: 1000px;
+  padding: 56px 80px;
+  max-width: 1100px;
   overflow-x: auto;
 }
 
-/* ===== 标题层级 — 5 级清晰对比 ===== */
+/* ===== 标题层级 — 6 级清晰梯度 (字号 + 颜色 + 边框 三维渐变) ===== */
 
-/* 锚点跳转留出顶部空间, 避免标题贴顶 */
 h1, h2, h3, h4, h5, h6 { scroll-margin-top: 24px; }
 
 /* H1 — 文档主标题 */
 h1 {
   font-size: 36px;
-  margin: 0 0 24px;
+  margin: 0 0 28px;
   color: var(--text);
   border-bottom: 3px solid var(--accent);
   padding-bottom: 20px;
@@ -153,56 +168,58 @@ h1 {
   letter-spacing: -0.02em;
 }
 
-/* H2 — 章 (一/二/三...) — 醒目隔断, 每章前留白 */
+/* H2 — 章 (一/二/三...) — 8px 粗左条 + 大字 + 浅背景 */
 h2 {
-  font-size: 30px;
+  font-size: 32px;
   margin: 80px 0 28px;
-  padding: 20px 24px 16px;
+  padding: 18px 24px 14px;
   background: var(--bg-alt);
-  border-left: 6px solid var(--accent);
-  border-bottom: 2px solid var(--border);
+  border-left: 8px solid var(--accent);
   color: var(--text);
   font-weight: 700;
   border-radius: 0 8px 8px 0;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.04);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 h2:first-of-type { margin-top: 32px; }
 
-/* H3 — 节 (X.Y) — 中等强调 */
+/* H3 — 节 (X.Y) — 5px 中粗左条 + 中字 + accent 色 (无背景, 跟 h2 区分) */
 h3 {
-  font-size: 22px;
+  font-size: 24px;
   margin: 56px 0 16px;
-  padding: 8px 0 8px 16px;
-  border-left: 4px solid var(--accent);
+  padding: 6px 0 6px 14px;
+  border-left: 5px solid var(--accent);
   color: var(--accent);
   font-weight: 600;
-  background: var(--bg-alt);
-  border-radius: 0 6px 6px 0;
+  background: none;
 }
 
-/* H4 — 子节 (X.Y.Z) — 普通强调 */
+/* H4 — 子节 (X.Y.Z) — 3px 灰左条 + 较小 + text 色 */
 h4 {
-  font-size: 18px;
+  font-size: 19px;
   margin: 36px 0 12px;
+  padding: 4px 0 4px 12px;
+  border-left: 3px solid var(--text-muted);
   color: var(--text);
   font-weight: 600;
-  padding-bottom: 4px;
-  border-bottom: 1px dashed var(--border);
 }
 
-/* H5 — 小节标签 */
+/* H5 — 小节 — 圆点前缀 + 小字 + 普通 text 色 */
 h5 {
-  font-size: 14px;
-  margin: 24px 0 10px;
+  font-size: 16px;
+  margin: 28px 0 10px;
+  color: var(--text);
+  font-weight: 600;
+  padding-left: 0;
+  border-left: none;
+}
+h5::before {
+  content: "▸ ";
   color: var(--accent);
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding-left: 10px;
-  border-left: 3px solid var(--accent);
+  margin-right: 2px;
 }
 
-/* H6 — 最细分 */
+/* H6 — 最细分 — 灰斜体 + 双引号前缀 */
 h6 {
   font-size: 14px;
   margin: 18px 0 8px;
@@ -210,26 +227,50 @@ h6 {
   font-weight: 600;
   font-style: italic;
 }
+h6::before {
+  content: "» ";
+  color: var(--border);
+  font-weight: normal;
+}
 
-p { margin: 12px 0; }
-ul, ol { padding-left: 28px; margin: 12px 0; }
-li { margin: 6px 0; line-height: 1.7; }
-li > ul, li > ol { margin: 6px 0; }  /* 嵌套列表更紧凑 */
+/* ===== 段落 / 列表 ===== */
+
+p { margin: 18px 0; }
+
+ul, ol { padding-left: 28px; margin: 16px 0; }
+li { margin: 8px 0; line-height: 1.75; }
+li > ul, li > ol { margin: 8px 0; }
+
+/* 嵌套列表 marker 分级 */
+ul { list-style-type: disc; }
+ul ul { list-style-type: circle; }
+ul ul ul { list-style-type: square; }
+ul ul ul ul { list-style: none; }
+ul ul ul ul li::before {
+  content: "▸ ";
+  color: var(--accent);
+  margin-right: 4px;
+  font-weight: 700;
+}
+
+/* ===== Inline code — 暖色调突出, 跟 pre code 区分 ===== */
 code {
   font-family: "SF Mono", "Cascadia Code", "Source Code Pro", Consolas, monospace;
-  background: var(--code-bg);
+  background: var(--code-inline-bg);
+  color: var(--code-inline-fg);
   padding: 2px 6px;
   border-radius: 4px;
-  font-size: 0.9em;
-  border: 1px solid var(--border);
+  font-size: 0.88em;
+  border: 1px solid var(--border-light);
 }
-/* 表格 — 强对比 */
+
+/* ===== 表格 — 弱化表头, 浅 zebra, hover 高亮 ===== */
 table {
   border-collapse: collapse;
-  margin: 18px 0;
-  font-size: 14px;
+  margin: 22px 0;
+  font-size: 14.5px;
   width: 100%;
-  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.06);
   border-radius: 6px;
   overflow: hidden;
 }
@@ -237,40 +278,51 @@ th, td {
   border: 1px solid var(--border);
   padding: 10px 14px;
   text-align: left;
+  vertical-align: top;
 }
 th {
-  background: var(--accent);
-  color: white;
-  font-weight: 600;
-}
-tr:nth-child(even) td { background: var(--table-stripe); }
-tr:hover td { background: var(--bg-alt); }
-
-/* Blockquote (引言/注解) — 醒目 */
-blockquote {
-  border-left: 5px solid var(--accent);
-  padding: 14px 20px;
-  margin: 20px 0;
-  background: var(--bg-alt);
+  background: var(--table-header-bg);
   color: var(--text);
-  border-radius: 0 6px 6px 0;
+  font-weight: 700;
+  border-bottom: 2px solid var(--accent);
 }
-blockquote p { margin: 8px 0; }
+tr:nth-child(even) td { background: var(--bg-soft); }
+tr:hover td { background: rgba(88, 166, 255, 0.08); }
+
+/* ===== Blockquote — 软调浅黄, 跟 h2/h3 风格区分 ===== */
+blockquote {
+  border-left: 4px solid var(--quote-border);
+  padding: 14px 20px;
+  margin: 22px 0;
+  background: var(--quote-bg);
+  color: var(--quote-fg);
+  border-radius: 0 6px 6px 0;
+  font-style: italic;
+}
+blockquote p { margin: 6px 0; }
 blockquote p:first-child { margin-top: 0; }
 blockquote p:last-child { margin-bottom: 0; }
+blockquote p:first-child::before {
+  content: "「";
+  color: var(--quote-border);
+  font-weight: 700;
+  font-size: 1.3em;
+  margin-right: 4px;
+  vertical-align: -2px;
+}
 
 a { color: var(--link); text-decoration: none; }
 a:hover { text-decoration: underline; }
 
-/* HR — 章节硬分割 (md 中 --- 渲染) */
+/* HR — 简化为低调细线, 减少跟 h2 80px margin 的视觉重复 */
 hr {
   border: none;
-  height: 2px;
-  background: linear-gradient(to right, transparent, var(--border) 20%, var(--border) 80%, transparent);
-  margin: 64px 0;
+  height: 1px;
+  background: var(--border-light);
+  margin: 48px 0;
 }
 
-/* Mermaid 容器 + caption — 强对比框 */
+/* Mermaid 容器 + caption */
 .mermaid-figure {
   margin: 28px 0;
   border: 1px solid var(--border);
@@ -296,23 +348,38 @@ hr {
   border-left: 3px solid var(--caption-fg);
 }
 
-/* 代码块更醒目 */
+/* Pre 代码块 — 加右上角 language tag */
 pre {
   background: var(--code-bg);
-  padding: 18px 20px;
+  padding: 22px 20px 18px;
   border-radius: 8px;
   overflow-x: auto;
   border: 1px solid var(--border);
-  margin: 18px 0;
+  margin: 22px 0;
   font-size: 13.5px;
   line-height: 1.6;
   position: relative;
+}
+pre::before {
+  content: "CODE";
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--text-muted);
+  color: var(--bg);
+  font-size: 10px;
+  font-family: -apple-system, "SF Pro Display", sans-serif;
+  font-weight: 700;
+  padding: 3px 12px;
+  border-radius: 0 8px 0 6px;
+  letter-spacing: 0.08em;
 }
 pre code {
   background: none;
   padding: 0;
   border: none;
   font-size: inherit;
+  color: var(--text);
 }
 
 /* Reading progress */
@@ -331,8 +398,9 @@ pre code {
     position: relative; height: auto; max-height: 300px;
     border-right: none; border-bottom: 1px solid var(--border);
   }
-  main { padding: 24px; }
-  h1 { font-size: 26px; } h2 { font-size: 22px; }
+  main { padding: 28px 20px; }
+  h1 { font-size: 26px; } h2 { font-size: 24px; } h3 { font-size: 20px; }
+  h4 { font-size: 17px; }
 }
 
 h3:hover::before, h4:hover::before {
@@ -347,7 +415,7 @@ h3:hover::before, h4:hover::before {
   cursor: pointer;
 }
 .pron .ipa {
-  display: none;  /* 默认隐藏 */
+  display: none;
   position: absolute;
   bottom: 100%;
   left: 50%;
@@ -365,7 +433,7 @@ h3:hover::before, h4:hover::before {
   box-shadow: 0 2px 6px rgba(0,0,0,0.15);
 }
 .pron .speak-btn {
-  display: none;  /* 默认隐藏 */
+  display: none;
   background: none;
   border: none;
   cursor: pointer;
@@ -373,8 +441,8 @@ h3:hover::before, h4:hover::before {
   padding: 0 2px;
   vertical-align: middle;
 }
-.pron:hover .ipa { display: block; }   /* 悬停显示音标 (浮在上方) */
-.pron:hover .speak-btn { display: inline; }  /* 悬停显示喇叭 */
+.pron:hover .ipa { display: block; }
+.pron:hover .speak-btn { display: inline; }
 .pron:hover { background: rgba(88, 166, 255, 0.1); border-radius: 3px; }
 </style>
 </head>
