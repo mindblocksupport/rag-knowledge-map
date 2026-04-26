@@ -679,7 +679,7 @@ h3:hover::before, h4:hover::before {
 <li class="toc-h3"><a href="#c1-blog">C.1 论文 / 官方 Blog</a></li>
 <li class="toc-h3"><a href="#c2">C.2 工程文档</a></li>
 <li class="toc-h3"><a href="#c3">C.3 业界开源参考</a></li>
-<li class="toc-h2"><a href="#_830">末尾: 一句话总结</a></li></ul>
+<li class="toc-h2"><a href="#_835">末尾: 一句话总结</a></li></ul>
 </nav>
 <main id="content">
 <h1 id="rag-v4"><span class="pron">RAG<span class="ipa">/ræɡ/</span><button class="speak-btn" onclick="speak('RAG')" title="点击朗读 RAG">🔊</button></span> 知识地图 v4 — 体系化完整版</h1>
@@ -15505,7 +15505,7 @@ score = faithfulness.score(dataset)
 <li>详见 §19 Modular RAG 深度详解 (Gen 3 范式) 完整章节</li>
 <li>一句话: Modular RAG = 7 模块化的 RAG 管道 (Indexing/Pre-Retrieval/Retrieval/Post-Retrieval/Generation/Routing/Orchestration), 每模块独立可替换, vs Naive RAG 的"刚性 3 段管道"</li>
 <li>关键差异: 加 Routing (按 query 分流) + Orchestration (跨模块编排) — 这两块是 Naive RAG 没有的</li>
-<li>与 Agent RAG 关系: 详见 §20.1.2 (Agent 不替代 Modular, 是叠加)</li>
+<li>与 Agent RAG 关系: 详见 §20.1.3 (Agent 不替代 Modular, 是叠加)</li>
 </ul>
 <h5 id="_582">加分项</h5>
 <ul>
@@ -15520,8 +15520,8 @@ score = faithfulness.score(dataset)
 </ul>
 <h5 id="q-modular-rag-agent-rag">第三轮追问 Q: Modular RAG 怎么演化到 Agent RAG?</h5>
 <ul>
-<li>加一个 Loop + Planner + Memory + 终止条件 = Agent RAG (详见 §20.1.3 公式拆解)</li>
-<li>实操路径: §20.1.7 4 阶段渐进 (Modular → Tool Calling → Plan-and-Execute → Multi-Agent)</li>
+<li>加一个 Loop + Planner + Memory + 终止条件 = Agent RAG (详见 §20.1.5 公式拆解)</li>
+<li>实操路径: §20.1.9 4 阶段渐进 (Modular → Tool Calling → Plan-and-Execute → Multi-Agent)</li>
 </ul>
 <h5 id="_583">反例</h5>
 <ul>
@@ -15789,7 +15789,7 @@ score = faithfulness.score(dataset)
 <h3 id="155-l5-agent-8">15.5 L5 Agent (8 题, 完整答案版)</h3>
 <h4 id="q51-agent-rag">Q5.1 Agent + RAG 替代关系吗?</h4>
 <ul>
-<li>完整答案详见 §20.1.2 三大常见误区 (误区 1 即此题)</li>
+<li>完整答案详见 §20.1.3 Workflow vs Agent (含三大误区) (误区 1 即此题)</li>
 <li>一句话: 不替代, 是叠加. Agent 内部 80-90% 时间还在调 RAG (RAG 是 Agent 工具池里的一个工具)</li>
 <li>量化证据: Klarna 95% query 走纯 Modular RAG, 5% 走 Agent (而 Agent 内部仍多次调 RAG)</li>
 </ul>
@@ -15802,7 +15802,7 @@ score = faithfulness.score(dataset)
 <h5 id="q-100-query-agent">第三轮追问 Q: 那 100% query 都上 Agent 不行吗?</h5>
 <ul>
 <li>不行. 简单 query (FAQ) 上 Agent 平均 $0.4/query, 是普通 RAG 50x 成本, 直接毁掉单位经济</li>
-<li>5% Agent / 95% Modular RAG 是工业标准 (详见 §20.1.6 5%/95% 边界)</li>
+<li>5% Agent / 95% Modular RAG 是工业标准 (详见 §20.1.8 5%/95% 边界)</li>
 </ul>
 <h5 id="_600">反例</h5>
 <ul>
@@ -16165,7 +16165,7 @@ score = faithfulness.score(dataset)
 </ul>
 <h4 id="q58-agent">Q5.8 何时上 Agent?</h4>
 <ul>
-<li>完整答案详见 §20.1.6 适用 / 不适用 5%/95% 边界 + 3 问题决策树</li>
+<li>完整答案详见 §20.1.8 适用 / 不适用 5%/95% 边界 + 3 问题决策树</li>
 <li>决策树 (3 问题):</li>
 <li>Q1: 单次 RAG 能解吗? → 能 → Modular RAG (停)</li>
 <li>Q2: 步骤可预先固定写脚本吗? → 能 → Workflow (脚本调多次 RAG, 不是 Agent)</li>
@@ -17064,7 +17064,7 @@ score = faithfulness.score(dataset)
 <ul>
 <li>Klarna 公开 KPI: 700 客服替代 / $40M ARR 节省 / NPS +5pt</li>
 <li>Anthropic 客服 case studies (claude.com/customers)</li>
-<li>引用 §20.1.5 Klarna 量化对比 ($0.008 vs $0.42 / 1.2s vs 8.3s)</li>
+<li>引用 §20.1.7 Klarna 量化对比 ($0.008 vs $0.42 / 1.2s vs 8.3s)</li>
 <li>提到 Mercari Serverless 客服 (§13.24)</li>
 </ul>
 <h4 id="q73-rag-cursor">Q7.3 设计代码 RAG (Cursor 级别)</h4>
@@ -17485,7 +17485,7 @@ score = faithfulness.score(dataset)
 </ul>
 <h5 id="q-poc_2">第三轮追问 Q: PoC 通过后怎么过渡到生产?</h5>
 <ul>
-<li>4 阶段 (详见 §20.1.7): Modular RAG → Tool Calling → Plan-and-Execute → Multi-Agent</li>
+<li>4 阶段 (详见 §20.1.9): Modular RAG → Tool Calling → Plan-and-Execute → Multi-Agent</li>
 <li>反模式: 跳阶段直接上 LangGraph multi-agent (3 月调不通)</li>
 <li>必上追踪 (LangSmith) + 必上 Validator (Faithfulness gate)</li>
 </ul>
@@ -20211,125 +20211,223 @@ class ModularRAG:
 </blockquote>
 <h3 id="201-agent-rag">20.1 Agent RAG 是什么 — 核心讲透</h3>
 <blockquote>
-<p>这一节把 Agent RAG 这个概念彻底拆开. 看完能回答: 它是什么 / 5 部件各是什么 / 优缺点是什么 / 该不该上 / 怎么上.</p>
+<p>这一节按 Anthropic 官方建议 (Building effective agents, 2024.12) 的递进顺序讲透:
+从最简单的"单 LLM 调用 + 检索"出发, 渐进引入 Workflow 5 模式, 最后才是真正的 Agent.
+看完能回答: 什么时候用啥层次的方案 / Agent 跟 Workflow 区别在哪 / 5 部件各是什么 / 该不该上 / 怎么上.</p>
 </blockquote>
 <h4 id="2011">20.1.1 一句话定义</h4>
 <ul>
 <li>Agent RAG (智能体增强检索) = 让 LLM 自己决定 "下一步检什么 / 调什么 / 何时停" 的多步 RAG</li>
 <li>把 "一次检索 → 一次回答" 的固定管道, 升级为 "LLM 在循环里自己开车" 的动态决策过程</li>
 <li>关键差别: 普通 RAG 是工程师写好流程, Agent RAG 是 LLM 在循环里自己生成流程</li>
-<li>类比: 普通 RAG = 预先写好菜谱按步骤做菜; Agent RAG = 厨师根据冰箱里有什么 + 客人口味临场决定怎么做</li>
 </ul>
-<h4 id="2012">20.1.2 三大常见误区 (扫盲, 面试高频)</h4>
-<h5 id="1-agent-rag">误区 1 — "Agent 替代 RAG"</h5>
+<h4 id="2012-anthropic">20.1.2 三个层次 — 从简单到复杂 (Anthropic 三层模型)</h4>
+<p>业界共识: 90% 场景不需要 Agent, 用更简单的层次就够. 选错层次是 RAG 项目失败首因.</p>
+<h5 id="1-augmented-llm-llm-80-90">层次 1 — Augmented LLM (单 LLM + 检索 + 工具) — 80-90% 场景</h5>
 <ul>
-<li>错在哪: 以为有了 Agent 就不需要 RAG 管道了</li>
-<li>真相: Agent 内部 80-90% 时间还在调 RAG (检索是 Agent 工具池里的一个工具)</li>
-<li>正解: Agent 是 RAG 的上层调度, 是叠加不是替代</li>
-<li>量化证据: Klarna 95% query 走纯 Modular RAG, 5% 走 Agent (而 Agent 内部仍多次调 RAG)</li>
+<li>是什么: 单次 LLM 调用, 输入是 system + 检索回来的资料 + 用户 query, 输出答案</li>
+<li>即标准的 Modular RAG (§19), 一次进出</li>
+<li>适用: 简单问答 / FAQ / 单点查询</li>
+<li>例子: "退款政策是什么" → 检索 → 一次 LLM 调用 → 答案</li>
+<li>成本/延迟: $0.005-0.05/query, 1-3s</li>
+<li>决策: 单次能解决的, 永远用这层</li>
 </ul>
-<h5 id="2-agent-llm">误区 2 — "Agent = 多步 LLM 调用"</h5>
+<h5 id="2-workflow-llm-8-15">层次 2 — Workflow (有序的多步 LLM 调用) — 8-15% 场景</h5>
 <ul>
-<li>错在哪: 把固定脚本调多次 LLM 也叫 Agent</li>
-<li>真相: 多步 ≠ Agent. 工程师写死的 5 步管道不算 Agent, 算 Workflow</li>
-<li>正解: Agent 的核心标志是 "LLM 看上一步结果决定下一步" 这个反馈环, 不是步数</li>
-<li>鉴别: 流程图能画出来的不是 Agent (是 Workflow), 流程图取决于运行时 LLM 输出的才是 Agent</li>
+<li>是什么: 工程师写死多步流程, LLM 在每个固定节点上做事 (路径预先确定)</li>
+<li>关键: <strong>路径固定</strong>. 流程图能预先画出来</li>
+<li>适用: 任务可预先分解 (e.g. 分类 → 路由 → 答 → 校验)</li>
+<li>5 种主流 Pattern (§20.1.4 详讲)</li>
+<li>成本/延迟: $0.02-0.10/query, 3-8s</li>
+<li>决策: 任务可预先分解的, 用 Workflow 不用 Agent</li>
 </ul>
-<h5 id="3-agent">误区 3 — "上 Agent 就解决质量问题"</h5>
+<h5 id="3-agent-llm-2-5">层次 3 — Agent (LLM 动态决策) — 2-5% 场景</h5>
 <ul>
-<li>错在哪: 检索召回差, 想用 Agent 抢救</li>
-<li>真相: Agent 解决的是 "一次性管道解不了" 的问题, 不解决 "检索本身差" 的问题</li>
-<li>正解: Recall@10 &lt; 0.7 时上 Agent 只会循环报错把预算烧光, 必须先治 L1+L2+L3</li>
-<li>真实事故: 某厂没修索引就上 LangGraph, max_steps=20 全循环失败, 单 query 烧 $3, 月损 $80K</li>
-<li>正确顺序: 先把 Modular RAG Recall@10 优化到 ≥ 0.85, 再上 Agent</li>
+<li>是什么: LLM 在循环里自己决定下一步, 路径运行时生成</li>
+<li>关键: <strong>路径动态</strong>. 流程图取决于运行时 LLM 输出, 不能预先画</li>
+<li>适用: 任务无法预先分解 (e.g. Coding / 跨多源诊断 / 探索性研究)</li>
+<li>成本/延迟: $0.05-1/query, 5-30s</li>
+<li>决策: 只有前两层都不够时才上 Agent</li>
 </ul>
-<h4 id="2013-agent-rag-modular-rag-planner-tool-calling-memory">20.1.3 公式拆解 — Agent RAG = Modular RAG + Planner + Tool Calling + Memory + 多步推理</h4>
-<blockquote>
-<p>5 个部件每个独立讲透: 是什么 / 为什么需要 / 没它会怎样 / 怎么实现.</p>
-</blockquote>
-<h5 id="1-modular-rag-foundation">部件 1 — Modular RAG (基座 / Foundation)</h5>
+<h5 id="anthropic">三层选型决策 (Anthropic 反复强调)</h5>
 <ul>
-<li>是什么: 7 模块化的 RAG 管道 (Indexing → Pre-Retrieval → Retrieval → Post-Retrieval → Generation → Routing → Orchestration), 完整定义见 §19</li>
-<li>在 Agent 里的角色: Agent 的 "检索" 动作就是一次完整的 Modular RAG 调用 (即 RAG 是 Agent 的核心工具之一)</li>
-<li>为什么是基座: Agent 调 10 次工具如果每次检出来都是垃圾, LLM 看不出哪步错, 无限循环</li>
-<li>没它会怎样: Agent 每步检出垃圾 → LLM 拿不到有效信号 → 死循环烧光 max_steps</li>
-<li>选型门槛: Modular RAG 必须先调到 Recall@10 ≥ 0.85 / Faithfulness ≥ 0.90 才上 Agent</li>
-<li>真实案例: Klarna 上线 Agent 前先把 Modular RAG Recall@10 优化到 0.91 (用 Hybrid + Cohere Rerank), 才有后续 5% Agent 流量的正 ROI</li>
+<li>✅ 优先用层次 1, 失败再上层次 2, 再失败才上层次 3</li>
+<li>❌ 跳层 — 简单 query 上 Agent (毁成本) / 复杂 query 用 Augmented LLM (召不全)</li>
+<li>核心金句: "成功不在于构建最复杂的系统, 而在于为你的需求构建正确的系统"</li>
 </ul>
-<h5 id="2-planner">部件 2 — Planner (规划器 / 大脑)</h5>
+<h4 id="2013-agent-vs-workflow">20.1.3 Agent vs Workflow — 真正的分水岭 (面试 + 选型必懂)</h4>
+<p>层次 2 (Workflow) 跟层次 3 (Agent) 看起来都是"多步 LLM 调用", 但本质不同. 这是业界混淆最深的一对概念.</p>
+<h5 id="_772">一句话区别</h5>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Workflow (层次 2)</th>
+<th>Agent (层次 3)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>路径决定者</td>
+<td>工程师写好的代码</td>
+<td>LLM 在运行时决定</td>
+</tr>
+<tr>
+<td>流程图</td>
+<td>能预先画出来</td>
+<td>取决于运行时 LLM 输出</td>
+</tr>
+<tr>
+<td>可预测性</td>
+<td>高 (相同输入相同流程)</td>
+<td>低 (LLM 决策有方差)</td>
+</tr>
+<tr>
+<td>调试难度</td>
+<td>中 (脚本可读)</td>
+<td>高 (需 LangSmith 追踪)</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>任务可预先分解</td>
+<td>任务无法预先分解</td>
+</tr>
+</tbody>
+</table>
+<h5 id="_773">鉴别口诀: 流程图能不能预先画</h5>
 <ul>
-<li>是什么: 接到 query 后, 调强推理 LLM (Claude Sonnet 4.5 / GPT-5 / o3) 生成 "接下来 N 步要做什么" 的执行计划</li>
-<li>输出形式: 结构化 JSON, 每步含 step_id / tool_name / params / expected_output / fallback</li>
-<li>为什么需要: 复杂 query (跨多源 / 多步推理) 没有规划, LLM 容易乱抓乱跳, 走十几步还没收敛</li>
-<li>没它会怎样:</li>
-<li>退化成 ReAct (一步一想), 慢且容易死循环</li>
-<li>或退化成 Naive RAG (一次召不全)</li>
-<li>两种主流实现:</li>
-<li>Plan-and-Execute (开局先全规划, 1 次贵 LLM + N 次便宜 LLM 执行) — 省钱, 适合可预测任务</li>
-<li>ReAct (每步规划下一步, N 次贵 LLM 调用) — 灵活, 适合不可预测任务 (Coding)</li>
-<li>选哪种: 任务可预先分解 (退款诊断) 用 Plan-and-Execute, 任务不可预测 (改代码) 用 ReAct</li>
-<li>关键参数: max_plan_depth = 5-8 步 (超过这个 LLM 规划质量塌, 步与步之间逻辑断裂)</li>
-<li>反模式: 让 GPT-3.5 / Haiku 做 Planner — 规划不出来, 必须用 frontier model</li>
+<li>能预先画 (即使有 if/else 分支) → <strong>Workflow</strong></li>
+<li>不能预先画, 取决于 LLM 中间输出 → <strong>Agent</strong></li>
 </ul>
-<h5 id="3-tool-calling">部件 3 — Tool Calling (工具调用 / 双手)</h5>
+<p>举例:
+- "用户问题 → 分类 (问产品/问退款/问物流) → 走对应路径 → 答" — Workflow (3 路分类是预先写死的)
+- "Cursor 改 bug" — Agent (LLM 自己决定 read 哪个文件, 改哪一行, 跑哪个测试)</p>
+<h5 id="_774">三大常见误区 (扫盲)</h5>
+<p><strong>误区 1 — "多步 LLM 调用 = Agent"</strong>
+- 错: 工程师写的 5 步固定脚本调 5 次 LLM 也叫 Agent
+- 真相: 多步 ≠ Agent, 关键看路径是不是 LLM 决定的
+- 5 步固定脚本 = Workflow, 不是 Agent</p>
+<p><strong>误区 2 — "Agent 替代 RAG"</strong>
+- 错: 上 Agent 就不需要 RAG 了
+- 真相: Agent 内部 80-90% 时间还在调 RAG (RAG 是 Agent 工具池里的核心工具)
+- 量化: Klarna 95% query 走纯 RAG, 5% 走 Agent (Agent 内部仍多次调 RAG)</p>
+<p><strong>误区 3 — "上 Agent 就解决质量问题"</strong>
+- 错: 检索召回差, 想用 Agent 抢救
+- 真相: Agent 不解决"检索本身差", 只解决"一次性管道解不了"
+- Recall@10 &lt; 0.7 时上 Agent 只会循环报错烧光预算
+- 必须先把 Modular RAG (层次 1) 调到 Recall@10 ≥ 0.85 才上 Agent</p>
+<h4 id="2014-workflow-5-pattern-agent-5">20.1.4 Workflow 5 种主流 Pattern (在考虑 Agent 前先看这 5 种)</h4>
+<p>Anthropic 总结的 5 种 Workflow Pattern, 90% 业务用其中一种就解决, 不需要上 Agent.</p>
+<h5 id="pattern-1-prompt-chaining">Pattern 1 — Prompt Chaining (链式调用)</h5>
 <ul>
-<li>是什么: LLM 输出符合 JSON Schema 的工具调用请求, 执行器去跑, 结果回送 LLM</li>
-<li>6 步标准流程:</li>
-<li>步 1 — 工程师定义工具 (name + description + parameters JSON Schema)</li>
-<li>步 2 — 把工具列表传给 LLM (system prompt 或 tools 字段)</li>
-<li>步 3 — LLM 看 query + 工具描述, 输出 tool_call (含 name + arguments)</li>
-<li>步 4 — 执行器解析 tool_call, 调真实 API/函数</li>
-<li>步 5 — 工具结果序列化回传给 LLM (作为下一轮 message)</li>
-<li>步 6 — LLM 看结果决定: 继续调下一个工具 / 反思失败 / 综合回答</li>
-<li>为什么需要: 没工具 LLM 只能凭训练时的知识, 拿不到实时数据 / 调不动业务系统</li>
-<li>没它会怎样: 退化成单次 LLM 调用 — 知识过时 / 业务不通 / 全靠幻觉</li>
-<li>三家 API 实现差异 (摘要):</li>
-<li>Anthropic: tool_use / tool_result content blocks (在 message 里嵌 block)</li>
-<li>OpenAI: tool_calls 字段 in assistant message + 后续 tool role message</li>
-<li>Gemini: function_call / function_response parts (Part 列表)</li>
-<li>业界趋势: MCP (Model Context Protocol, Anthropic 2024.11) 统一协议, 任何 LLM 接任何 Server</li>
-<li>工具池规模建议: 5-12 个 (太少 LLM 没选择, 太多 LLM 选错; 实测 &gt; 20 个准确率塌 30-50%)</li>
-<li>关键设计: 工具 description 要写清 "什么场景用 / 输入输出格式 / 失败时行为", 不能只写工具名</li>
-<li>反模式: 工具 description 只写 "search the database" — LLM 选不准, 该用别的工具时用错这个</li>
+<li>是什么: 把任务拆成线性 N 步, 每步 LLM 处理上一步输出, 中间可加规则校验门槛</li>
+<li>适用: 任务能清晰拆成步骤 (e.g. 翻译 → 审校 → 输出格式化)</li>
+<li>例子: 文档摘要 → 关键词提取 → 生成标签 (3 步固定串行)</li>
+<li>实现: 简单 if/else + N 次 LLM API 调用</li>
 </ul>
-<h5 id="4-memory">部件 4 — Memory (记忆 / 脊髓)</h5>
+<h5 id="pattern-2-routing">Pattern 2 — Routing (路由分流)</h5>
 <ul>
-<li>是什么: Agent 跨步 / 跨会话 / 跨用户的状态保持机制</li>
-<li>为什么需要: LLM 是 stateless 的, 每次 API 调用都是新对话, 没 Memory 第 5 步看不到第 1 步结果, 等于失忆</li>
-<li>没它会怎样:</li>
-<li>Agent 忘记上一步检了什么, 重复检同一份资料</li>
-<li>忘记用户上一句说什么, 重复问同样问题</li>
-<li>跨会话时丢失用户偏好, 体验回到 0</li>
-<li>三层架构:</li>
-<li>L1 Session Memory (短期 / Redis / TTL 6h): 本次对话最近 20 条 message + 已调用的工具结果 — Agent 多步必需</li>
-<li>L2 User Preference (长期 / Postgres JSONB): 用户偏好 (语言/角色/历史购买/历史问题) — 跨会话累积</li>
-<li>L3 Business Memory (跨用户 / Vector DB): 企业积累的业务知识 (重要决策 / 客户画像 / 团队约定) — 跨用户共享</li>
-<li>哪层最重要: L1 是 Agent 多步执行的最低要求, 没它 Agent 跑不动; L2/L3 提升体验但非阻塞</li>
-<li>容量限制: Memory 不能塞满 context window, 一般 Memory 占 16K 中的 4-6K, 否则挤掉检索结果空间</li>
-<li>摘要策略: 超过容量时调 LLM 把旧 message 摘成 200 字 (Conversation Summary), 损失少量信息换空间</li>
-<li>反模式: L1 永久存不清理 — 跑 100 个 query 后 Memory 占满, 反而拖慢检索</li>
+<li>是什么: 先分类输入, 再转发到不同的专门处理分支</li>
+<li>适用: query 有明显类别区分, 不同类别用不同 prompt / model / 工具</li>
+<li>例子: 客服 query → 分类 (退款/物流/账户/技术) → 各自走专门链路</li>
+<li>实现: 1 次分类 LLM + N 个专门处理分支</li>
+<li>这就是企业 RAG §7 L4 Modular Router 的 Workflow 实现</li>
 </ul>
-<h5 id="5_13">部件 5 — 多步推理 (循环 + 终止条件 / 心跳)</h5>
+<h5 id="pattern-3-parallelization">Pattern 3 — Parallelization (并行化)</h5>
 <ul>
-<li>是什么: Agent 在 "调工具 → 看结果 → 决定下一步" 的循环里跑, 直到满足终止条件</li>
-<li>核心循环 (4 步):</li>
-<li>步 1 — LLM 看当前 state (query + history + tool_results), 决定下一动作</li>
-<li>步 2 — 执行动作 (调工具 / 反思 / 综合)</li>
-<li>步 3 — 把动作结果存回 state (写 Memory)</li>
-<li>步 4 — 判断是否终止, 否则回步 1</li>
-<li>4 种终止条件 (任一满足即退出):</li>
-<li>条件 1 — LLM 主动声明 "已收集到足够信息, 进入综合" (理想路径)</li>
-<li>条件 2 — max_steps 硬上限触发 (默认 8 步, 防死循环)</li>
-<li>条件 3 — 同一工具连续重复 3 次 (说明 LLM 卡住, 熔断)</li>
-<li>条件 4 — 累计 token / cost 超预算 (单 query $1 上限)</li>
-<li>为什么需要终止条件: 没终止条件 → 死循环烧钱, 真实事故有公司 1 query 烧 $200 (详见 §20.7)</li>
-<li>关键参数推荐:</li>
-<li>max_steps: 客服 8 / 通用 RAG 12 / Coding 50+ (Cursor/Devin)</li>
-<li>max_cost_per_query: $1 (客服) / $5 (Coding) / $50 (科研)</li>
-<li>max_same_tool_repeat: 3 (重复说明 LLM 没拿到想要的, 再调也没意义)</li>
-<li>timeout_per_step: 30s (单步超时熔断, 防工具 hang)</li>
+<li>是什么: 同时跑多个独立 LLM 任务, 然后聚合结果</li>
+<li>两个子变体:</li>
+<li><strong>Sectioning</strong> (分段): 把大任务切成独立子任务并行 (e.g. 10 个文档每个独立摘要)</li>
+<li><strong>Voting</strong> (投票): 同一任务跑 N 次, 取多数票 (e.g. 安全检测跑 3 次取一致结果)</li>
+<li>适用: 子任务独立 / 需要多模型投票提质量</li>
+<li>例子: 长文档每段独立打 PII 标 (sectioning) / 内容审核 3 模型投票 (voting)</li>
 </ul>
-<h4 id="2014-7">20.1.4 完整架构体系 — 7 层立体 + 决策循环串起来</h4>
+<h5 id="pattern-4-orchestrator-workers">Pattern 4 — Orchestrator-Workers (协调员 + 工人)</h5>
+<ul>
+<li>是什么: 一个中枢 LLM 动态拆解任务 → 分给多个 Worker LLM → 综合结果</li>
+<li>跟 Parallelization 区别: 子任务<strong>不预先固定</strong>, Orchestrator 运行时拆</li>
+<li>适用: 任务结构复杂, 子任务数量 / 内容运行时才知道</li>
+<li>例子: 写竞品分析 → Orchestrator 拆成 (调研 5 家竞品 + 对比 + 总结), 每家用一个 Worker</li>
+<li>⚠️ 这是从 Workflow 向 Agent 过渡的灰色地带 — Orchestrator 决定 Worker 数量是动态的, 但 Worker 自己不动态决策</li>
+</ul>
+<h5 id="pattern-5-evaluator-optimizer">Pattern 5 — Evaluator-Optimizer (评估 + 优化)</h5>
+<ul>
+<li>是什么: 一个 LLM 生成初稿 → 另一个 LLM 评估并反馈 → 循环改进直到达标</li>
+<li>适用: 输出质量需高 + 有明确评估标准 (e.g. 翻译 / 代码生成 / 摘要)</li>
+<li>例子: 翻译初稿 → Evaluator 给 5 维度打分 + 改进建议 → Optimizer 重写 → 循环 3 轮</li>
+<li>跟 Self-Reflection Agent 区别: Evaluator-Optimizer 循环数固定 (3 轮), Self-Reflection Agent 由 LLM 决定何时停</li>
+</ul>
+<h5 id="5-pattern">5 Pattern 选型决策</h5>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>何时选</th>
+<th>实现复杂度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Prompt Chaining</td>
+<td>任务能拆成清晰串行步骤</td>
+<td>低 (几行代码)</td>
+</tr>
+<tr>
+<td>Routing</td>
+<td>有明显类别区分</td>
+<td>低</td>
+</tr>
+<tr>
+<td>Parallelization</td>
+<td>子任务独立 / 需要投票</td>
+<td>中</td>
+</tr>
+<tr>
+<td>Orchestrator-Workers</td>
+<td>子任务运行时才知数量</td>
+<td>中</td>
+</tr>
+<tr>
+<td>Evaluator-Optimizer</td>
+<td>输出质量高 + 有评估标准</td>
+<td>中-高</td>
+</tr>
+</tbody>
+</table>
+<h5 id="_775">关键认知</h5>
+<ul>
+<li>✅ 这 5 种都属于 Workflow (层次 2), 不是 Agent — 因为路径都是工程师预先写好的</li>
+<li>✅ 90% 业务能用其中一种解决, 不需要上 Agent</li>
+<li>✅ 实现都是几十行代码 + 标准 LLM API, 不需要 LangGraph / AutoGen 等重框架</li>
+</ul>
+<h4 id="2015-agent-llm-5">20.1.5 Agent — LLM 自己开车 (5 部件公式)</h4>
+<p>只有 5 种 Workflow 都不够时才上 Agent. Agent 的核心是 LLM 在循环里自主决策.</p>
+<h5 id="_776">一句话定义</h5>
+<ul>
+<li>Agent RAG = Modular RAG (基座) + <strong>Planner</strong> (规划) + <strong>Tool Calling</strong> (执行) + <strong>Memory</strong> (状态) + <strong>多步推理</strong> (循环)</li>
+</ul>
+<h5 id="5_13">5 部件 — 每个一句话讲清</h5>
+<p><strong>部件 1 — Modular RAG (基座)</strong>
+- 是什么: §19 的 7 模块 RAG 管道, 是 Agent 的"检索"工具
+- 没它会怎样: Agent 检出垃圾就循环报错, 必先把 Modular RAG 调到 Recall@10 ≥ 0.85</p>
+<p><strong>部件 2 — Planner (大脑)</strong>
+- 是什么: 强推理 LLM (Sonnet 4.5 / GPT-5 / o3) 接 query 后生成执行计划
+- 两种实现: Plan-and-Execute (开局全规划, 省钱) / ReAct (每步规划, 灵活)
+- 没它会怎样: 退化成 ReAct (慢) 或 Naive RAG (一次召不全)</p>
+<p><strong>部件 3 — Tool Calling (双手)</strong>
+- 是什么: LLM 输出 JSON Schema 格式的工具调用请求, 执行器跑后回送结果
+- 6 步流程: 定义工具 → 传给 LLM → LLM 输出 tool_call → 执行 → 结果回传 → LLM 决定下一步
+- 没它会怎样: 退化成单次 LLM 调用 (拿不到实时数据 / 调不动业务系统)
+- 工具池规模: 5-12 个 (&gt; 20 个 LLM 选错率塌 30-50%)</p>
+<p><strong>部件 4 — Memory (脊髓)</strong>
+- 是什么: 跨步 / 跨会话 / 跨用户的状态保持
+- 3 层架构: L1 Session (Redis 6h) / L2 User Pref (Postgres) / L3 Business (Vector DB)
+- 没它会怎样: LLM 是 stateless 的, 第 5 步看不到第 1 步结果, 等于失忆</p>
+<p><strong>部件 5 — 多步推理 (心跳)</strong>
+- 是什么: "调工具 → 看结果 → 决定下一步" 的循环, 直到满足终止条件
+- 4 终止条件: LLM 主动声明 / max_steps 触发 / 同工具重复 3 次 / 累计 cost 超预算
+- 没它会怎样: 死循环烧钱 (真实事故有公司 1 query 烧 $200, §20.7)</p>
+<h4 id="2016-7">20.1.6 完整架构体系 — 7 层立体 + 决策循环串起来</h4>
 <h5 id="agent-rag-7">Agent RAG 架构体系总图 (7 层 + 横切)</h5>
 <figure class="mermaid-figure">
 <pre class="mermaid">graph TB
@@ -20492,7 +20590,7 @@ class ModularRAG:
 <li>Agent RAG Layer 4 (Tool Loop) 内的 "Modular RAG" 工具 = §3 的 L1+L2+L3 完整管道</li>
 <li>Agent RAG Layer 2 (Router) = §3 L4 Router</li>
 <li>即: Agent RAG 在 §3 L5 内部展开成 7 层细化结构</li>
-<li>看图顺序: 想知道企业全栈用 §3 5 层图; 想知道 Agent 内部用 §20.1.4 7 层图</li>
+<li>看图顺序: 想知道企业全栈用 §3 5 层图; 想知道 Agent 内部用 §20.1.6 7 层图</li>
 </ul>
 <h5 id="naive-rag-modular-rag-agent-rag">复杂度对照 (Naive RAG / Modular RAG / Agent RAG 三层架构对比)</h5>
 <table>
@@ -20561,8 +20659,8 @@ class ModularRAG:
 </tr>
 </tbody>
 </table>
-<h4 id="2015-agent">20.1.5 优缺点 — 决定该不该上 Agent 的关键</h4>
-<h5 id="_772">优点 (适用场景下的真实收益)</h5>
+<h4 id="2017-agent">20.1.7 优缺点 — 决定该不该上 Agent 的关键</h4>
+<h5 id="_777">优点 (适用场景下的真实收益)</h5>
 <ul>
 <li>解决一次召不全 — 跨 4-8 个数据源的复杂 query (订单+支付+风控+物流) 普通 RAG 拼不出来, Agent 能多步串</li>
 <li>主动反思 — 检索结果差时 Agent 会改 query 重检 (CRAG / Self-RAG), 普通 RAG 直接给错答</li>
@@ -20571,7 +20669,7 @@ class ModularRAG:
 <li>适应不可预测任务 — Coding / 科研类任务步骤无法预先固定, Agent 在循环里探索</li>
 <li>自适应难度 — 简单 query 1 步退出, 难 query 多步深挖, 同一系统覆盖宽广度</li>
 </ul>
-<h5 id="_773">缺点 (硬伤, 选型时必须知道)</h5>
+<h5 id="_778">缺点 (硬伤, 选型时必须知道)</h5>
 <ul>
 <li>贵 — 单 query $0.05-1 (Modular RAG $0.005-0.05), 10-50 倍成本</li>
 <li>慢 — 单 query 5-30s (Modular RAG 1-3s), 用户感知明显延迟</li>
@@ -20588,8 +20686,9 @@ class ModularRAG:
 <li>Agent query (5% 流量): Plan-and-Execute, $0.42/query, 8.3s, 满意度 4.7/5</li>
 <li>综合: Agent 那 5% 流量是高价值复杂 query, 不上 Agent 解不掉, 上了体验显著好</li>
 <li>商业结果: 700 客服替代, 年省 $40M, ROI 主要来自 5% Agent 流量解决了之前必须人工的复杂 case</li>
+<li>⚠️ 2025.05 部分 rollback: Klarna CEO 公开承认 AI 体验在某些场景下 "lower quality than human agents", 重新雇人. 教训: AI 替代率不能推到极限 (详见 §13.8)</li>
 </ul>
-<h4 id="2016-595">20.1.6 适用 / 不适用 — 5%/95% 边界</h4>
+<h4 id="2018-595">20.1.8 适用 / 不适用 — 5%/95% 边界</h4>
 <h5 id="5-query-agent-roi">适用 (5% 流量 — 这些 query Agent 才有正 ROI)</h5>
 <ul>
 <li>跨 3+ 数据源的诊断 (退款失败诊断: 跨订单 + 支付 + 风控 + 物流)</li>
@@ -20606,23 +20705,22 @@ class ModularRAG:
 <li>实时性要求 &lt; 1s — Agent 5-30s 不可接受 (语音助手 / 搜索建议)</li>
 <li>监管严格 (医疗诊断 / 法律判决) — Agent 多步增加幻觉面, 不如人工 + 单次 RAG</li>
 </ul>
-<h5 id="3-agent_1">决策树 (3 个问题决定该不该上 Agent)</h5>
+<h5 id="3-agent">决策树 (3 个问题决定该不该上 Agent)</h5>
 <ul>
-<li>Q1: 单次 RAG 能解吗? → 能 → Modular RAG (停, 别上 Agent)</li>
-<li>Q2: 步骤可预先固定写脚本吗? → 能 → Workflow (脚本调多次 RAG, 不是 Agent)</li>
-<li>Q3: 步骤需要运行时 LLM 自己决定? → 是 → Agent RAG (上)</li>
+<li>Q1: 单次 RAG 能解吗? → 能 → Augmented LLM (层次 1, 停)</li>
+<li>Q2: 步骤可预先固定写脚本吗? → 能 → Workflow (层次 2, 5 种 Pattern 选一)</li>
+<li>Q3: 步骤需要运行时 LLM 自己决定? → 是 → Agent RAG (层次 3, 上)</li>
 </ul>
-<h4 id="2017-4-multi-agent">20.1.7 落地最小可行路径 — 4 阶段渐进 (避免一上来就 multi-agent)</h4>
+<h4 id="2019-4-multi-agent">20.1.9 落地最小可行路径 — 4 阶段渐进 (避免一上来就 multi-agent)</h4>
 <ul>
-<li>阶段 1 (2 月) — Modular RAG 上线</li>
+<li>阶段 1 (2 月) — Augmented LLM (层次 1) 上线</li>
 <li>目标: Recall@10 ≥ 0.85, Faithfulness ≥ 0.90</li>
 <li>不要碰 Agent</li>
 <li>反模式: 跳过这步直接 LangGraph, 必失败</li>
-<li>阶段 2 (1 月) — 加 Tool Calling (单步, 不循环)</li>
+<li>阶段 2 (1 月) — 加 Tool Calling + 试 5 种 Workflow Pattern (层次 2)</li>
 <li>定义 3-5 个工具 (RAG Search / SQL / Function Call)</li>
-<li>LLM 调用一次工具, 拿到结果直接回答, 不循环</li>
-<li>验证工具调用准确率 ≥ 0.95 才进下一阶段</li>
-<li>阶段 3 (1 月) — 加 Plan-and-Execute (单 Agent + 多步循环)</li>
+<li>先试 Routing / Prompt Chaining 两个 Pattern (最简单), 验证准确率 ≥ 0.95 才进下一阶段</li>
+<li>阶段 3 (1 月) — 加 Plan-and-Execute Agent (层次 3, 单 Agent + 多步循环)</li>
 <li>max_steps = 8, max_cost_per_query = $1</li>
 <li>上 LangGraph / LlamaIndex Agents</li>
 <li>必上追踪 (LangSmith / Phoenix), 否则调不通</li>
@@ -20630,22 +20728,23 @@ class ModularRAG:
 <li>用户 PMF 已验证才动这一步</li>
 <li>Multi-Agent 不是必需, 90% 业务单 Agent 够用</li>
 </ul>
-<h5 id="_774">反模式 (业界踩过的真实坑)</h5>
+<h5 id="_779">反模式 (业界踩过的真实坑)</h5>
 <ul>
 <li>反模式 1 — 直接跳到阶段 4 上 LangGraph multi-agent: 调 3 个月调不通, 业务方失去耐心砍项目</li>
 <li>反模式 2 — 阶段 1 没做就上 Agent: Recall@10=0.5, Agent 循环 8 步全是垃圾, 用户骂街</li>
 <li>反模式 3 — 没上追踪就上 Agent: 出错根本看不到中间状态, 只能改完重跑赌运气</li>
 <li>反模式 4 — max_steps=50 不限成本: 单个边缘 query 烧 $50+, 月预算超 10x</li>
+<li>反模式 5 — 没试 Workflow 5 Pattern 直接上 Agent: 业务能用 Routing 解决的硬上 Agent, 成本翻 50 倍</li>
 </ul>
 <h3 id="202-agent-rag-5">20.2 Agent RAG 5 大形态 (每种算法循环 + 完整流程)</h3>
 <h4 id="2020-85">20.2.0 与 §8.5 七模式的关系 — 两维正交分类</h4>
-<h5 id="_775">两套分类是什么</h5>
+<h5 id="_780">两套分类是什么</h5>
 <ul>
 <li>§8.5 五模式: 按<strong>检索策略创新</strong>分 (Self-RAG / CRAG / GraphRAG / LightRAG / Adaptive RAG)</li>
 <li>§20.2 五形态: 按<strong>Agent 执行范式</strong>分 (Plan-and-Execute / ReAct / Multi-Agent / Self-Reflection / Iterative)</li>
 <li>两者正交, 可叠加: 例如用 GraphRAG (检索策略) + Plan-and-Execute (执行范式) 组合</li>
 </ul>
-<h5 id="_776">交叉对照表</h5>
+<h5 id="_781">交叉对照表</h5>
 <table>
 <thead>
 <tr>
@@ -20701,13 +20800,13 @@ class ModularRAG:
 </tbody>
 </table>
 <h4 id="2021-1-plan-and-execute-">20.2.1 形态 1: Plan-and-Execute (规划-执行解耦)</h4>
-<h5 id="_777">核心思想</h5>
+<h5 id="_782">核心思想</h5>
 <ul>
 <li>用强推理 LLM (Sonnet / GPT-4o / o1) 一次性出完整计划 (Plan)</li>
 <li>然后用便宜 LLM (Haiku / GPT-4o-mini) 按计划串行执行 (Execute)</li>
 <li>计划和执行解耦, 一次复杂规划摊销到多步执行</li>
 </ul>
-<h5 id="_778">算法伪代码 (核心循环)</h5>
+<h5 id="_783">算法伪代码 (核心循环)</h5>
 <ul>
 <li>function plan_and_execute(query):</li>
 <li>plan = planner_llm.invoke("拆解以下任务: " + query)  # → ["step1: 查 X", "step2: 调 Y", ...]</li>
@@ -20720,7 +20819,7 @@ class ModularRAG:
 <li>final_answer = synthesizer_llm.invoke("综合: " + str(results))</li>
 <li>return final_answer</li>
 </ul>
-<h5 id="_779">完整执行流程 — 退款诊断案例</h5>
+<h5 id="_784">完整执行流程 — 退款诊断案例</h5>
 <ul>
 <li>步 0: 用户 query = "用户 U123 反馈未收到退款"</li>
 <li>步 1: Planner 输出 plan:</li>
@@ -20735,36 +20834,36 @@ class ModularRAG:
 <li>step4: 综合 → "退款已发起但银行处理中, 预计 3-5 工作日"</li>
 <li>步 3: 输出最终答案 + 引用所有调用记录</li>
 </ul>
-<h5 id="_780">优势</h5>
+<h5 id="_785">优势</h5>
 <ul>
 <li>步骤清晰可解释 (Plan 是显式的)</li>
 <li>减少 LLM 调用 (规划只算 1 次, vs ReAct 每步都重新规划)</li>
 <li>易调试 (Plan 错可单步重试)</li>
 </ul>
-<h5 id="_781">劣势</h5>
+<h5 id="_786">劣势</h5>
 <ul>
 <li>Planner 错则全错 (无 mid-correction)</li>
 <li>不适合探索性任务 (Plan 时未知信息)</li>
 </ul>
-<h5 id="_782">真实采用</h5>
+<h5 id="_787">真实采用</h5>
 <ul>
 <li>Anthropic Computer Use (内部架构推测)</li>
 <li>Microsoft Copilot Workspace (公开博客)</li>
 <li>LangGraph 官方 Plan-and-Execute 模板</li>
 </ul>
-<h5 id="_783">反模式</h5>
+<h5 id="_788">反模式</h5>
 <ul>
 <li>用 Plan-and-Execute 做开放探索 (e.g. "帮我研究这个新领域") — 应该用 ReAct</li>
 <li>Planner 用便宜 LLM (Plan 错全盘崩) — 必须用强推理 LLM</li>
 </ul>
 <h4 id="2022-2-react-reasoning-acting-yao-et-al-2022-arxiv221003629">20.2.2 形态 2: ReAct (Reasoning + Acting, Yao et al. 2022, arXiv:2210.03629)</h4>
-<h5 id="_784">核心思想</h5>
+<h5 id="_789">核心思想</h5>
 <ul>
 <li>LLM 在每一步交替输出"思考 (Thought)" + "行动 (Action)", 接收"观察 (Observation)"</li>
 <li>单步循环: Thought → Action → Observation → Thought → ... → Final Answer</li>
 <li>灵活, 边走边决定下一步</li>
 </ul>
-<h5 id="_785">算法伪代码 (核心循环)</h5>
+<h5 id="_790">算法伪代码 (核心循环)</h5>
 <ul>
 <li>function react(query, max_steps=8):</li>
 <li>history = []</li>
@@ -20784,7 +20883,7 @@ class ModularRAG:
 <ul>
 <li>"Answer the question. Available tools: search, calculator, ...\n\nQuestion: {query}\n\nUse the format:\nThought: 你的思考\nAction: 工具名\nAction Input: 工具参数\nObservation: 工具结果\n... (重复)\nThought: 我现在知道答案了\nFinal Answer: ..."</li>
 </ul>
-<h5 id="_786">完整执行流程 — 多跳问答案例</h5>
+<h5 id="_791">完整执行流程 — 多跳问答案例</h5>
 <ul>
 <li>query: "Anthropic 总部所在城市的市长是谁"</li>
 <li>步 1: LLM Thought: "我需要先找 Anthropic 总部"</li>
@@ -20798,35 +20897,35 @@ class ModularRAG:
 <li>步 3: LLM Thought: "我现在知道答案了"</li>
 <li>Final Answer: "Daniel Lurie"</li>
 </ul>
-<h5 id="_787">优势</h5>
+<h5 id="_792">优势</h5>
 <ul>
 <li>灵活 (vs Plan-and-Execute 死板)</li>
 <li>适合探索性任务</li>
 </ul>
-<h5 id="_788">劣势</h5>
+<h5 id="_793">劣势</h5>
 <ul>
 <li>容易反复 (3-5 步后效率低, 易死循环)</li>
 <li>每步都重新调 LLM, 贵</li>
 </ul>
-<h5 id="_789">真实采用</h5>
+<h5 id="_794">真实采用</h5>
 <ul>
 <li>LlamaIndex ReActAgent (默认 Agent)</li>
 <li>早期 LangChain AgentType.ZERO_SHOT_REACT_DESCRIPTION</li>
 <li>学术界主流参考实现</li>
 </ul>
-<h5 id="_790">反模式</h5>
+<h5 id="_795">反模式</h5>
 <ul>
 <li>ReAct 不限制 max_steps → 死循环烧钱 (真实事故: 1 小时 $5000)</li>
 <li>工具 &gt; 10 个 → LLM 选错率飙升</li>
 </ul>
 <h4 id="2023-3-multi-agent-autogen-crewai">20.2.3 形态 3: Multi-Agent 协作 (AutoGen / CrewAI)</h4>
-<h5 id="_791">核心思想</h5>
+<h5 id="_796">核心思想</h5>
 <ul>
 <li>多个 Agent 各自扮演不同角色 (Planner / Researcher / Writer / Critic)</li>
 <li>通过对话协作完成复杂任务</li>
 <li>类似真实团队协作</li>
 </ul>
-<h5 id="_792">算法伪代码 (核心对话循环)</h5>
+<h5 id="_797">算法伪代码 (核心对话循环)</h5>
 <ul>
 <li>function multi_agent(query, max_rounds=10):</li>
 <li>agents = [Planner, Researcher, Writer, Critic]</li>
@@ -20841,7 +20940,7 @@ class ModularRAG:
 </li>
 <li>return conversation[-1].content  # 兜底: max_rounds 用完也返回最后输出</li>
 </ul>
-<h5 id="_793">完整执行流程 — 写技术博客案例</h5>
+<h5 id="_798">完整执行流程 — 写技术博客案例</h5>
 <ul>
 <li>query: "写一篇关于 RAG 的技术博客"</li>
 <li>步 1: Planner: "我建议结构: 引言 → 核心原理 → 实战 → 总结"</li>
@@ -20852,36 +20951,36 @@ class ModularRAG:
 <li>步 6: Critic: "OK, 没问题了"</li>
 <li>步 7: 输出最终博客</li>
 </ul>
-<h5 id="_794">优势</h5>
+<h5 id="_799">优势</h5>
 <ul>
 <li>任务自然分解, 各角色专精</li>
 <li>输出质量高 (有 Critic 兜底)</li>
 </ul>
-<h5 id="_795">劣势</h5>
+<h5 id="_800">劣势</h5>
 <ul>
 <li>协作开销大 (5 轮对话 = 5× LLM 调用)</li>
 <li>调试复杂 (角色间博弈难追踪)</li>
 <li>容易陷入"无限友好对话" (Critic 总说 OK)</li>
 </ul>
-<h5 id="_796">真实采用</h5>
+<h5 id="_801">真实采用</h5>
 <ul>
 <li>AutoGen (Microsoft, 多 Agent 标准框架)</li>
 <li>CrewAI (角色扮演框架, 适合非技术用户)</li>
 <li>OpenAI Agents SDK (前身 Swarm, 2025.03 取代) (轻量 handoff 框架)</li>
 </ul>
-<h5 id="_797">反模式</h5>
+<h5 id="_802">反模式</h5>
 <ul>
 <li>简单 query 上 Multi-Agent (大炮打蚊子)</li>
 <li>Critic 没设计严格评分准则 (变 yes-man)</li>
 </ul>
 <h4 id="2024-4-self-reflection-self-rag-reflexion">20.2.4 形态 4: Self-Reflection (Self-RAG / Reflexion)</h4>
-<h5 id="_798">核心思想</h5>
+<h5 id="_803">核心思想</h5>
 <ul>
 <li>LLM 输出后, 用同一个 (或另一个) LLM 评估输出质量</li>
 <li>不满意就重试 / 重检索 / 改 prompt</li>
 <li>类似人类"写完再检查"</li>
 </ul>
-<h5 id="_799">算法伪代码 (核心循环)</h5>
+<h5 id="_804">算法伪代码 (核心循环)</h5>
 <ul>
 <li>function self_reflection(query, max_retries=3):</li>
 <li>for attempt in range(max_retries):<ul>
@@ -20917,30 +21016,30 @@ class ModularRAG:
 <li>步 3: 把失败原因存进 episodic memory</li>
 <li>步 4: 下一次尝试时, 把 episodic memory 加入 prompt</li>
 </ul>
-<h5 id="_800">优势</h5>
+<h5 id="_805">优势</h5>
 <ul>
 <li>完全自主决策</li>
 <li>极致质量</li>
 </ul>
-<h5 id="_801">劣势</h5>
+<h5 id="_806">劣势</h5>
 <ul>
 <li>Self-RAG 需 fine-tune LLM (重)</li>
 <li>Reflexion 需要 episodic memory 存储 (复杂)</li>
 <li>多次 LLM 调用 (慢 + 贵)</li>
 </ul>
-<h5 id="_802">真实采用</h5>
+<h5 id="_807">真实采用</h5>
 <ul>
 <li>Self-RAG: Asai 2023 (Llama-2 fine-tune), 学术界参考</li>
 <li>Reflexion: AlphaCode (推测), 编程 Agent</li>
 </ul>
 <h4 id="2025-5-iterative-rag-crag">20.2.5 形态 5: Iterative RAG (CRAG)</h4>
-<h5 id="_803">核心思想</h5>
+<h5 id="_808">核心思想</h5>
 <ul>
 <li>单次检索可能召回不全, 多轮检索补足</li>
 <li>每轮根据已检索内容, 决定下一轮检索什么</li>
 <li>信息增益准则停止</li>
 </ul>
-<h5 id="_804">算法伪代码 (核心循环)</h5>
+<h5 id="_809">算法伪代码 (核心循环)</h5>
 <ul>
 <li>function iterative_rag(query, max_iters=5):</li>
 <li>all_chunks = []</li>
@@ -20961,7 +21060,7 @@ class ModularRAG:
 </li>
 <li>return generator_llm.invoke(query, all_chunks)</li>
 </ul>
-<h5 id="_805">完整执行流程 — 多跳推理案例</h5>
+<h5 id="_810">完整执行流程 — 多跳推理案例</h5>
 <ul>
 <li>query: "Anthropic 投资人有哪些, 他们各自背景如何"</li>
 <li>轮 1: 检索 "Anthropic 投资人" → 拿到 [Google / SPARC / Salesforce / ...]</li>
@@ -20970,17 +21069,17 @@ class ModularRAG:
 <li>轮 4: 检索 "SPARC fund background" → 拿到 SPARC 细节</li>
 <li>轮 5: 评估: "信息够了" → 综合答</li>
 </ul>
-<h5 id="_806">优势</h5>
+<h5 id="_811">优势</h5>
 <ul>
 <li>多次检索补全信息 (单次不够的场景救命)</li>
 <li>适合多跳推理</li>
 </ul>
-<h5 id="_807">劣势</h5>
+<h5 id="_812">劣势</h5>
 <ul>
 <li>多轮 LLM 调用, 慢 + 贵 (5 轮 = 5× 成本)</li>
 <li>信息增益准则要调好 (太严格永不停, 太宽松早停)</li>
 </ul>
-<h5 id="_808">真实采用</h5>
+<h5 id="_813">真实采用</h5>
 <ul>
 <li>CRAG (Yan et al. 2024) — 见 §8.5.2</li>
 <li>GraphRAG 加迭代 — 工业实现详见 §19.5 Glean / Microsoft GraphRAG 案例</li>
@@ -21058,35 +21157,35 @@ class ModularRAG:
 </ul>
 <h3 id="203-6">20.3 6 大主流框架完整对比</h3>
 <h4 id="2031-langgraph-langchain-2024-2026">20.3.1 LangGraph (LangChain 出品, 2024-2026 主流)</h4>
-<h5 id="_809">架构</h5>
+<h5 id="_814">架构</h5>
 <ul>
 <li>显式 graph: Node (LLM 调用 / Tool 调用 / 自定义函数) + Edge (条件跳转)</li>
 <li>状态机: 每个 Node 读 / 写 shared state (TypedDict)</li>
 <li>检查点: checkpointer 持久化 state (Postgres/SQLite/Redis), 支持中断 + 恢复</li>
 </ul>
-<h5 id="_810">优</h5>
+<h5 id="_815">优</h5>
 <ul>
 <li>灵活 (任意 graph, 不限范式) + 生产级 (LangSmith 追踪原生)</li>
 <li>中断恢复 (人在回路 / 多日任务必备)</li>
 <li>状态可观测 (debug 友好)</li>
 </ul>
-<h5 id="_811">劣</h5>
+<h5 id="_816">劣</h5>
 <ul>
 <li>学习曲线高 (需理解 graph + state + checkpoint 三概念)</li>
 <li>配套 LangChain 重 (依赖一堆 community pkg)</li>
 </ul>
-<h5 id="_812">适合</h5>
+<h5 id="_817">适合</h5>
 <ul>
 <li>复杂工作流 (条件分支 / 并行 / 循环)</li>
 <li>长时任务需中断恢复</li>
 <li>已用 LangChain 生态</li>
 </ul>
-<h5 id="_813">不适合</h5>
+<h5 id="_818">不适合</h5>
 <ul>
 <li>极简 demo (overkill, 用 OpenAI Agents SDK 即可)</li>
 <li>不需要持久化的一次性任务</li>
 </ul>
-<h5 id="_814">真实采用</h5>
+<h5 id="_819">真实采用</h5>
 <ul>
 <li>LinkedIn / Replit / Elastic / Klarna / Uber 公开博客</li>
 <li>LangGraph Cloud (托管 SaaS, 2024.10 GA)</li>
@@ -21205,7 +21304,7 @@ class ModularRAG:
 <li>Q2: 多 Agent 协作必需? → AutoGen (Microsoft) 或 CrewAI (轻)</li>
 <li>Q3: 单 LLM 厂 + 想最简? → OpenAI Agents SDK 或 Anthropic Claude Agent SDK</li>
 </ul>
-<h5 id="_815">反模式</h5>
+<h5 id="_820">反模式</h5>
 <ul>
 <li>❌ Day 1 上 LangGraph multi-agent — 学习曲线高, 3 月调不通</li>
 <li>❌ 生产用 CrewAI — 无 checkpoint, 任务一断丢全部状态</li>
@@ -21237,7 +21336,7 @@ class ModularRAG:
 <li>强制选某 tool: tool_config={"function_calling_config": {"mode": "ANY"}}</li>
 <li>推理模型: Gemini 2.0 Flash Thinking 支持</li>
 </ul>
-<h5 id="_816">关键差异速记</h5>
+<h5 id="_821">关键差异速记</h5>
 <ul>
 <li>API 形态: OpenAI 字段最简 / Anthropic content block 最规范 / Gemini Part 最灵活</li>
 <li>Schema 严格度: Anthropic &gt; OpenAI &gt; Gemini (按"输出格式严格度"排)</li>
@@ -21288,14 +21387,14 @@ class ModularRAG:
 </tbody>
 </table>
 <h4 id="2043-mcp-model-context-protocol-anthropic-202411">20.4.3 MCP 协议 (Model Context Protocol, Anthropic 2024.11)</h4>
-<h5 id="_817">是什么</h5>
+<h5 id="_822">是什么</h5>
 <ul>
 <li>Anthropic 主导的开放协议, 标准化 LLM 与外部工具 / 数据源的通信</li>
 <li>类比: USB-C for LLM tools — 任何符合 MCP 的 server 可被任何 MCP 兼容的 client 调用</li>
 <li>协议层: stdio / HTTP+SSE / WebSocket 三种 transport</li>
 <li>数据层: tools (函数调用) / resources (静态数据) / prompts (提示模板) 三类能力</li>
 </ul>
-<h5 id="_818">解决了什么问题</h5>
+<h5 id="_823">解决了什么问题</h5>
 <ul>
 <li>之前每个 LLM 厂商 (OpenAI / Anthropic / Gemini) 工具调用 schema 不一样, 集成 N 个 LLM × M 个工具 = N×M 工程量</li>
 <li>MCP 后变成 N + M (LLM 接 MCP, 工具实现 MCP server, 任意组合)</li>
@@ -21308,7 +21407,7 @@ class ModularRAG:
 <li>OpenAI 2025.Q2 起也支持 (Agents SDK 内置 MCP client)</li>
 <li>Google Gemini 2025.Q3 跟进</li>
 </ul>
-<h5 id="_819">优缺点</h5>
+<h5 id="_824">优缺点</h5>
 <ul>
 <li>优: 工具复用 / 跨 LLM 可移植 / 标准化降低集成成本 / 社区生态丰富</li>
 <li>缺: 协议本身相对新 (2024.11 才发, 仍在演进) / server 质量参差 / 性能有协议开销 (vs 直连函数调用)</li>
@@ -21394,7 +21493,7 @@ class ModularRAG:
 </ul>
 <h3 id="205-memory-schema">20.5 Memory 三层架构 (完整 Schema)</h3>
 <h4 id="2051-l1-session-memory">20.5.1 L1 Session Memory (短期)</h4>
-<h5 id="_820">用途</h5>
+<h5 id="_825">用途</h5>
 <ul>
 <li>本次会话历史</li>
 <li>跨多轮 (用户上下文连续)</li>
@@ -21408,12 +21507,12 @@ class ModularRAG:
 <li>TTL: 6 小时 (EXPIRE 21600)</li>
 <li>选 List 而非 Hash 原因: 历史天然有序, RPUSH/LRANGE 比 Hash 更适合 append-only + 范围查询</li>
 </ul>
-<h5 id="_821">容量</h5>
+<h5 id="_826">容量</h5>
 <ul>
 <li>单 session 20 messages × 2KB = 40KB</li>
 <li>1 万活跃 session = 400MB Redis</li>
 </ul>
-<h5 id="_822">实现</h5>
+<h5 id="_827">实现</h5>
 <pre><code class="language-python">async def add_to_session(session_id: str, role: str, content: str):
     msg = {&quot;role&quot;: role, &quot;content&quot;: content, &quot;ts&quot;: time.time()}
     await redis.rpush(f&quot;session:{session_id}:messages&quot;, json.dumps(msg))
@@ -21425,7 +21524,7 @@ async def get_session_history(session_id: str, last_n: int = 20):
     return [json.loads(m) for m in msgs]
 </code></pre>
 <h4 id="2052-l2-user-preference">20.5.2 L2 User Preference (长期)</h4>
-<h5 id="_823">用途</h5>
+<h5 id="_828">用途</h5>
 <ul>
 <li>跨会话用户偏好 (语气 / 角色 / 兴趣)</li>
 <li>LLM 个性化</li>
@@ -21458,12 +21557,12 @@ async def update_user_facts(user_id: str, new_facts: list):
         merged, user_id
     )
 </code></pre>
-<h5 id="_824">大小</h5>
+<h5 id="_829">大小</h5>
 <ul>
 <li>单 user ~5KB; 10 万 user = 500MB</li>
 </ul>
 <h4 id="2053-l3-business-memory">20.5.3 L3 Business Memory (业务上下文)</h4>
-<h5 id="_825">用途</h5>
+<h5 id="_830">用途</h5>
 <ul>
 <li>客户 / 项目 / 任务相关上下文</li>
 <li>跨用户共享</li>
@@ -21483,7 +21582,7 @@ async def update_user_facts(user_id: str, new_facts: list):
 -- 未归一化 → 用 vector_cosine_ops (pgvector 0.5+) 或 vector_l2_ops
 CREATE INDEX ON business_memories USING hnsw (embedding vector_ip_ops);
 </code></pre>
-<h5 id="_826">检索</h5>
+<h5 id="_831">检索</h5>
 <pre><code class="language-python">async def get_relevant_business_memories(
     query: str, project_id: str, top_k: int = 3
 ):
@@ -21539,7 +21638,7 @@ CREATE INDEX ON business_memories USING hnsw (embedding vector_ip_ops);
 <p>完整案例已分散在其它章节, 此处只列索引避免重复.</p>
 </blockquote>
 <ul>
-<li>Klarna AI 客服 (Plan-and-Execute, 95%/5% 分流): 详见 §13.8 (含 2025.05 部分 rollback) + §20.1.5 量化对比</li>
+<li>Klarna AI 客服 (Plan-and-Execute, 95%/5% 分流): 详见 §13.8 (含 2025.05 部分 rollback) + §20.1.7 量化对比</li>
 <li>Cursor / Devin / Claude Code (Agentic Coding): 详见 §12.4 + §13.28 (Computer Use 误操作风险) + §15.7 Q7.3</li>
 <li>Microsoft Copilot Workspace (Plan-Implement-Review): 详见 §15.7 Q7.1 + §13.27 (Recall 隐私事故)</li>
 <li>Anthropic Computer Use (GUI Agent): 详见 §13.28 + §16.1.7 子类 4 (Tool Misuse)</li>
@@ -21606,7 +21705,7 @@ CREATE INDEX ON business_memories USING hnsw (embedding vector_ip_ops);
 - &nbsp;&nbsp;&nbsp;&nbsp;if llm.is_done(state): break  # 主动收敛
 - &nbsp;&nbsp;if cost_so_far &gt; 0.5: emit_alert(query, cost_so_far)  # 防线 5
 - &nbsp;&nbsp;return synthesizer(state)</p>
-<h5 id="_827">监控仪表盘 (上线必备)</h5>
+<h5 id="_832">监控仪表盘 (上线必备)</h5>
 <ul>
 <li>Histogram: step_count P50/P95/P99</li>
 <li>Histogram: cost_per_query P50/P95/P99</li>
@@ -21782,7 +21881,7 @@ CREATE INDEX ON business_memories USING hnsw (embedding vector_ip_ops);
 </tr>
 </tbody>
 </table>
-<h5 id="_828">选哪个</h5>
+<h5 id="_833">选哪个</h5>
 <ul>
 <li>评 RAG Agent (含 Tool Calling 多步检索) → TaskBench (粒度细, 易归因)</li>
 <li>评通用 Agent 能力 (跨多环境) → AgentBench</li>
@@ -21794,7 +21893,7 @@ CREATE INDEX ON business_memories USING hnsw (embedding vector_ip_ops);
 <li>自建步骤: 100-300 真实 query → 人工标 ground truth (含正确步骤序列) → 跑 Agent → 对比 → 计算 task completion / step accuracy / cost / latency 4 指标</li>
 <li>自建成本: ~10-20 工时 / 每 100 query</li>
 </ul>
-<h5 id="_829">业界经验</h5>
+<h5 id="_834">业界经验</h5>
 <ul>
 <li>Anthropic 内部 Computer Use eval 用了 OSWorld (369 任务跨 OS) — 公开数据</li>
 <li>Cursor 用 SWE-Bench-Verified (人工筛过的 SWE-Bench 子集) 监控 release</li>
@@ -21972,7 +22071,7 @@ CREATE INDEX ON business_memories USING hnsw (embedding vector_ip_ops);
 <li>Anthropic Cookbook (Contextual Retrieval 实现)</li>
 </ul>
 <hr />
-<h2 id="_830">末尾: 一句话总结</h2>
+<h2 id="_835">末尾: 一句话总结</h2>
 <blockquote>
 <p>企业 RAG 成败 70% 在数据治理 (Layer 1), 20% 在检索架构 (Layer 2-3), 10% 在 LLM 选型.</p>
 <p>Modular RAG (Layer 4) 决定能不能"按问题分流", Agent (Layer 5) 决定能不能"跨系统诊断".</p>

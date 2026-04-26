@@ -11619,7 +11619,7 @@ A: 用 Haiku 评估准确率 ~85% (跟人工标注比). 用 Sonnet 90%+. 但 eva
 - 详见 §19 Modular RAG 深度详解 (Gen 3 范式) 完整章节
 - 一句话: Modular RAG = 7 模块化的 RAG 管道 (Indexing/Pre-Retrieval/Retrieval/Post-Retrieval/Generation/Routing/Orchestration), 每模块独立可替换, vs Naive RAG 的"刚性 3 段管道"
 - 关键差异: 加 Routing (按 query 分流) + Orchestration (跨模块编排) — 这两块是 Naive RAG 没有的
-- 与 Agent RAG 关系: 详见 §20.1.2 (Agent 不替代 Modular, 是叠加)
+- 与 Agent RAG 关系: 详见 §20.1.3 (Agent 不替代 Modular, 是叠加)
 
 ##### 加分项
 - 引用 Yunfan Gao 2024 综述 (arXiv:2407.21059) "Modular RAG: Transforming RAG Systems"
@@ -11631,8 +11631,8 @@ A: 用 Haiku 评估准确率 ~85% (跟人工标注比). 用 Sonnet 90%+. 但 eva
 - Generation — 没有 LLM 综合, 检索结果用户看不懂
 
 ##### 第三轮追问 Q: Modular RAG 怎么演化到 Agent RAG?
-- 加一个 Loop + Planner + Memory + 终止条件 = Agent RAG (详见 §20.1.3 公式拆解)
-- 实操路径: §20.1.7 4 阶段渐进 (Modular → Tool Calling → Plan-and-Execute → Multi-Agent)
+- 加一个 Loop + Planner + Memory + 终止条件 = Agent RAG (详见 §20.1.5 公式拆解)
+- 实操路径: §20.1.9 4 阶段渐进 (Modular → Tool Calling → Plan-and-Execute → Multi-Agent)
 
 ##### 反例
 - ❌ "Modular RAG 就是用 LangChain" — LangChain 是工具不是范式; 用 LangChain 也能写出 Naive 风格
@@ -11935,7 +11935,7 @@ A: LLM 输出后过 Presidio (中英文检测器). 检测到 PII → 替换 [RED
 
 #### Q5.1 Agent + RAG 替代关系吗?
 
-- 完整答案详见 §20.1.2 三大常见误区 (误区 1 即此题)
+- 完整答案详见 §20.1.3 Workflow vs Agent (含三大误区) (误区 1 即此题)
 - 一句话: 不替代, 是叠加. Agent 内部 80-90% 时间还在调 RAG (RAG 是 Agent 工具池里的一个工具)
 - 量化证据: Klarna 95% query 走纯 Modular RAG, 5% 走 Agent (而 Agent 内部仍多次调 RAG)
 
@@ -11946,7 +11946,7 @@ A: LLM 输出后过 Presidio (中英文检测器). 检测到 PII → 替换 [RED
 
 ##### 第三轮追问 Q: 那 100% query 都上 Agent 不行吗?
 - 不行. 简单 query (FAQ) 上 Agent 平均 $0.4/query, 是普通 RAG 50x 成本, 直接毁掉单位经济
-- 5% Agent / 95% Modular RAG 是工业标准 (详见 §20.1.6 5%/95% 边界)
+- 5% Agent / 95% Modular RAG 是工业标准 (详见 §20.1.8 5%/95% 边界)
 
 ##### 反例
 - ❌ "我直接上 LangGraph 全部走 Agent, RAG 删了" — 月成本 50-100x, 业务方砍项目
@@ -12320,7 +12320,7 @@ A: 三选: (1) 拒答 ("当前查询无法完成, 请重试或转人工") (2) Fa
 
 #### Q5.8 何时上 Agent?
 
-- 完整答案详见 §20.1.6 适用 / 不适用 5%/95% 边界 + 3 问题决策树
+- 完整答案详见 §20.1.8 适用 / 不适用 5%/95% 边界 + 3 问题决策树
 - 决策树 (3 问题):
   - Q1: 单次 RAG 能解吗? → 能 → Modular RAG (停)
   - Q2: 步骤可预先固定写脚本吗? → 能 → Workflow (脚本调多次 RAG, 不是 Agent)
@@ -13275,7 +13275,7 @@ A: 三招: (1) 提前 1 周扩容 (LLM API 提 quota / GPU 加副本) (2) 缓存
 ##### 加分项
 - Klarna 公开 KPI: 700 客服替代 / $40M ARR 节省 / NPS +5pt
 - Anthropic 客服 case studies (claude.com/customers)
-- 引用 §20.1.5 Klarna 量化对比 ($0.008 vs $0.42 / 1.2s vs 8.3s)
+- 引用 §20.1.7 Klarna 量化对比 ($0.008 vs $0.42 / 1.2s vs 8.3s)
 - 提到 Mercari Serverless 客服 (§13.24)
 
 #### Q7.3 设计代码 RAG (Cursor 级别)
@@ -13756,7 +13756,7 @@ A: 算法工程师持续看 KB Health + Bad case. 产品经理跟业务方收集
 - 加分: 提"先 1 source / 1000 doc / 100 user / 50 query 验证"
 
 ##### 第三轮追问 Q: PoC 通过后怎么过渡到生产?
-- 4 阶段 (详见 §20.1.7): Modular RAG → Tool Calling → Plan-and-Execute → Multi-Agent
+- 4 阶段 (详见 §20.1.9): Modular RAG → Tool Calling → Plan-and-Execute → Multi-Agent
 - 反模式: 跳阶段直接上 LangGraph multi-agent (3 月调不通)
 - 必上追踪 (LangSmith) + 必上 Validator (Faithfulness gate)
 
@@ -16237,118 +16237,177 @@ class ModularRAG:
 
 ### 20.1 Agent RAG 是什么 — 核心讲透
 
-> 这一节把 Agent RAG 这个概念彻底拆开. 看完能回答: 它是什么 / 5 部件各是什么 / 优缺点是什么 / 该不该上 / 怎么上.
+> 这一节按 Anthropic 官方建议 (Building effective agents, 2024.12) 的递进顺序讲透:
+> 从最简单的"单 LLM 调用 + 检索"出发, 渐进引入 Workflow 5 模式, 最后才是真正的 Agent.
+> 看完能回答: 什么时候用啥层次的方案 / Agent 跟 Workflow 区别在哪 / 5 部件各是什么 / 该不该上 / 怎么上.
 
 #### 20.1.1 一句话定义
 
 - Agent RAG (智能体增强检索) = 让 LLM 自己决定 "下一步检什么 / 调什么 / 何时停" 的多步 RAG
 - 把 "一次检索 → 一次回答" 的固定管道, 升级为 "LLM 在循环里自己开车" 的动态决策过程
 - 关键差别: 普通 RAG 是工程师写好流程, Agent RAG 是 LLM 在循环里自己生成流程
-- 类比: 普通 RAG = 预先写好菜谱按步骤做菜; Agent RAG = 厨师根据冰箱里有什么 + 客人口味临场决定怎么做
 
-#### 20.1.2 三大常见误区 (扫盲, 面试高频)
+#### 20.1.2 三个层次 — 从简单到复杂 (Anthropic 三层模型)
 
-##### 误区 1 — "Agent 替代 RAG"
-- 错在哪: 以为有了 Agent 就不需要 RAG 管道了
-- 真相: Agent 内部 80-90% 时间还在调 RAG (检索是 Agent 工具池里的一个工具)
-- 正解: Agent 是 RAG 的上层调度, 是叠加不是替代
-- 量化证据: Klarna 95% query 走纯 Modular RAG, 5% 走 Agent (而 Agent 内部仍多次调 RAG)
+业界共识: 90% 场景不需要 Agent, 用更简单的层次就够. 选错层次是 RAG 项目失败首因.
 
-##### 误区 2 — "Agent = 多步 LLM 调用"
-- 错在哪: 把固定脚本调多次 LLM 也叫 Agent
-- 真相: 多步 ≠ Agent. 工程师写死的 5 步管道不算 Agent, 算 Workflow
-- 正解: Agent 的核心标志是 "LLM 看上一步结果决定下一步" 这个反馈环, 不是步数
-- 鉴别: 流程图能画出来的不是 Agent (是 Workflow), 流程图取决于运行时 LLM 输出的才是 Agent
+##### 层次 1 — Augmented LLM (单 LLM + 检索 + 工具) — 80-90% 场景
+- 是什么: 单次 LLM 调用, 输入是 system + 检索回来的资料 + 用户 query, 输出答案
+- 即标准的 Modular RAG (§19), 一次进出
+- 适用: 简单问答 / FAQ / 单点查询
+- 例子: "退款政策是什么" → 检索 → 一次 LLM 调用 → 答案
+- 成本/延迟: $0.005-0.05/query, 1-3s
+- 决策: 单次能解决的, 永远用这层
 
-##### 误区 3 — "上 Agent 就解决质量问题"
-- 错在哪: 检索召回差, 想用 Agent 抢救
-- 真相: Agent 解决的是 "一次性管道解不了" 的问题, 不解决 "检索本身差" 的问题
-- 正解: Recall@10 < 0.7 时上 Agent 只会循环报错把预算烧光, 必须先治 L1+L2+L3
-- 真实事故: 某厂没修索引就上 LangGraph, max_steps=20 全循环失败, 单 query 烧 $3, 月损 $80K
-- 正确顺序: 先把 Modular RAG Recall@10 优化到 ≥ 0.85, 再上 Agent
+##### 层次 2 — Workflow (有序的多步 LLM 调用) — 8-15% 场景
+- 是什么: 工程师写死多步流程, LLM 在每个固定节点上做事 (路径预先确定)
+- 关键: **路径固定**. 流程图能预先画出来
+- 适用: 任务可预先分解 (e.g. 分类 → 路由 → 答 → 校验)
+- 5 种主流 Pattern (§20.1.4 详讲)
+- 成本/延迟: $0.02-0.10/query, 3-8s
+- 决策: 任务可预先分解的, 用 Workflow 不用 Agent
 
-#### 20.1.3 公式拆解 — Agent RAG = Modular RAG + Planner + Tool Calling + Memory + 多步推理
+##### 层次 3 — Agent (LLM 动态决策) — 2-5% 场景
+- 是什么: LLM 在循环里自己决定下一步, 路径运行时生成
+- 关键: **路径动态**. 流程图取决于运行时 LLM 输出, 不能预先画
+- 适用: 任务无法预先分解 (e.g. Coding / 跨多源诊断 / 探索性研究)
+- 成本/延迟: $0.05-1/query, 5-30s
+- 决策: 只有前两层都不够时才上 Agent
 
-> 5 个部件每个独立讲透: 是什么 / 为什么需要 / 没它会怎样 / 怎么实现.
+##### 三层选型决策 (Anthropic 反复强调)
+- ✅ 优先用层次 1, 失败再上层次 2, 再失败才上层次 3
+- ❌ 跳层 — 简单 query 上 Agent (毁成本) / 复杂 query 用 Augmented LLM (召不全)
+- 核心金句: "成功不在于构建最复杂的系统, 而在于为你的需求构建正确的系统"
 
-##### 部件 1 — Modular RAG (基座 / Foundation)
-- 是什么: 7 模块化的 RAG 管道 (Indexing → Pre-Retrieval → Retrieval → Post-Retrieval → Generation → Routing → Orchestration), 完整定义见 §19
-- 在 Agent 里的角色: Agent 的 "检索" 动作就是一次完整的 Modular RAG 调用 (即 RAG 是 Agent 的核心工具之一)
-- 为什么是基座: Agent 调 10 次工具如果每次检出来都是垃圾, LLM 看不出哪步错, 无限循环
-- 没它会怎样: Agent 每步检出垃圾 → LLM 拿不到有效信号 → 死循环烧光 max_steps
-- 选型门槛: Modular RAG 必须先调到 Recall@10 ≥ 0.85 / Faithfulness ≥ 0.90 才上 Agent
-- 真实案例: Klarna 上线 Agent 前先把 Modular RAG Recall@10 优化到 0.91 (用 Hybrid + Cohere Rerank), 才有后续 5% Agent 流量的正 ROI
+#### 20.1.3 Agent vs Workflow — 真正的分水岭 (面试 + 选型必懂)
 
-##### 部件 2 — Planner (规划器 / 大脑)
-- 是什么: 接到 query 后, 调强推理 LLM (Claude Sonnet 4.5 / GPT-5 / o3) 生成 "接下来 N 步要做什么" 的执行计划
-- 输出形式: 结构化 JSON, 每步含 step_id / tool_name / params / expected_output / fallback
-- 为什么需要: 复杂 query (跨多源 / 多步推理) 没有规划, LLM 容易乱抓乱跳, 走十几步还没收敛
-- 没它会怎样:
-  - 退化成 ReAct (一步一想), 慢且容易死循环
-  - 或退化成 Naive RAG (一次召不全)
-- 两种主流实现:
-  - Plan-and-Execute (开局先全规划, 1 次贵 LLM + N 次便宜 LLM 执行) — 省钱, 适合可预测任务
-  - ReAct (每步规划下一步, N 次贵 LLM 调用) — 灵活, 适合不可预测任务 (Coding)
-- 选哪种: 任务可预先分解 (退款诊断) 用 Plan-and-Execute, 任务不可预测 (改代码) 用 ReAct
-- 关键参数: max_plan_depth = 5-8 步 (超过这个 LLM 规划质量塌, 步与步之间逻辑断裂)
-- 反模式: 让 GPT-3.5 / Haiku 做 Planner — 规划不出来, 必须用 frontier model
+层次 2 (Workflow) 跟层次 3 (Agent) 看起来都是"多步 LLM 调用", 但本质不同. 这是业界混淆最深的一对概念.
 
-##### 部件 3 — Tool Calling (工具调用 / 双手)
-- 是什么: LLM 输出符合 JSON Schema 的工具调用请求, 执行器去跑, 结果回送 LLM
-- 6 步标准流程:
-  - 步 1 — 工程师定义工具 (name + description + parameters JSON Schema)
-  - 步 2 — 把工具列表传给 LLM (system prompt 或 tools 字段)
-  - 步 3 — LLM 看 query + 工具描述, 输出 tool_call (含 name + arguments)
-  - 步 4 — 执行器解析 tool_call, 调真实 API/函数
-  - 步 5 — 工具结果序列化回传给 LLM (作为下一轮 message)
-  - 步 6 — LLM 看结果决定: 继续调下一个工具 / 反思失败 / 综合回答
-- 为什么需要: 没工具 LLM 只能凭训练时的知识, 拿不到实时数据 / 调不动业务系统
-- 没它会怎样: 退化成单次 LLM 调用 — 知识过时 / 业务不通 / 全靠幻觉
-- 三家 API 实现差异 (摘要):
-  - Anthropic: tool_use / tool_result content blocks (在 message 里嵌 block)
-  - OpenAI: tool_calls 字段 in assistant message + 后续 tool role message
-  - Gemini: function_call / function_response parts (Part 列表)
-  - 业界趋势: MCP (Model Context Protocol, Anthropic 2024.11) 统一协议, 任何 LLM 接任何 Server
-- 工具池规模建议: 5-12 个 (太少 LLM 没选择, 太多 LLM 选错; 实测 > 20 个准确率塌 30-50%)
-- 关键设计: 工具 description 要写清 "什么场景用 / 输入输出格式 / 失败时行为", 不能只写工具名
-- 反模式: 工具 description 只写 "search the database" — LLM 选不准, 该用别的工具时用错这个
+##### 一句话区别
 
-##### 部件 4 — Memory (记忆 / 脊髓)
-- 是什么: Agent 跨步 / 跨会话 / 跨用户的状态保持机制
-- 为什么需要: LLM 是 stateless 的, 每次 API 调用都是新对话, 没 Memory 第 5 步看不到第 1 步结果, 等于失忆
-- 没它会怎样:
-  - Agent 忘记上一步检了什么, 重复检同一份资料
-  - 忘记用户上一句说什么, 重复问同样问题
-  - 跨会话时丢失用户偏好, 体验回到 0
-- 三层架构:
-  - L1 Session Memory (短期 / Redis / TTL 6h): 本次对话最近 20 条 message + 已调用的工具结果 — Agent 多步必需
-  - L2 User Preference (长期 / Postgres JSONB): 用户偏好 (语言/角色/历史购买/历史问题) — 跨会话累积
-  - L3 Business Memory (跨用户 / Vector DB): 企业积累的业务知识 (重要决策 / 客户画像 / 团队约定) — 跨用户共享
-- 哪层最重要: L1 是 Agent 多步执行的最低要求, 没它 Agent 跑不动; L2/L3 提升体验但非阻塞
-- 容量限制: Memory 不能塞满 context window, 一般 Memory 占 16K 中的 4-6K, 否则挤掉检索结果空间
-- 摘要策略: 超过容量时调 LLM 把旧 message 摘成 200 字 (Conversation Summary), 损失少量信息换空间
-- 反模式: L1 永久存不清理 — 跑 100 个 query 后 Memory 占满, 反而拖慢检索
+| 维度 | Workflow (层次 2) | Agent (层次 3) |
+|---|---|---|
+| 路径决定者 | 工程师写好的代码 | LLM 在运行时决定 |
+| 流程图 | 能预先画出来 | 取决于运行时 LLM 输出 |
+| 可预测性 | 高 (相同输入相同流程) | 低 (LLM 决策有方差) |
+| 调试难度 | 中 (脚本可读) | 高 (需 LangSmith 追踪) |
+| 适用场景 | 任务可预先分解 | 任务无法预先分解 |
 
-##### 部件 5 — 多步推理 (循环 + 终止条件 / 心跳)
-- 是什么: Agent 在 "调工具 → 看结果 → 决定下一步" 的循环里跑, 直到满足终止条件
-- 核心循环 (4 步):
-  - 步 1 — LLM 看当前 state (query + history + tool_results), 决定下一动作
-  - 步 2 — 执行动作 (调工具 / 反思 / 综合)
-  - 步 3 — 把动作结果存回 state (写 Memory)
-  - 步 4 — 判断是否终止, 否则回步 1
-- 4 种终止条件 (任一满足即退出):
-  - 条件 1 — LLM 主动声明 "已收集到足够信息, 进入综合" (理想路径)
-  - 条件 2 — max_steps 硬上限触发 (默认 8 步, 防死循环)
-  - 条件 3 — 同一工具连续重复 3 次 (说明 LLM 卡住, 熔断)
-  - 条件 4 — 累计 token / cost 超预算 (单 query $1 上限)
-- 为什么需要终止条件: 没终止条件 → 死循环烧钱, 真实事故有公司 1 query 烧 $200 (详见 §20.7)
-- 关键参数推荐:
-  - max_steps: 客服 8 / 通用 RAG 12 / Coding 50+ (Cursor/Devin)
-  - max_cost_per_query: $1 (客服) / $5 (Coding) / $50 (科研)
-  - max_same_tool_repeat: 3 (重复说明 LLM 没拿到想要的, 再调也没意义)
-  - timeout_per_step: 30s (单步超时熔断, 防工具 hang)
+##### 鉴别口诀: 流程图能不能预先画
 
-#### 20.1.4 完整架构体系 — 7 层立体 + 决策循环串起来
+- 能预先画 (即使有 if/else 分支) → **Workflow**
+- 不能预先画, 取决于 LLM 中间输出 → **Agent**
+
+举例:
+- "用户问题 → 分类 (问产品/问退款/问物流) → 走对应路径 → 答" — Workflow (3 路分类是预先写死的)
+- "Cursor 改 bug" — Agent (LLM 自己决定 read 哪个文件, 改哪一行, 跑哪个测试)
+
+##### 三大常见误区 (扫盲)
+
+**误区 1 — "多步 LLM 调用 = Agent"**
+- 错: 工程师写的 5 步固定脚本调 5 次 LLM 也叫 Agent
+- 真相: 多步 ≠ Agent, 关键看路径是不是 LLM 决定的
+- 5 步固定脚本 = Workflow, 不是 Agent
+
+**误区 2 — "Agent 替代 RAG"**
+- 错: 上 Agent 就不需要 RAG 了
+- 真相: Agent 内部 80-90% 时间还在调 RAG (RAG 是 Agent 工具池里的核心工具)
+- 量化: Klarna 95% query 走纯 RAG, 5% 走 Agent (Agent 内部仍多次调 RAG)
+
+**误区 3 — "上 Agent 就解决质量问题"**
+- 错: 检索召回差, 想用 Agent 抢救
+- 真相: Agent 不解决"检索本身差", 只解决"一次性管道解不了"
+- Recall@10 < 0.7 时上 Agent 只会循环报错烧光预算
+- 必须先把 Modular RAG (层次 1) 调到 Recall@10 ≥ 0.85 才上 Agent
+
+#### 20.1.4 Workflow 5 种主流 Pattern (在考虑 Agent 前先看这 5 种)
+
+Anthropic 总结的 5 种 Workflow Pattern, 90% 业务用其中一种就解决, 不需要上 Agent.
+
+##### Pattern 1 — Prompt Chaining (链式调用)
+- 是什么: 把任务拆成线性 N 步, 每步 LLM 处理上一步输出, 中间可加规则校验门槛
+- 适用: 任务能清晰拆成步骤 (e.g. 翻译 → 审校 → 输出格式化)
+- 例子: 文档摘要 → 关键词提取 → 生成标签 (3 步固定串行)
+- 实现: 简单 if/else + N 次 LLM API 调用
+
+##### Pattern 2 — Routing (路由分流)
+- 是什么: 先分类输入, 再转发到不同的专门处理分支
+- 适用: query 有明显类别区分, 不同类别用不同 prompt / model / 工具
+- 例子: 客服 query → 分类 (退款/物流/账户/技术) → 各自走专门链路
+- 实现: 1 次分类 LLM + N 个专门处理分支
+- 这就是企业 RAG §7 L4 Modular Router 的 Workflow 实现
+
+##### Pattern 3 — Parallelization (并行化)
+- 是什么: 同时跑多个独立 LLM 任务, 然后聚合结果
+- 两个子变体:
+  - **Sectioning** (分段): 把大任务切成独立子任务并行 (e.g. 10 个文档每个独立摘要)
+  - **Voting** (投票): 同一任务跑 N 次, 取多数票 (e.g. 安全检测跑 3 次取一致结果)
+- 适用: 子任务独立 / 需要多模型投票提质量
+- 例子: 长文档每段独立打 PII 标 (sectioning) / 内容审核 3 模型投票 (voting)
+
+##### Pattern 4 — Orchestrator-Workers (协调员 + 工人)
+- 是什么: 一个中枢 LLM 动态拆解任务 → 分给多个 Worker LLM → 综合结果
+- 跟 Parallelization 区别: 子任务**不预先固定**, Orchestrator 运行时拆
+- 适用: 任务结构复杂, 子任务数量 / 内容运行时才知道
+- 例子: 写竞品分析 → Orchestrator 拆成 (调研 5 家竞品 + 对比 + 总结), 每家用一个 Worker
+- ⚠️ 这是从 Workflow 向 Agent 过渡的灰色地带 — Orchestrator 决定 Worker 数量是动态的, 但 Worker 自己不动态决策
+
+##### Pattern 5 — Evaluator-Optimizer (评估 + 优化)
+- 是什么: 一个 LLM 生成初稿 → 另一个 LLM 评估并反馈 → 循环改进直到达标
+- 适用: 输出质量需高 + 有明确评估标准 (e.g. 翻译 / 代码生成 / 摘要)
+- 例子: 翻译初稿 → Evaluator 给 5 维度打分 + 改进建议 → Optimizer 重写 → 循环 3 轮
+- 跟 Self-Reflection Agent 区别: Evaluator-Optimizer 循环数固定 (3 轮), Self-Reflection Agent 由 LLM 决定何时停
+
+##### 5 Pattern 选型决策
+
+| Pattern | 何时选 | 实现复杂度 |
+|---|---|---|
+| Prompt Chaining | 任务能拆成清晰串行步骤 | 低 (几行代码) |
+| Routing | 有明显类别区分 | 低 |
+| Parallelization | 子任务独立 / 需要投票 | 中 |
+| Orchestrator-Workers | 子任务运行时才知数量 | 中 |
+| Evaluator-Optimizer | 输出质量高 + 有评估标准 | 中-高 |
+
+##### 关键认知
+- ✅ 这 5 种都属于 Workflow (层次 2), 不是 Agent — 因为路径都是工程师预先写好的
+- ✅ 90% 业务能用其中一种解决, 不需要上 Agent
+- ✅ 实现都是几十行代码 + 标准 LLM API, 不需要 LangGraph / AutoGen 等重框架
+
+#### 20.1.5 Agent — LLM 自己开车 (5 部件公式)
+
+只有 5 种 Workflow 都不够时才上 Agent. Agent 的核心是 LLM 在循环里自主决策.
+
+##### 一句话定义
+- Agent RAG = Modular RAG (基座) + **Planner** (规划) + **Tool Calling** (执行) + **Memory** (状态) + **多步推理** (循环)
+
+##### 5 部件 — 每个一句话讲清
+
+**部件 1 — Modular RAG (基座)**
+- 是什么: §19 的 7 模块 RAG 管道, 是 Agent 的"检索"工具
+- 没它会怎样: Agent 检出垃圾就循环报错, 必先把 Modular RAG 调到 Recall@10 ≥ 0.85
+
+**部件 2 — Planner (大脑)**
+- 是什么: 强推理 LLM (Sonnet 4.5 / GPT-5 / o3) 接 query 后生成执行计划
+- 两种实现: Plan-and-Execute (开局全规划, 省钱) / ReAct (每步规划, 灵活)
+- 没它会怎样: 退化成 ReAct (慢) 或 Naive RAG (一次召不全)
+
+**部件 3 — Tool Calling (双手)**
+- 是什么: LLM 输出 JSON Schema 格式的工具调用请求, 执行器跑后回送结果
+- 6 步流程: 定义工具 → 传给 LLM → LLM 输出 tool_call → 执行 → 结果回传 → LLM 决定下一步
+- 没它会怎样: 退化成单次 LLM 调用 (拿不到实时数据 / 调不动业务系统)
+- 工具池规模: 5-12 个 (> 20 个 LLM 选错率塌 30-50%)
+
+**部件 4 — Memory (脊髓)**
+- 是什么: 跨步 / 跨会话 / 跨用户的状态保持
+- 3 层架构: L1 Session (Redis 6h) / L2 User Pref (Postgres) / L3 Business (Vector DB)
+- 没它会怎样: LLM 是 stateless 的, 第 5 步看不到第 1 步结果, 等于失忆
+
+**部件 5 — 多步推理 (心跳)**
+- 是什么: "调工具 → 看结果 → 决定下一步" 的循环, 直到满足终止条件
+- 4 终止条件: LLM 主动声明 / max_steps 触发 / 同工具重复 3 次 / 累计 cost 超预算
+- 没它会怎样: 死循环烧钱 (真实事故有公司 1 query 烧 $200, §20.7)
+
+#### 20.1.6 完整架构体系 — 7 层立体 + 决策循环串起来
 
 ##### Agent RAG 架构体系总图 (7 层 + 横切)
 
@@ -16457,7 +16516,7 @@ class ModularRAG:
   - Agent RAG Layer 4 (Tool Loop) 内的 "Modular RAG" 工具 = §3 的 L1+L2+L3 完整管道
   - Agent RAG Layer 2 (Router) = §3 L4 Router
   - 即: Agent RAG 在 §3 L5 内部展开成 7 层细化结构
-- 看图顺序: 想知道企业全栈用 §3 5 层图; 想知道 Agent 内部用 §20.1.4 7 层图
+- 看图顺序: 想知道企业全栈用 §3 5 层图; 想知道 Agent 内部用 §20.1.6 7 层图
 
 ##### 复杂度对照 (Naive RAG / Modular RAG / Agent RAG 三层架构对比)
 
@@ -16473,7 +16532,7 @@ class ModularRAG:
 | 调试复杂度 | 简单 | 中 | 高 (必须 LangSmith 追踪) |
 | 评估工具 | RAGAS | RAGAS | TaskBench / AgentBench / SWE-Bench |
 
-#### 20.1.5 优缺点 — 决定该不该上 Agent 的关键
+#### 20.1.7 优缺点 — 决定该不该上 Agent 的关键
 
 ##### 优点 (适用场景下的真实收益)
 - 解决一次召不全 — 跨 4-8 个数据源的复杂 query (订单+支付+风控+物流) 普通 RAG 拼不出来, Agent 能多步串
@@ -16498,8 +16557,9 @@ class ModularRAG:
 - Agent query (5% 流量): Plan-and-Execute, $0.42/query, 8.3s, 满意度 4.7/5
 - 综合: Agent 那 5% 流量是高价值复杂 query, 不上 Agent 解不掉, 上了体验显著好
 - 商业结果: 700 客服替代, 年省 $40M, ROI 主要来自 5% Agent 流量解决了之前必须人工的复杂 case
+- ⚠️ 2025.05 部分 rollback: Klarna CEO 公开承认 AI 体验在某些场景下 "lower quality than human agents", 重新雇人. 教训: AI 替代率不能推到极限 (详见 §13.8)
 
-#### 20.1.6 适用 / 不适用 — 5%/95% 边界
+#### 20.1.8 适用 / 不适用 — 5%/95% 边界
 
 ##### 适用 (5% 流量 — 这些 query Agent 才有正 ROI)
 - 跨 3+ 数据源的诊断 (退款失败诊断: 跨订单 + 支付 + 风控 + 物流)
@@ -16516,21 +16576,20 @@ class ModularRAG:
 - 监管严格 (医疗诊断 / 法律判决) — Agent 多步增加幻觉面, 不如人工 + 单次 RAG
 
 ##### 决策树 (3 个问题决定该不该上 Agent)
-- Q1: 单次 RAG 能解吗? → 能 → Modular RAG (停, 别上 Agent)
-- Q2: 步骤可预先固定写脚本吗? → 能 → Workflow (脚本调多次 RAG, 不是 Agent)
-- Q3: 步骤需要运行时 LLM 自己决定? → 是 → Agent RAG (上)
+- Q1: 单次 RAG 能解吗? → 能 → Augmented LLM (层次 1, 停)
+- Q2: 步骤可预先固定写脚本吗? → 能 → Workflow (层次 2, 5 种 Pattern 选一)
+- Q3: 步骤需要运行时 LLM 自己决定? → 是 → Agent RAG (层次 3, 上)
 
-#### 20.1.7 落地最小可行路径 — 4 阶段渐进 (避免一上来就 multi-agent)
+#### 20.1.9 落地最小可行路径 — 4 阶段渐进 (避免一上来就 multi-agent)
 
-- 阶段 1 (2 月) — Modular RAG 上线
+- 阶段 1 (2 月) — Augmented LLM (层次 1) 上线
   - 目标: Recall@10 ≥ 0.85, Faithfulness ≥ 0.90
   - 不要碰 Agent
   - 反模式: 跳过这步直接 LangGraph, 必失败
-- 阶段 2 (1 月) — 加 Tool Calling (单步, 不循环)
+- 阶段 2 (1 月) — 加 Tool Calling + 试 5 种 Workflow Pattern (层次 2)
   - 定义 3-5 个工具 (RAG Search / SQL / Function Call)
-  - LLM 调用一次工具, 拿到结果直接回答, 不循环
-  - 验证工具调用准确率 ≥ 0.95 才进下一阶段
-- 阶段 3 (1 月) — 加 Plan-and-Execute (单 Agent + 多步循环)
+  - 先试 Routing / Prompt Chaining 两个 Pattern (最简单), 验证准确率 ≥ 0.95 才进下一阶段
+- 阶段 3 (1 月) — 加 Plan-and-Execute Agent (层次 3, 单 Agent + 多步循环)
   - max_steps = 8, max_cost_per_query = $1
   - 上 LangGraph / LlamaIndex Agents
   - 必上追踪 (LangSmith / Phoenix), 否则调不通
@@ -16543,6 +16602,8 @@ class ModularRAG:
 - 反模式 2 — 阶段 1 没做就上 Agent: Recall@10=0.5, Agent 循环 8 步全是垃圾, 用户骂街
 - 反模式 3 — 没上追踪就上 Agent: 出错根本看不到中间状态, 只能改完重跑赌运气
 - 反模式 4 — max_steps=50 不限成本: 单个边缘 query 烧 $50+, 月预算超 10x
+- 反模式 5 — 没试 Workflow 5 Pattern 直接上 Agent: 业务能用 Routing 解决的硬上 Agent, 成本翻 50 倍
+
 
 ### 20.2 Agent RAG 5 大形态 (每种算法循环 + 完整流程)
 
@@ -17171,7 +17232,7 @@ async def build_agent_prompt(
 
 > 完整案例已分散在其它章节, 此处只列索引避免重复.
 
-- Klarna AI 客服 (Plan-and-Execute, 95%/5% 分流): 详见 §13.8 (含 2025.05 部分 rollback) + §20.1.5 量化对比
+- Klarna AI 客服 (Plan-and-Execute, 95%/5% 分流): 详见 §13.8 (含 2025.05 部分 rollback) + §20.1.7 量化对比
 - Cursor / Devin / Claude Code (Agentic Coding): 详见 §12.4 + §13.28 (Computer Use 误操作风险) + §15.7 Q7.3
 - Microsoft Copilot Workspace (Plan-Implement-Review): 详见 §15.7 Q7.1 + §13.27 (Recall 隐私事故)
 - Anthropic Computer Use (GUI Agent): 详见 §13.28 + §16.1.7 子类 4 (Tool Misuse)
