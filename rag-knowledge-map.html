@@ -613,6 +613,7 @@ h3:hover::before, h4:hover::before {
 <li class="toc-h3"><a href="#1322">13.22 时效性 — 法规昨天改了</a></li>
 <li class="toc-h3"><a href="#1323-uber-genie-slack-rag-vanilla-production">13.23 Uber Genie — 内部 Slack 客服 RAG (Vanilla → Production)</a></li>
 <li class="toc-h3"><a href="#1324-mercari-serverless-rag-on-google-cloud">13.24 Mercari — Serverless RAG on Google Cloud</a></li>
+<li class="toc-h3"><a href="#1325-stack-overflow-reddit-rag-2024-2025">13.25 Stack Overflow / Reddit RAG 长尾失败 (2024-2025 业界普遍)</a></li>
 <li class="toc-h3"><a href="#1326-slack-ai-prompt-injection-202408">13.26 Slack AI Prompt Injection 漏洞 (2024.08)</a></li>
 <li class="toc-h3"><a href="#1327-microsoft-copilot-recall-202405">13.27 Microsoft Copilot Recall 隐私事故 (2024.05)</a></li>
 <li class="toc-h3"><a href="#1328-anthropic-computer-use-202410-2025q2">13.28 Anthropic Computer Use 误操作风险 (2024.10-2025.Q2)</a></li>
@@ -691,7 +692,6 @@ h3:hover::before, h4:hover::before {
 <li class="toc-h2"><a href="#c">附录 C: 参考资料</a></li>
 <li class="toc-h3"><a href="#c0">C.0 必读官方博客 (优先级最高)</a></li>
 <li class="toc-h3"><a href="#c1">C.1 论文 (按章节相关度)</a></li>
-<li class="toc-h3"><a href="#c0-blog">C.0 必读官方博客 (优先级最高) / 官方 Blog</a></li>
 <li class="toc-h3"><a href="#c2">C.2 工程文档</a></li>
 <li class="toc-h3"><a href="#c3">C.3 业界开源参考</a></li>
 <li class="toc-h2"><a href="#_851">末尾: 一句话总结</a></li></ul>
@@ -2079,7 +2079,7 @@ h3:hover::before, h4:hover::before {
 <h4 id="061-pm-cto">0.6.1 PM / CTO / 销售 / 运营 (业务视角)</h4>
 <ul>
 <li>必读: §〇 + §一 + §二 (业务流程图解) + §十二 (场景案例)</li>
-<li>选读: §十三 (22 真实事故)</li>
+<li>选读: §十三 (28 真实事故 (含 4 个 2024H2-2025 新案例))</li>
 <li>跳过: §四-九 技术细节</li>
 </ul>
 <h4 id="062">0.6.2 架构师 / 技术负责人 (架构视角)</h4>
@@ -2812,19 +2812,7 @@ h3:hover::before, h4:hover::before {
 <li>❌ "这些方案互斥, 只能选一个" — 错, 工业实践是 RAG + FC + Memory + Fine-tune 全上, Router 分流</li>
 </ul>
 <h3 id="14-rag-4">1.4 RAG 4 代演进史</h3>
-<h4 id="141-gen-1-naive-rag-2022">1.4.1 Gen 1: Naive RAG (2022)</h4>
-<figure class="mermaid-figure">
-<pre class="mermaid">graph LR
-    Q["Query 用户问题"] --> E["Embedding 向量化"]
-    E --> S["Vector Search<br/>top-K"]
-    S --> P["Prompt 拼接"]
-    P --> LLM["LLM 生成"]
-    LLM --> A["Answer"]
-
-    style Q fill:#3B82F6,color:#fff
-    style A fill:#10B981,color:#fff</pre>
-<figcaption class="mermaid-caption">🟦 Naive RAG 单线流水: 早期 LangChain demo / ChatGPT Retrieval Plugin. 实现 10 行代码. 但生产中栽: 专有名词召不到 / 多跳拿不齐 / 模糊 query 答非所问 / 无拒答.</figcaption>
-</figure>
+<h4 id="141-gen-1-naive-rag-gen-1-2020-2022">1.4.1 Gen 1: Naive RAG (Gen 1, 2020-2022)</h4>
 <h5 id="5_2">完整流程 (5 步单线流水)</h5>
 <ul>
 <li>步 1: 用户 query 输入</li>
@@ -3031,7 +3019,7 @@ h3:hover::before, h4:hover::before {
 </ul>
 <h4 id="146">1.4.6 为什么每一代要演进 (痛点驱动, 不是炫技)</h4>
 <h5 id="gen-1-gen-2-naive-rag">Gen 1 → Gen 2: Naive RAG 死在哪</h5>
-<p>真实痛点 (2022-2023 大量项目栽点):
+<p>真实痛点 (2020-2022 早期项目栽点):
 - 痛点 1: 查 SKU "ABC123-X9" 完全召回不到 (纯 dense 对 ID/编号无能)
   - 真实案例: Stack Overflow 早期 RAG, 用户搜 <code>TypeError: 'NoneType'...</code>, 真答案排 50 名外
 - 痛点 2: 多跳问题一次拿不齐 (Apple CEO 的母校在哪个州? → 只答 CEO 名)
@@ -3397,7 +3385,7 @@ h3:hover::before, h4:hover::before {
 <li><strong>关键设计</strong>: Reducto Parser (法律精度) + 父子分块 (条款完整性) + Contextual Retrieval (+49% NDCG) + 律师事务所私有部署</li>
 <li><strong>数字</strong>: 100 万案例 ingest 跑 2 周 + 月成本 $50K (高质量 Parser + 自托管 Embedder)</li>
 </ul>
-<h5 id="cursor-rag-20b">Cursor (代码 RAG, $20B 估值)</h5>
+<h5 id="cursor-rag-25b-2026q1">Cursor (代码 RAG, ~$25B 估值 2026.Q1)</h5>
 <ul>
 <li><strong>场景</strong>: 不预先索引整 codebase, Agent 实时探索</li>
 <li><strong>关键设计</strong>: AST-aware Chunking (按函数 / 类切, 不切函数) + 实时 grep + LLM 决定读哪些文件</li>
@@ -4411,295 +4399,19 @@ h3:hover::before, h4:hover::before {
 </tr>
 </tbody>
 </table>
-<h4 id="403-12">4.0.3 12 类工具完整速查表</h4>
+<h4 id="403">4.0.3 工具栈速查表 (索引)</h4>
 <blockquote>
-<p>整章涉及的所有工具, 按用途分类. 每个含: 推荐 / 备选 / 适用 / 中文支持 / 成本.</p>
+<p>完整 12 类 30+ 工具速查表 详见 §4.16.7 工具栈速查 (实战 SOP 后位置更易触达).</p>
 </blockquote>
-<table>
-<thead>
-<tr>
-<th>用途</th>
-<th>推荐工具</th>
-<th>备选</th>
-<th>适用场景</th>
-<th>中文</th>
-<th>成本</th>
-<th>详见</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>Parse PDF (普通)</td>
-<td>pypdfium2</td>
-<td>PyMuPDF / pdfplumber</td>
-<td>简单文档, 量大成本敏感</td>
-<td>中</td>
-<td>免费</td>
-<td>§4.4</td>
-</tr>
-<tr>
-<td>Parse PDF (复杂表格)</td>
-<td>LlamaParse</td>
-<td>Unstructured / Marker</td>
-<td>财报 / 合同, 表格密集</td>
-<td>中</td>
-<td>$0.003-0.01/页</td>
-<td>§4.4</td>
-</tr>
-<tr>
-<td>Parse PDF (顶级精度)</td>
-<td>Reducto</td>
-<td>LlamaParse Pro</td>
-<td>法律 / 医疗 98% 准确率</td>
-<td>强</td>
-<td>$0.01-0.05/页</td>
-<td>§4.4</td>
-</tr>
-<tr>
-<td>Parse 扫描件</td>
-<td>GPT-5 Vision</td>
-<td>Claude Sonnet Vision / 阿里通义</td>
-<td>OCR + 中文混排</td>
-<td>强</td>
-<td>$0.01-0.03/页</td>
-<td>§4.4</td>
-</tr>
-<tr>
-<td>Parse Word/PPT</td>
-<td>python-docx / python-pptx</td>
-<td>LibreOffice CLI</td>
-<td>简单 Office 文档</td>
-<td>强</td>
-<td>免费</td>
-<td>§4.4</td>
-</tr>
-<tr>
-<td>Parse HTML</td>
-<td>trafilatura</td>
-<td>readability-lxml / jusText</td>
-<td>网页 + 自带 boilerplate 过滤</td>
-<td>中</td>
-<td>免费</td>
-<td>§4.4 + §4.5</td>
-</tr>
-<tr>
-<td>Parse Email</td>
-<td>mailparse</td>
-<td>email-parser (Python)</td>
-<td>Outlook / Gmail</td>
-<td>强</td>
-<td>免费</td>
-<td>§4.4</td>
-</tr>
-<tr>
-<td>编码修复</td>
-<td>ftfy</td>
-<td>unicodedata</td>
-<td>mojibake / 全半角</td>
-<td>强</td>
-<td>免费</td>
-<td>§4.16</td>
-</tr>
-<tr>
-<td>Boilerplate 检测</td>
-<td>trafilatura (HTML)</td>
-<td>jusText / readability-lxml</td>
-<td>网页噪声</td>
-<td>中</td>
-<td>免费</td>
-<td>§4.5</td>
-</tr>
-<tr>
-<td>Boilerplate (PDF)</td>
-<td>启发式 (重复频次法 / 位置法)</td>
-<td>LLM 判断 / Vision LLM</td>
-<td>PDF 页眉页脚</td>
-<td>/</td>
-<td>免费</td>
-<td>§4.5</td>
-</tr>
-<tr>
-<td>Boilerplate (LLM)</td>
-<td>Anthropic Haiku 4.5</td>
-<td>Gemini 2.0 Flash</td>
-<td>跨语言通用, 高价值少量文档</td>
-<td>强</td>
-<td>$0.0001/段</td>
-<td>§4.5.3</td>
-</tr>
-<tr>
-<td>去重 (文档级)</td>
-<td>Python hashlib SHA256</td>
-<td>xxhash (更快)</td>
-<td>完全重复检测</td>
-<td>/</td>
-<td>免费</td>
-<td>§4.7</td>
-</tr>
-<tr>
-<td>去重 (近似 MinHash)</td>
-<td>datasketch</td>
-<td>Spark MinHashLSH</td>
-<td>Jaccard ≥ 0.85 近似重复</td>
-<td>/</td>
-<td>免费</td>
-<td>§4.7</td>
-</tr>
-<tr>
-<td>去重 (语义级)</td>
-<td>embedding cosine ≥ 0.95</td>
-<td>/</td>
-<td>表达不同但语义同</td>
-<td>/</td>
-<td>免费 (复用 embedder)</td>
-<td>§4.7</td>
-</tr>
-<tr>
-<td>PII 检测 (英文)</td>
-<td>Microsoft Presidio</td>
-<td>AWS Comprehend / Google DLP</td>
-<td>SSN / 信用卡 / 邮箱</td>
-<td>弱</td>
-<td>免费 (Presidio)</td>
-<td>§4.6</td>
-</tr>
-<tr>
-<td>PII 检测 (中文)</td>
-<td>spaCy NER + 自定义正则 fine-tune</td>
-<td>jieba + 规则</td>
-<td>身份证 / 中文姓名 / 中国手机</td>
-<td>强 (需 fine-tune)</td>
-<td>免费</td>
-<td>§4.6</td>
-</tr>
-<tr>
-<td>PII 检测 (商业)</td>
-<td>AWS Comprehend / Google DLP / Azure AI Language</td>
-<td>/</td>
-<td>大规模合规要求严</td>
-<td>强</td>
-<td>$0.0001-0.001/请求</td>
-<td>§4.6</td>
-</tr>
-<tr>
-<td>PII 脱敏</td>
-<td>Presidio Anonymizer</td>
-<td>自研 mask 函数</td>
-<td>替换 / 删除 / 标记</td>
-<td>强</td>
-<td>免费</td>
-<td>§4.6</td>
-</tr>
-<tr>
-<td>Quality 评分 (启发式)</td>
-<td>langdetect + 自定义规则</td>
-<td>textstat</td>
-<td>长度 / 字符比例 / 语言</td>
-<td>强</td>
-<td>免费</td>
-<td>§4.8</td>
-</tr>
-<tr>
-<td>Quality 评分 (LLM)</td>
-<td>Anthropic Haiku 4.5</td>
-<td>Gemini 2.0 Flash / GPT-5-mini</td>
-<td>大规模 LLM-as-judge</td>
-<td>强</td>
-<td>$0.001/chunk</td>
-<td>§4.8</td>
-</tr>
-<tr>
-<td>分类打标 (LLM)</td>
-<td>Anthropic Haiku 4.5</td>
-<td>Gemini 2.0 Flash</td>
-<td>topic / sensitivity 自动打标</td>
-<td>强</td>
-<td>$0.0005/chunk</td>
-<td>§4.9</td>
-</tr>
-<tr>
-<td>分类打标 (本地)</td>
-<td>spaCy 分类器 (fine-tuned)</td>
-<td>scikit-learn LinearSVC</td>
-<td>高 QPS 不调外部 API</td>
-<td>强</td>
-<td>免费 (本地推理)</td>
-<td>§4.9</td>
-</tr>
-<tr>
-<td>语言检测</td>
-<td>langdetect</td>
-<td>fasttext langid</td>
-<td>中英文识别</td>
-<td>强</td>
-<td>免费</td>
-<td>§4.9</td>
-</tr>
-<tr>
-<td>版本管理</td>
-<td>Postgres + canonical_id + version</td>
-<td>DVC (大文件)</td>
-<td>同 doc 多版本</td>
-<td>/</td>
-<td>免费 (Postgres)</td>
-<td>§4.11</td>
-</tr>
-<tr>
-<td>时效性 (recency_decay)</td>
-<td>自研衰减函数</td>
-<td>/</td>
-<td>检索时按时间加权</td>
-<td>/</td>
-<td>免费</td>
-<td>§4.10</td>
-</tr>
-<tr>
-<td>Pipeline 编排</td>
-<td>Apache Spark + Airflow</td>
-<td>Dask + Prefect / Temporal</td>
-<td>100 万+ 文档批处理</td>
-<td>/</td>
-<td>自托管</td>
-<td>§4.14</td>
-</tr>
-<tr>
-<td>异步队列</td>
-<td>Celery + RabbitMQ / Kafka</td>
-<td>AWS SQS / GCP Pub/Sub</td>
-<td>文档 ingest 异步</td>
-<td>/</td>
-<td>自托管</td>
-<td>§4.3</td>
-</tr>
-<tr>
-<td>Connector 框架</td>
-<td>Airbyte (350+ connector)</td>
-<td>Fivetran (商业) / 自研</td>
-<td>接入 100+ 数据源</td>
-<td>中</td>
-<td>免费 (Airbyte)</td>
-<td>§0.1.5d + §4.3</td>
-</tr>
-<tr>
-<td>监控</td>
-<td>Datadog + Prometheus</td>
-<td>Grafana / New Relic</td>
-<td>KB Health 7 指标</td>
-<td>/</td>
-<td>$50-500/月</td>
-<td>§4.12</td>
-</tr>
-<tr>
-<td>Bad case 工具</td>
-<td>LangSmith</td>
-<td>Phoenix (Arize) / Langfuse</td>
-<td>检索失败溯源</td>
-<td>中</td>
-<td>$39-199/月</td>
-<td>§4.16</td>
-</tr>
-</tbody>
-</table>
+<h5 id="5_3">速记 5 大类</h5>
+<ul>
+<li>Parser: LlamaParse / Reducto / pypdfium2 / GPT-5 Vision</li>
+<li>数据治理: Presidio / spaCy NER / MinHash LSH / Haiku 评分</li>
+<li>Pipeline: Spark + Airflow / Celery / Kafka</li>
+<li>监控: Datadog / Prometheus + LangSmith / Phoenix / Langfuse</li>
+<li>向量库 (跨 §4 → §11): pgvector / Pinecone / Milvus / Qdrant</li>
+</ul>
+<p>详细对比: §4.16.7</p>
 <h4 id="404">4.0.4 整章核心数字速查 (面试 / 决策必背)</h4>
 <ul>
 <li><strong>70%</strong> RAG 项目质量瓶颈在 L1 数据治理 (业界共识)</li>
@@ -5429,7 +5141,7 @@ h3:hover::before, h4:hover::before {
 <li>图片描述 (用 vision LLM 生成 alt text)</li>
 <li>公式标记 (LaTeX 保留)</li>
 </ul>
-<h5 id="5_3">步 5: 输出</h5>
+<h5 id="5_4">步 5: 输出</h5>
 <ul>
 <li>ParsedDocument {
     text: str, 
@@ -7077,7 +6789,7 @@ h3:hover::before, h4:hover::before {
 <li>知识图谱去重: 提取 (entity, relation, entity) 三元组, 重复三元组的文档判重</li>
 <li>仍没解决: 大规模 LLM 判重成本爆炸 (100 万 chunk × 100 候选对 = 1 亿次 LLM 调用)</li>
 </ul>
-<h5 id="5_4">局限 5: 业务上下文依赖 (同文档对不同部门含义不同)</h5>
+<h5 id="5_5">局限 5: 业务上下文依赖 (同文档对不同部门含义不同)</h5>
 <ul>
 <li>现象: 同一份"营销策略" 文档, 对销售部是"指导文件", 对法务部是"合规审核对象"</li>
 <li>当前方案的局限:</li>
@@ -8056,7 +7768,7 @@ h3:hover::before, h4:hover::before {
 <ul>
 <li>整文档分句 → 每句 embed → 计算相邻句 cosine 相似度 → 相似度 &lt; 阈值 (e.g. 0.5) 处切刀</li>
 </ul>
-<h5 id="5_5">写流程 (5 步)</h5>
+<h5 id="5_6">写流程 (5 步)</h5>
 <ul>
 <li>步 1: 整文档分句 (跟句子窗口同)</li>
 <li>步 2: 每句调 Embedder 生成 1024 维向量 (这一步是大开销, 慢)</li>
@@ -8351,7 +8063,7 @@ h3:hover::before, h4:hover::before {
 <li>32K token: 极长 (Qwen3-Embedding-8B), 适合整段文档不切</li>
 <li>选型规则: max_length &gt;= chunk_size + 余量 20%</li>
 </ul>
-<h6 id="5_6">维度 5: 部署模式 (合规 + 成本)</h6>
+<h6 id="5_7">维度 5: 部署模式 (合规 + 成本)</h6>
 <ul>
 <li>商业 API:</li>
 <li>优势: 即用, 无需 GPU, 模型质量好</li>
@@ -8499,7 +8211,7 @@ h3:hover::before, h4:hover::before {
      │       或基础 Embedder + fine-tune (50K triple)
      └─ 否 → 通用 Embedder
 </code></pre>
-<h5 id="5_7">5 个真实场景的推荐</h5>
+<h5 id="5_8">5 个真实场景的推荐</h5>
 <h6 id="1-smb-rag">场景 1: 国内 SMB 中文客服 RAG (主场景)</h6>
 <ul>
 <li>推荐: BGE-M3 (开源 + 中文 SOTA + 1024 维 + 8K context)</li>
@@ -8601,7 +8313,7 @@ h3:hover::before, h4:hover::before {
 <h5 id="2-batch-b32-64">步 2: 分 batch (B=32 或 64)</h5>
 <h5 id="3-embedder-api-tei">步 3: 调 Embedder API / TEI / 自调用</h5>
 <h5 id="4-batch-forward-pass">步 4: 每 batch 同步 forward pass</h5>
-<h5 id="5_8">步 5: 收集向量, 入向量库</h5>
+<h5 id="5_9">步 5: 收集向量, 入向量库</h5>
 <h5 id="_173">性能</h5>
 <ul>
 <li>100 万 chunk × BGE-M3 (B=64, A10):</li>
@@ -10224,7 +9936,7 @@ h3:hover::before, h4:hover::before {
 <li>§5.4 讲 HNSW / IVF / DiskANN 算法本身 (图构建 / 索引结构 / 写入流程) — 完整原理见那里</li>
 <li>此处只讲 Dense 在 6.2 Hybrid 三通道里的 "读流程", 即 query 来了如何走</li>
 </ul>
-<h5 id="5_9">读流程 (5 步)</h5>
+<h5 id="5_10">读流程 (5 步)</h5>
 <ul>
 <li>步 1 — query 经 Embedder 编码为 dense vector (BGE-M3 / OpenAI text-embedding-3 / Voyage)</li>
 <li>步 2 — 向 Vector DB (pgvector / Pinecone / Milvus) 发 ANN 查询, top_k = 50-200</li>
@@ -11222,19 +10934,7 @@ h3:hover::before, h4:hover::before {
 <li>&lt;200ms → BGE-Reranker / Jina</li>
 <li>可容忍 1-5s → RankGPT / RankLLM</li>
 </ul>
-<h4 id="6411-reranker-cascade">6.4.11 Reranker Cascade (多级级联, 极致精度)</h4>
-<figure class="mermaid-figure">
-<pre class="mermaid">graph LR
-    L0["L0 召回 1000"] --> L1["L1 BM25 粗排<br/>1000 → 200<br/>$0.0001"]
-    L1 --> L2["L2 Cross-Encoder<br/>200 → 50<br/>$0.05"]
-    L2 --> L3["L3 ColBERT<br/>50 → 10<br/>$0.05"]
-    L3 --> L4["L4 LLM Verifier<br/>10 → 3<br/>$0.03"]
-    L4 --> Out["top-3"]
-
-    style L0 fill:#94A3B8,color:#fff
-    style Out fill:#10B981,color:#fff</pre>
-<figcaption class="mermaid-caption">🪜 Reranker Cascade 5 级: 越后面越贵越准, 候选越少. 总成本 ~$0.13/query (顶级精度). Glean 推断架构: 召回 1000 → BM25 200 → BGE 50 → ColBERT 10 → LLM 综合 → 答案.</figcaption>
-</figure>
+<h4 id="6411-reranker-cascade-4">6.4.11 Reranker Cascade (多级级联, 4 级精排, 极致精度)</h4>
 <h5 id="5-cascade">5 级 Cascade 完整流程 (原则: 便宜的先筛大量, 贵的后精排少量)</h5>
 <ul>
 <li>L0 召回: Hybrid (Dense + BM25 + RRF) → 1000 候选 (~50ms)</li>
@@ -11552,7 +11252,7 @@ h3:hover::before, h4:hover::before {
 <ul>
 <li>Adrian Raudaschl 2023.10 medium "Forget RAG, the Future is RAG-Fusion"</li>
 </ul>
-<h4 id="656-sub-question-engine-llamaindex">6.5.6 Sub-Question Engine (LlamaIndex 内置)</h4>
+<h4 id="656-sub-question-engine-llamaindex-654-decomposition">6.5.6 Sub-Question Engine (LlamaIndex 内置, §6.5.4 Decomposition 的工具变体)</h4>
 <h5 id="_329">解决什么问题</h5>
 <ul>
 <li>跟 Decomposition (§6.5.4) 解决同问题 — 复杂多跳问题拆子问题</li>
@@ -12552,7 +12252,7 @@ h3:hover::before, h4:hover::before {
 <li>易上手 (5 行代码起 Agent)</li>
 <li>适用: POC / 内容生成</li>
 </ul>
-<h4 id="825-openai-agents-sdk-202503-202410-swarm">8.2.5 OpenAI Agents SDK (2025.03 发布, 取代 2024.10 的实验性 Swarm)</h4>
+<h4 id="825-openai-agents-sdk-202410-swarm-202503-agents-sdk">8.2.5 OpenAI Agents SDK (2024.10 Swarm 实验性发布 → 2025.03 升级为正式 Agents SDK)</h4>
 <ul>
 <li>极简 Multi-Agent</li>
 <li>通过 handoff 转交</li>
@@ -13298,7 +12998,7 @@ Pattern; GraphRAG / LightRAG 接近 Prompt Chaining.
 <li>把 attention 计算 tiling 到 GPU SRAM (L1 cache), 减少 HBM (显存) 读写</li>
 <li>训练和推理都用, 是基础设施层 (vLLM / SGLang / TGI 全部依赖 FlashAttention)</li>
 </ul>
-<h5 id="5_10">5 大推理引擎对比</h5>
+<h5 id="5_11">5 大推理引擎对比</h5>
 <table>
 <thead>
 <tr>
@@ -13711,7 +13411,7 @@ Pattern; GraphRAG / LightRAG 接近 Prompt Chaining.
 <li>Append-only 表 (insert only, no update/delete)</li>
 <li>用 logical replication 实时复制到 read replica</li>
 </ul>
-<h5 id="5_11">步 5: 异步索引 (可选)</h5>
+<h5 id="5_12">步 5: 异步索引 (可选)</h5>
 <ul>
 <li>ES 异步索引 (Kafka → ES)</li>
 <li>大规模查询用 ES, 不打主库</li>
@@ -15452,7 +15152,7 @@ Pattern; GraphRAG / LightRAG 接近 Prompt Chaining.
 <h3 id="124-code-rag">12.4 代码助理 (Code RAG)</h3>
 <h4 id="1241">12.4.1 典型公司</h4>
 <ul>
-<li>Cursor (估值 $9B+)</li>
+<li>Cursor (估值 $9.9B 2025.06 → ~$25B 2026.Q1)</li>
 <li>GitHub Copilot Workspace</li>
 <li>Codeium / Windsurf</li>
 <li>Sourcegraph Cody</li>
@@ -15890,7 +15590,13 @@ Pattern; GraphRAG / LightRAG 接近 Prompt Chaining.
 <li>背景: 中日英三语知识库, "退款" / "Refund" / "返金" 是同一概念但三个词</li>
 <li>发现: 用户用中文搜 "退款", BM25 只命中中文文档, 日语 "返金" 相关文档全部漏掉; Dense 检索有一定跨语言能力但不完美</li>
 <li>RCA: (1) BM25 是字面匹配, 跨语言完全无能 (2) 通用 Embedder 跨语言对齐不够 (尤其中日)</li>
-<li>永久修复: (1) 多语言同义词术语库 (退款=Refund=返金=remboursement) (2) BM25 同义词扩展 (query 时自动展开) (3) 跨语言 Embedder (BGE-M3 多语言, 中英日韩覆盖) (4) 入库时自动翻译关键术语标注 metadata</li>
+<li>
+<p>永久修复: (1) 多语言同义词术语库 (退款=Refund=返金=remboursement) (2) BM25 同义词扩展 (query 时自动展开) (3) 跨语言 Embedder (BGE-M3 多语言, 中英日韩覆盖) (4) 入库时自动翻译关键术语标注 metadata</p>
+</li>
+<li>
+<p><strong>临时缓解</strong>: 临时手动维护 (按业界 case 推断)</p>
+</li>
+<li><strong>后续防范</strong>: 加 KB Health 监控 + Bad case 闭环</li>
 </ul>
 <h3 id="1322">13.22 时效性 — 法规昨天改了</h3>
 <ul>
@@ -15954,6 +15660,19 @@ Pattern; GraphRAG / LightRAG 接近 Prompt Chaining.
 <li>Serverless RAG 是中小团队/内部工具的好选择</li>
 <li>内部工具不必追求 P95 &lt; 1s, 3-5s 可接受</li>
 <li>引用: engineering.mercari.com (RAG 系列, 2024)</li>
+</ul>
+<h3 id="1325-stack-overflow-reddit-rag-2024-2025">13.25 Stack Overflow / Reddit RAG 长尾失败 (2024-2025 业界普遍)</h3>
+<ul>
+<li><strong>标签</strong>: [L3 / Generation] [中等]</li>
+<li><strong>时间</strong>: 2024-2025 长期问题, 多个开源 RAG demo 复现</li>
+<li><strong>背景</strong>: 多个开发者社区 (Stack Overflow / Reddit / Discord 技术频道) 用 RAG 答用户编程/技术问题</li>
+<li><strong>现象</strong>: 长尾 query 答不出 (e.g. "Rust async lifetime 怪问题", KB 没相关 thread → LLM 凭训练知识幻觉)</li>
+<li><strong>排查</strong>: 反查 trace, 发现 Recall@10 &lt; 0.3, 但 LLM 仍生成自信答案</li>
+<li><strong>RCA</strong>: KB 覆盖不全 + 没 Refusal 兜底, 长尾问题被 LLM 强行编答</li>
+<li><strong>临时缓解</strong>: 加严格 Refusal (Faithfulness &lt; 0.85 直接 "我不知道, 请联系人工")</li>
+<li><strong>永久修复</strong>: KB 持续扩 + CRAG (web search 兜底) + Refusal 三档分级</li>
+<li><strong>后续防范</strong>: 监控 Refusal 率 + 长尾 query 反馈到 KB 扩展队列</li>
+<li><strong>行业影响</strong>: 凡技术社区 RAG 都需面对长尾, "覆盖率" 成 KB Health 第一指标</li>
 </ul>
 <h3 id="1326-slack-ai-prompt-injection-202408">13.26 Slack AI Prompt Injection 漏洞 (2024.08)</h3>
 <ul>
@@ -16024,7 +15743,7 @@ Pattern; GraphRAG / LightRAG 接近 Prompt Chaining.
 </ul>
 <h3 id="1330-28-4-2024h2-2025">13.30 28 案例统计 (含 4 个 2024H2-2025 新案例)</h3>
 <blockquote>
-<p>注: 单个案例可能跨多 Layer (e.g. Samsung 既是 L1 数据治理 + 横切 Security), 故按 Layer/严重程度累加可能 &gt; 24.
+<p>注: 单个案例可能跨多 Layer (e.g. Samsung 既是 L1 数据治理 + 横切 Security), 故按 Layer/严重程度累加可能 &gt; 28.
 28 是案例总数 (失败 25 + 成功 3: 失败含 13.1-13.22 + 13.26-13.29; 成功含 13.8 Klarna + 13.23 Uber Genie + 13.24 Mercari), 下面是"主标签"分布 (每案例归一个最主要 Layer).</p>
 </blockquote>
 <h4 id="13301-layer-28">13.30.1 按主 Layer 分布 (主标签去重计 28)</h4>
@@ -18919,6 +18638,14 @@ score = faithfulness.score(dataset)
 <li>一句话: 不替代, 是叠加. Agent 内部 80-90% 时间还在调 RAG (RAG 是 Agent 工具池里的一个工具)</li>
 <li>量化证据: Klarna 95% query 走纯 Modular RAG, 5% 走 Agent (而 Agent 内部仍多次调 RAG)</li>
 </ul>
+<h5 id="5-2013">完整高分答案 (5 行简版, 完整版见 §20.1.3)</h5>
+<ul>
+<li>Agent 不替代 RAG, 是叠加 (RAG 是 Agent 工具池里的核心工具)</li>
+<li>Agent 内部 80-90% 时间在调 RAG (Klarna 实测)</li>
+<li>业界共识: 95% query 走纯 RAG, 5% 走 Agent (Anthropic 三层模型)</li>
+<li>反例: "上 Agent 取代所有 RAG" — 成本翻 50 倍, ROI 负</li>
+<li>详细 5 部件 + 决策树 见 §20.1.3-§20.1.6</li>
+</ul>
 <h5 id="q-rag">第二轮追问 Q: 那为什么还需要 RAG 这个层?</h5>
 <ul>
 <li>Agent 调度的任何 "检索" 动作就是一次完整 Modular RAG (Index/Pre-Retrieval/Retrieval/Post-Retrieval/Generation)</li>
@@ -19163,7 +18890,7 @@ score = faithfulness.score(dataset)
 - 优势: 极易上手 (5 行起 Agent) / 适合 MVP
 - 劣势: 灵活性不如 LangGraph / 生产级稳定性待提升
 - 适用: POC / Demo / 内容生成</p>
-<p>OpenAI Agents SDK (2025.03 发布, 取代 2024.10 的实验性 Swarm):
+<p>OpenAI Agents SDK (2024.10 Swarm 实验性发布 → 2025.03 升级为正式 Agents SDK):
 - 架构: 极简 Multi-Agent. 通过 handoff 在 Agent 间转交
 - 优势: 极简 (&lt; 100 行核心代码) / OpenAI 官方
 - 劣势: 太简, 生产级要自加监控/cache/retry
@@ -19606,6 +19333,50 @@ score = faithfulness.score(dataset)
 <li>命中率层级: HTTP 30-60% / Embedding 70-90% / Retrieval 20-40% / Generation 10-25% / Semantic 5-15%</li>
 <li>关键反模式: 只上 Semantic Cache 不上 HTTP/Embedding — 命中率塌到 5-15% 不够省成本</li>
 </ul>
+<h5 id="5-103">5 层速记表 (完整见 §10.3)</h5>
+<table>
+<thead>
+<tr>
+<th>层</th>
+<th>缓存什么</th>
+<th>TTL</th>
+<th>命中率</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>L1 HTTP</td>
+<td>整个 query → 答案</td>
+<td>1h</td>
+<td>30-60%</td>
+</tr>
+<tr>
+<td>L2 Embedding</td>
+<td>query → vector</td>
+<td>永久</td>
+<td>70-90%</td>
+</tr>
+<tr>
+<td>L3 Retrieval</td>
+<td>(query, ACL) → top-K</td>
+<td>1d</td>
+<td>20-40%</td>
+</tr>
+<tr>
+<td>L4 Generation</td>
+<td>(chunks, query) → answer</td>
+<td>1h</td>
+<td>10-25%</td>
+</tr>
+<tr>
+<td>L5 Semantic</td>
+<td>语义相似 query → 答案</td>
+<td>1d</td>
+<td>5-15% (cosine ≥ 0.93)</td>
+</tr>
+</tbody>
+</table>
+<p>详细策略 + 阈值调优 + 真实事故见 §10.3</p>
 <h5 id="q-semantic-cache">第二轮追问 Q: Semantic Cache 命中阈值多少?</h5>
 <ul>
 <li>cosine ≥ 0.95 是工业标准 (低了误命中, 高了等于不缓存)</li>
@@ -20020,7 +19791,7 @@ score = faithfulness.score(dataset)
 <li>SLA 99.9% 的灾备设计</li>
 <li>FinOps 意识 (10K 用户单月成本)</li>
 </ul>
-<h5 id="5_12">完整高分答案 (5 层架构 + 横切)</h5>
+<h5 id="5_13">完整高分答案 (5 层架构 + 横切)</h5>
 <p>需求拆解:
 - 用户: 1 万员工
 - 数据源: 100 个 (含 SaaS API + 本地文件 + DB)
@@ -21491,6 +21262,7 @@ Step 6: LLM 出错类型?
 <li>M5-6: 实操 + 转岗 (LLM 应用前端开始)</li>
 <li>M7+: 全栈 AI</li>
 <li>优势: 前端 + AI 应用层 (Cursor / v0 / Bolt) 稀缺</li>
+<li>反模式: 跳过 ML 基础直接学 LangChain — Bug 出来根本看不懂</li>
 </ul>
 <h4 id="1752-java-ai-6-12">17.5.2 Java → AI 架构师 (6-12 月)</h4>
 <ul>
@@ -21499,6 +21271,7 @@ Step 6: LLM 出错类型?
 <li>M4-6: 工程化 (Spring AI / LangChain4j)</li>
 <li>M7-12: AI 架构 (Modular / Agent)</li>
 <li>优势: 企业 Java + AI 是稀缺组合</li>
+<li>反模式: 仍用 Java 思维设计 RAG (Spring Bean 重写一切) — Python 生态成熟太多</li>
 </ul>
 <h4 id="1753-mlai-6-12">17.5.3 数据工程师 → ML/AI (6-12 月)</h4>
 <ul>
@@ -21506,6 +21279,7 @@ Step 6: LLM 出错类型?
 <li>M4-6: LLM (本文档 + Karpathy)</li>
 <li>M7-12: AI 工程实操</li>
 <li>优势: 数据治理是 RAG 70% 工作</li>
+<li>反模式: 跳过 LLM 推理原理直接用 — 调优时不知道为什么</li>
 </ul>
 <h4 id="1754-pythongonode-ai-3-6">17.5.4 后端工程师 (Python/Go/Node) → AI 工程师 (3-6 月)</h4>
 <ul>
@@ -23455,7 +23229,7 @@ class ModularRAG:
 </ul>
 <h4 id="2012-anthropic">20.1.2 三个层次 — 从简单到复杂 (Anthropic 三层模型)</h4>
 <p>业界共识: 90% 场景不需要 Agent, 用更简单的层次就够. 选错层次是 RAG 项目失败首因.</p>
-<h5 id="1-augmented-llm-llm-80-90">层次 1 — Augmented LLM (单 LLM + 检索 + 工具) — 80-90% 场景</h5>
+<h5 id="1-augmented-llm-llm-80-95">层次 1 — Augmented LLM (单 LLM + 检索 + 工具) — 80-95% 场景</h5>
 <ul>
 <li>是什么: 单次 LLM 调用, 输入是 system + 检索回来的资料 + 用户 query, 输出答案</li>
 <li>即标准的 Modular RAG (§19), 一次进出</li>
@@ -23464,7 +23238,7 @@ class ModularRAG:
 <li>成本/延迟: $0.005-0.05/query, 1-3s</li>
 <li>决策: 单次能解决的, 永远用这层</li>
 </ul>
-<h5 id="2-workflow-llm-8-15">层次 2 — Workflow (有序的多步 LLM 调用) — 8-15% 场景</h5>
+<h5 id="2-workflow-llm-5-15">层次 2 — Workflow (有序的多步 LLM 调用) — 5-15% 场景</h5>
 <ul>
 <li>是什么: 工程师写死多步流程, LLM 在每个固定节点上做事 (路径预先确定)</li>
 <li>关键: <strong>路径固定</strong>. 流程图能预先画出来</li>
@@ -23638,7 +23412,7 @@ class ModularRAG:
 <ul>
 <li>Agent RAG = Modular RAG (基座) + <strong>Planner</strong> (规划) + <strong>Tool Calling</strong> (执行) + <strong>Memory</strong> (状态) + <strong>多步推理</strong> (循环)</li>
 </ul>
-<h5 id="5_13">5 部件 — 每个一句话讲清</h5>
+<h5 id="5_14">5 部件 — 每个一句话讲清</h5>
 <p><strong>部件 1 — Modular RAG (基座)</strong>
 - 是什么: §19 的 7 模块 RAG 管道, 是 Agent 的"检索"工具
 - 没它会怎样: Agent 检出垃圾就循环报错, 必先把 Modular RAG 调到 Recall@10 ≥ 0.85</p>
@@ -23798,7 +23572,7 @@ class ModularRAG:
 <li>真实事故: 没设熔断的项目, 边缘 query 单次烧 $200 (详见 §20.7)</li>
 <li>详见: §20.8 Agent 成本优化 (FinOps 实战)</li>
 </ul>
-<h5 id="5_14">决策循环 (5 部件如何串起来)</h5>
+<h5 id="5_15">决策循环 (5 部件如何串起来)</h5>
 <p>完整数据流 (一次 Agent query 的全过程):
 - 输入: 用户 query → Layer 1 入口 → Layer 2 Router 判路径
 - 简单路径 (80-95% 流量): → Modular RAG 单次调用 → Layer 7 Validator → 答案
@@ -24855,9 +24629,9 @@ class ModularRAG:
 </table>
 <h5 id="klarna">杠杆组合 — Klarna 实测</h5>
 <ul>
-<li>5 杠杆全开后: 单 Agent query 从 $0.42 → $0.05 (省 88%)</li>
-<li>5 杠杆只开 1-2: 从 $0.42 → $0.25 (省 40%)</li>
-<li>5 杠杆全不开: $0.42 (基线)</li>
+<li>6 杠杆全开后: 单 Agent query 从 $0.42 → $0.05 (省 88%)</li>
+<li>6 杠杆只开 1-2: 从 $0.42 → $0.25 (省 40%)</li>
+<li>6 杠杆全不开: $0.42 (基线)</li>
 </ul>
 <h4 id="2082-anthropic-prompt-caching-3">20.8.2 Anthropic Prompt Caching 详解 (省钱杠杆 3)</h4>
 <ul>
@@ -25242,21 +25016,20 @@ class ModularRAG:
 <li><strong>Late Chunking</strong> (Jina AI 2024.08) — arXiv:2409.04701</li>
 <li><strong>ColBERT-v2</strong> (Stanford 2021) — arXiv:2112.01488</li>
 </ul>
-<h3 id="c0-blog">C.0 必读官方博客 (优先级最高) / 官方 Blog</h3>
-<ul>
-<li>HNSW: Malkov &amp; Yashunin 2018</li>
-<li>HyDE: Gao et al. 2022 (arXiv:2212.10496)</li>
-<li>Self-RAG: Asai et al. 2023 (arXiv:2310.16622)</li>
-<li>CRAG: Yan et al. 2024 (arXiv:2401.15884)</li>
-<li>Step-Back: Google DeepMind 2023 (arXiv:2310.06117)</li>
-<li>GraphRAG: Microsoft 2024 (arXiv:2404.16130)</li>
-<li>LightRAG: HKUDS 2024 (arXiv:2410.05779)</li>
-<li>Modular RAG 综述: Yunfan Gao et al. 2024</li>
-<li>Contextual Retrieval: Anthropic Blog 2024.09</li>
-<li>BERT Passage Re-ranking: Nogueira &amp; Cho 2019</li>
-<li>ColBERT: Khattab &amp; Zaharia 2020</li>
-<li>Late Chunking: Jina 2024.08</li>
-</ul>
+<h5 id="c1b-anthropic">C.1.b 经典论文速查 (Anthropic 必读分割补充)</h5>
+<p>(优先级最高) / 官方 Blog
+- HNSW: Malkov &amp; Yashunin 2018
+- HyDE: Gao et al. 2022 (arXiv:2212.10496)
+- Self-RAG: Asai et al. 2023 (arXiv:2310.16622)
+- CRAG: Yan et al. 2024 (arXiv:2401.15884)
+- Step-Back: Google DeepMind 2023 (arXiv:2310.06117)
+- GraphRAG: Microsoft 2024 (arXiv:2404.16130)
+- LightRAG: HKUDS 2024 (arXiv:2410.05779)
+- Modular RAG 综述: Yunfan Gao et al. 2024
+- Contextual Retrieval: Anthropic Blog 2024.09
+- BERT Passage Re-ranking: Nogueira &amp; Cho 2019
+- ColBERT: Khattab &amp; Zaharia 2020
+- Late Chunking: Jina 2024.08</p>
 <h3 id="c2">C.2 工程文档</h3>
 <ul>
 <li>pgvector: github.com/pgvector/pgvector</li>

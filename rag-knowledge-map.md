@@ -912,7 +912,7 @@ LLM 维度规律: **参数量越大 hidden_dim 越大** (大致 hidden_dim ≈ 1
 
 #### 0.6.1 PM / CTO / 销售 / 运营 (业务视角)
 - 必读: §〇 + §一 + §二 (业务流程图解) + §十二 (场景案例)
-- 选读: §十三 (22 真实事故)
+- 选读: §十三 (28 真实事故 (含 4 个 2024H2-2025 新案例))
 - 跳过: §四-九 技术细节
 
 #### 0.6.2 架构师 / 技术负责人 (架构视角)
@@ -1499,7 +1499,7 @@ LLM 维度规律: **参数量越大 hidden_dim 越大** (大致 hidden_dim ≈ 1
 
 ### 1.4 RAG 4 代演进史
 
-#### 1.4.1 Gen 1: Naive RAG (2022)
+#### 1.4.1 Gen 1: Naive RAG (Gen 1, 2020-2022)
 
 ##### 完整流程 (5 步单线流水)
 - 步 1: 用户 query 输入
@@ -1666,7 +1666,7 @@ LLM 维度规律: **参数量越大 hidden_dim 越大** (大致 hidden_dim ≈ 1
 #### 1.4.6 为什么每一代要演进 (痛点驱动, 不是炫技)
 
 ##### Gen 1 → Gen 2: Naive RAG 死在哪
-真实痛点 (2022-2023 大量项目栽点):
+真实痛点 (2020-2022 早期项目栽点):
 - 痛点 1: 查 SKU "ABC123-X9" 完全召回不到 (纯 dense 对 ID/编号无能)
   - 真实案例: Stack Overflow 早期 RAG, 用户搜 `TypeError: 'NoneType'...`, 真答案排 50 名外
 - 痛点 2: 多跳问题一次拿不齐 (Apple CEO 的母校在哪个州? → 只答 CEO 名)
@@ -1856,7 +1856,7 @@ Gen 4 (Agent) 解决方式:
 - **关键设计**: Reducto Parser (法律精度) + 父子分块 (条款完整性) + Contextual Retrieval (+49% NDCG) + 律师事务所私有部署
 - **数字**: 100 万案例 ingest 跑 2 周 + 月成本 $50K (高质量 Parser + 自托管 Embedder)
 
-##### Cursor (代码 RAG, $20B 估值)
+##### Cursor (代码 RAG, ~$25B 估值 2026.Q1)
 - **场景**: 不预先索引整 codebase, Agent 实时探索
 - **关键设计**: AST-aware Chunking (按函数 / 类切, 不切函数) + 实时 grep + LLM 决定读哪些文件
 - **跟传统 RAG 不同**: 没有离线 Ingestion 步骤, 每次任务 Agent 自己探索
@@ -2391,42 +2391,18 @@ Gen 4 (Agent) 解决方式:
 | **SRE / 运维** | §4.0 + §4.12 (KB Health) + §4.14.6 (监控) + §4.16.3 (验证) | 各组件算法细节 |
 | **面试准备** | §4.0 + §4.2 (7 种脏数据) + §4.6 (PII) + §4.7 (MinHash 数学) + §4.16 反模式 | / |
 
-#### 4.0.3 12 类工具完整速查表
+#### 4.0.3 工具栈速查表 (索引)
 
-> 整章涉及的所有工具, 按用途分类. 每个含: 推荐 / 备选 / 适用 / 中文支持 / 成本.
+> 完整 12 类 30+ 工具速查表 详见 §4.16.7 工具栈速查 (实战 SOP 后位置更易触达).
 
-| 用途 | 推荐工具 | 备选 | 适用场景 | 中文 | 成本 | 详见 |
-|---|---|---|---|---|---|---|
-| Parse PDF (普通) | pypdfium2 | PyMuPDF / pdfplumber | 简单文档, 量大成本敏感 | 中 | 免费 | §4.4 |
-| Parse PDF (复杂表格) | LlamaParse | Unstructured / Marker | 财报 / 合同, 表格密集 | 中 | $0.003-0.01/页 | §4.4 |
-| Parse PDF (顶级精度) | Reducto | LlamaParse Pro | 法律 / 医疗 98% 准确率 | 强 | $0.01-0.05/页 | §4.4 |
-| Parse 扫描件 | GPT-5 Vision | Claude Sonnet Vision / 阿里通义 | OCR + 中文混排 | 强 | $0.01-0.03/页 | §4.4 |
-| Parse Word/PPT | python-docx / python-pptx | LibreOffice CLI | 简单 Office 文档 | 强 | 免费 | §4.4 |
-| Parse HTML | trafilatura | readability-lxml / jusText | 网页 + 自带 boilerplate 过滤 | 中 | 免费 | §4.4 + §4.5 |
-| Parse Email | mailparse | email-parser (Python) | Outlook / Gmail | 强 | 免费 | §4.4 |
-| 编码修复 | ftfy | unicodedata | mojibake / 全半角 | 强 | 免费 | §4.16 |
-| Boilerplate 检测 | trafilatura (HTML) | jusText / readability-lxml | 网页噪声 | 中 | 免费 | §4.5 |
-| Boilerplate (PDF) | 启发式 (重复频次法 / 位置法) | LLM 判断 / Vision LLM | PDF 页眉页脚 | / | 免费 | §4.5 |
-| Boilerplate (LLM) | Anthropic Haiku 4.5 | Gemini 2.0 Flash | 跨语言通用, 高价值少量文档 | 强 | $0.0001/段 | §4.5.3 |
-| 去重 (文档级) | Python hashlib SHA256 | xxhash (更快) | 完全重复检测 | / | 免费 | §4.7 |
-| 去重 (近似 MinHash) | datasketch | Spark MinHashLSH | Jaccard ≥ 0.85 近似重复 | / | 免费 | §4.7 |
-| 去重 (语义级) | embedding cosine ≥ 0.95 | / | 表达不同但语义同 | / | 免费 (复用 embedder) | §4.7 |
-| PII 检测 (英文) | Microsoft Presidio | AWS Comprehend / Google DLP | SSN / 信用卡 / 邮箱 | 弱 | 免费 (Presidio) | §4.6 |
-| PII 检测 (中文) | spaCy NER + 自定义正则 fine-tune | jieba + 规则 | 身份证 / 中文姓名 / 中国手机 | 强 (需 fine-tune) | 免费 | §4.6 |
-| PII 检测 (商业) | AWS Comprehend / Google DLP / Azure AI Language | / | 大规模合规要求严 | 强 | $0.0001-0.001/请求 | §4.6 |
-| PII 脱敏 | Presidio Anonymizer | 自研 mask 函数 | 替换 / 删除 / 标记 | 强 | 免费 | §4.6 |
-| Quality 评分 (启发式) | langdetect + 自定义规则 | textstat | 长度 / 字符比例 / 语言 | 强 | 免费 | §4.8 |
-| Quality 评分 (LLM) | Anthropic Haiku 4.5 | Gemini 2.0 Flash / GPT-5-mini | 大规模 LLM-as-judge | 强 | $0.001/chunk | §4.8 |
-| 分类打标 (LLM) | Anthropic Haiku 4.5 | Gemini 2.0 Flash | topic / sensitivity 自动打标 | 强 | $0.0005/chunk | §4.9 |
-| 分类打标 (本地) | spaCy 分类器 (fine-tuned) | scikit-learn LinearSVC | 高 QPS 不调外部 API | 强 | 免费 (本地推理) | §4.9 |
-| 语言检测 | langdetect | fasttext langid | 中英文识别 | 强 | 免费 | §4.9 |
-| 版本管理 | Postgres + canonical_id + version | DVC (大文件) | 同 doc 多版本 | / | 免费 (Postgres) | §4.11 |
-| 时效性 (recency_decay) | 自研衰减函数 | / | 检索时按时间加权 | / | 免费 | §4.10 |
-| Pipeline 编排 | Apache Spark + Airflow | Dask + Prefect / Temporal | 100 万+ 文档批处理 | / | 自托管 | §4.14 |
-| 异步队列 | Celery + RabbitMQ / Kafka | AWS SQS / GCP Pub/Sub | 文档 ingest 异步 | / | 自托管 | §4.3 |
-| Connector 框架 | Airbyte (350+ connector) | Fivetran (商业) / 自研 | 接入 100+ 数据源 | 中 | 免费 (Airbyte) | §0.1.5d + §4.3 |
-| 监控 | Datadog + Prometheus | Grafana / New Relic | KB Health 7 指标 | / | $50-500/月 | §4.12 |
-| Bad case 工具 | LangSmith | Phoenix (Arize) / Langfuse | 检索失败溯源 | 中 | $39-199/月 | §4.16 |
+##### 速记 5 大类
+- Parser: LlamaParse / Reducto / pypdfium2 / GPT-5 Vision
+- 数据治理: Presidio / spaCy NER / MinHash LSH / Haiku 评分
+- Pipeline: Spark + Airflow / Celery / Kafka
+- 监控: Datadog / Prometheus + LangSmith / Phoenix / Langfuse
+- 向量库 (跨 §4 → §11): pgvector / Pinecone / Milvus / Qdrant
+
+详细对比: §4.16.7
 
 #### 4.0.4 整章核心数字速查 (面试 / 决策必背)
 
@@ -7152,7 +7128,7 @@ RRF 计算:
 - <200ms → BGE-Reranker / Jina
 - 可容忍 1-5s → RankGPT / RankLLM
 
-#### 6.4.11 Reranker Cascade (多级级联, 极致精度)
+#### 6.4.11 Reranker Cascade (多级级联, 4 级精排, 极致精度)
 
 ##### 5 级 Cascade 完整流程 (原则: 便宜的先筛大量, 贵的后精排少量)
 - L0 召回: Hybrid (Dense + BM25 + RRF) → 1000 候选 (~50ms)
@@ -7428,7 +7404,7 @@ RRF 计算:
 ##### 论文出处
 - Adrian Raudaschl 2023.10 medium "Forget RAG, the Future is RAG-Fusion"
 
-#### 6.5.6 Sub-Question Engine (LlamaIndex 内置)
+#### 6.5.6 Sub-Question Engine (LlamaIndex 内置, §6.5.4 Decomposition 的工具变体)
 
 ##### 解决什么问题
 - 跟 Decomposition (§6.5.4) 解决同问题 — 复杂多跳问题拆子问题
@@ -8128,7 +8104,7 @@ CRAG 是 §6 检索的兜底机制 — 当内部 KB 召回质量差时 (Evaluato
 - 易上手 (5 行代码起 Agent)
 - 适用: POC / 内容生成
 
-#### 8.2.5 OpenAI Agents SDK (2025.03 发布, 取代 2024.10 的实验性 Swarm)
+#### 8.2.5 OpenAI Agents SDK (2024.10 Swarm 实验性发布 → 2025.03 升级为正式 Agents SDK)
 - 极简 Multi-Agent
 - 通过 handoff 转交
 - 适用: 学习 / 简单 demo
@@ -10250,7 +10226,7 @@ CRAG 是 §6 检索的兜底机制 — 当内部 KB 召回质量差时 (Evaluato
 ### 12.4 代码助理 (Code RAG)
 
 #### 12.4.1 典型公司
-- Cursor (估值 $9B+)
+- Cursor (估值 $9.9B 2025.06 → ~$25B 2026.Q1)
 - GitHub Copilot Workspace
 - Codeium / Windsurf
 - Sourcegraph Cody
@@ -10577,6 +10553,9 @@ CRAG 是 §6 检索的兜底机制 — 当内部 KB 召回质量差时 (Evaluato
 - RCA: (1) BM25 是字面匹配, 跨语言完全无能 (2) 通用 Embedder 跨语言对齐不够 (尤其中日)
 - 永久修复: (1) 多语言同义词术语库 (退款=Refund=返金=remboursement) (2) BM25 同义词扩展 (query 时自动展开) (3) 跨语言 Embedder (BGE-M3 多语言, 中英日韩覆盖) (4) 入库时自动翻译关键术语标注 metadata
 
+- **临时缓解**: 临时手动维护 (按业界 case 推断)
+- **后续防范**: 加 KB Health 监控 + Bad case 闭环
+
 ### 13.22 时效性 — 法规昨天改了
 - 标签: [L1 数据治理] [低]
 - 时间: 2024 Q2, 某合规 SaaS
@@ -10632,6 +10611,19 @@ CRAG 是 §6 检索的兜底机制 — 当内部 KB 召回质量差时 (Evaluato
   - Serverless RAG 是中小团队/内部工具的好选择
   - 内部工具不必追求 P95 < 1s, 3-5s 可接受
 - 引用: engineering.mercari.com (RAG 系列, 2024)
+
+### 13.25 Stack Overflow / Reddit RAG 长尾失败 (2024-2025 业界普遍)
+
+- **标签**: [L3 / Generation] [中等]
+- **时间**: 2024-2025 长期问题, 多个开源 RAG demo 复现
+- **背景**: 多个开发者社区 (Stack Overflow / Reddit / Discord 技术频道) 用 RAG 答用户编程/技术问题
+- **现象**: 长尾 query 答不出 (e.g. "Rust async lifetime 怪问题", KB 没相关 thread → LLM 凭训练知识幻觉)
+- **排查**: 反查 trace, 发现 Recall@10 < 0.3, 但 LLM 仍生成自信答案
+- **RCA**: KB 覆盖不全 + 没 Refusal 兜底, 长尾问题被 LLM 强行编答
+- **临时缓解**: 加严格 Refusal (Faithfulness < 0.85 直接 "我不知道, 请联系人工")
+- **永久修复**: KB 持续扩 + CRAG (web search 兜底) + Refusal 三档分级
+- **后续防范**: 监控 Refusal 率 + 长尾 query 反馈到 KB 扩展队列
+- **行业影响**: 凡技术社区 RAG 都需面对长尾, "覆盖率" 成 KB Health 第一指标
 
 ### 13.26 Slack AI Prompt Injection 漏洞 (2024.08)
 - 标签: [横切 / Security] [失败案例]
@@ -10698,7 +10690,7 @@ CRAG 是 §6 检索的兜底机制 — 当内部 KB 召回质量差时 (Evaluato
 
 ### 13.30 28 案例统计 (含 4 个 2024H2-2025 新案例)
 
-> 注: 单个案例可能跨多 Layer (e.g. Samsung 既是 L1 数据治理 + 横切 Security), 故按 Layer/严重程度累加可能 > 24.
+> 注: 单个案例可能跨多 Layer (e.g. Samsung 既是 L1 数据治理 + 横切 Security), 故按 Layer/严重程度累加可能 > 28.
 > 28 是案例总数 (失败 25 + 成功 3: 失败含 13.1-13.22 + 13.26-13.29; 成功含 13.8 Klarna + 13.23 Uber Genie + 13.24 Mercari), 下面是"主标签"分布 (每案例归一个最主要 Layer).
 
 #### 13.30.1 按主 Layer 分布 (主标签去重计 28)
@@ -13346,6 +13338,13 @@ A: LLM 输出后过 Presidio (中英文检测器). 检测到 PII → 替换 [RED
 - 一句话: 不替代, 是叠加. Agent 内部 80-90% 时间还在调 RAG (RAG 是 Agent 工具池里的一个工具)
 - 量化证据: Klarna 95% query 走纯 Modular RAG, 5% 走 Agent (而 Agent 内部仍多次调 RAG)
 
+##### 完整高分答案 (5 行简版, 完整版见 §20.1.3)
+- Agent 不替代 RAG, 是叠加 (RAG 是 Agent 工具池里的核心工具)
+- Agent 内部 80-90% 时间在调 RAG (Klarna 实测)
+- 业界共识: 95% query 走纯 RAG, 5% 走 Agent (Anthropic 三层模型)
+- 反例: "上 Agent 取代所有 RAG" — 成本翻 50 倍, ROI 负
+- 详细 5 部件 + 决策树 见 §20.1.3-§20.1.6
+
 ##### 第二轮追问 Q: 那为什么还需要 RAG 这个层?
 - Agent 调度的任何 "检索" 动作就是一次完整 Modular RAG (Index/Pre-Retrieval/Retrieval/Post-Retrieval/Generation)
 - 没有 RAG 基座, Agent 检出来的全是垃圾, LLM 看不出哪步错, 死循环烧光预算
@@ -13605,7 +13604,7 @@ CrewAI:
 - 劣势: 灵活性不如 LangGraph / 生产级稳定性待提升
 - 适用: POC / Demo / 内容生成
 
-OpenAI Agents SDK (2025.03 发布, 取代 2024.10 的实验性 Swarm):
+OpenAI Agents SDK (2024.10 Swarm 实验性发布 → 2025.03 升级为正式 Agents SDK):
 - 架构: 极简 Multi-Agent. 通过 handoff 在 Agent 间转交
 - 优势: 极简 (< 100 行核心代码) / OpenAI 官方
 - 劣势: 太简, 生产级要自加监控/cache/retry
@@ -14063,6 +14062,18 @@ A: per-skill / per-route 配置. Skill 含 refusal_threshold 字段. 法律 skil
 - 一句话: HTTP → Embedding → Retrieval → Generation → Semantic, 5 层叠加命中率 60-80%
 - 命中率层级: HTTP 30-60% / Embedding 70-90% / Retrieval 20-40% / Generation 10-25% / Semantic 5-15%
 - 关键反模式: 只上 Semantic Cache 不上 HTTP/Embedding — 命中率塌到 5-15% 不够省成本
+
+##### 5 层速记表 (完整见 §10.3)
+
+| 层 | 缓存什么 | TTL | 命中率 |
+|---|---|---|---|
+| L1 HTTP | 整个 query → 答案 | 1h | 30-60% |
+| L2 Embedding | query → vector | 永久 | 70-90% |
+| L3 Retrieval | (query, ACL) → top-K | 1d | 20-40% |
+| L4 Generation | (chunks, query) → answer | 1h | 10-25% |
+| L5 Semantic | 语义相似 query → 答案 | 1d | 5-15% (cosine ≥ 0.93) |
+
+详细策略 + 阈值调优 + 真实事故见 §10.3
 
 ##### 第二轮追问 Q: Semantic Cache 命中阈值多少?
 - cosine ≥ 0.95 是工业标准 (低了误命中, 高了等于不缓存)
@@ -15889,6 +15900,7 @@ Step 6: LLM 出错类型?
 - M5-6: 实操 + 转岗 (LLM 应用前端开始)
 - M7+: 全栈 AI
 - 优势: 前端 + AI 应用层 (Cursor / v0 / Bolt) 稀缺
+- 反模式: 跳过 ML 基础直接学 LangChain — Bug 出来根本看不懂
 
 #### 17.5.2 Java → AI 架构师 (6-12 月)
 - M1: Python (1 周上手)
@@ -15896,12 +15908,14 @@ Step 6: LLM 出错类型?
 - M4-6: 工程化 (Spring AI / LangChain4j)
 - M7-12: AI 架构 (Modular / Agent)
 - 优势: 企业 Java + AI 是稀缺组合
+- 反模式: 仍用 Java 思维设计 RAG (Spring Bean 重写一切) — Python 生态成熟太多
 
 #### 17.5.3 数据工程师 → ML/AI (6-12 月)
 - M1-3: ML 基础 (CS229 / 李宏毅)
 - M4-6: LLM (本文档 + Karpathy)
 - M7-12: AI 工程实操
 - 优势: 数据治理是 RAG 70% 工作
+- 反模式: 跳过 LLM 推理原理直接用 — 调优时不知道为什么
 
 #### 17.5.4 后端工程师 (Python/Go/Node) → AI 工程师 (3-6 月)
 - M1: LLM API 实操 (Anthropic / OpenAI SDK, 1 周搞定)
@@ -17672,7 +17686,7 @@ class ModularRAG:
 
 业界共识: 90% 场景不需要 Agent, 用更简单的层次就够. 选错层次是 RAG 项目失败首因.
 
-##### 层次 1 — Augmented LLM (单 LLM + 检索 + 工具) — 80-90% 场景
+##### 层次 1 — Augmented LLM (单 LLM + 检索 + 工具) — 80-95% 场景
 - 是什么: 单次 LLM 调用, 输入是 system + 检索回来的资料 + 用户 query, 输出答案
 - 即标准的 Modular RAG (§19), 一次进出
 - 适用: 简单问答 / FAQ / 单点查询
@@ -17680,7 +17694,7 @@ class ModularRAG:
 - 成本/延迟: $0.005-0.05/query, 1-3s
 - 决策: 单次能解决的, 永远用这层
 
-##### 层次 2 — Workflow (有序的多步 LLM 调用) — 8-15% 场景
+##### 层次 2 — Workflow (有序的多步 LLM 调用) — 5-15% 场景
 - 是什么: 工程师写死多步流程, LLM 在每个固定节点上做事 (路径预先确定)
 - 关键: **路径固定**. 流程图能预先画出来
 - 适用: 任务可预先分解 (e.g. 分类 → 路由 → 答 → 校验)
@@ -18579,9 +18593,9 @@ Anthropic 总结的 5 种 Workflow Pattern, 90% 业务用其中一种就解决, 
 | 5. Semantic Cache (GPTCache) | 1.05-1.15× | 中 | 高频查询场景 | cosine 阈值 < 0.95 — 误命中 |
 
 ##### 杠杆组合 — Klarna 实测
-- 5 杠杆全开后: 单 Agent query 从 $0.42 → $0.05 (省 88%)
-- 5 杠杆只开 1-2: 从 $0.42 → $0.25 (省 40%)
-- 5 杠杆全不开: $0.42 (基线)
+- 6 杠杆全开后: 单 Agent query 从 $0.42 → $0.05 (省 88%)
+- 6 杠杆只开 1-2: 从 $0.42 → $0.25 (省 40%)
+- 6 杠杆全不开: $0.42 (基线)
 
 #### 20.8.2 Anthropic Prompt Caching 详解 (省钱杠杆 3)
 - 原理: 把 prompt 里相对稳定的部分 (system prompt / few-shot / 工具描述) 缓存中间状态, 下次命中只算增量
@@ -18881,7 +18895,9 @@ Anthropic 总结的 5 种 Workflow Pattern, 90% 业务用其中一种就解决, 
 - **Late Chunking** (Jina AI 2024.08) — arXiv:2409.04701
 - **ColBERT-v2** (Stanford 2021) — arXiv:2112.01488
 
-### C.0 必读官方博客 (优先级最高) / 官方 Blog
+##### C.1.b 经典论文速查 (Anthropic 必读分割补充)
+
+ (优先级最高) / 官方 Blog
 - HNSW: Malkov & Yashunin 2018
 - HyDE: Gao et al. 2022 (arXiv:2212.10496)
 - Self-RAG: Asai et al. 2023 (arXiv:2310.16622)
