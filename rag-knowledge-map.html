@@ -592,11 +592,10 @@ h3:hover::before, h4:hover::before {
 <li class="toc-h3"><a href="#203-6">20.3 6 大主流框架完整对比</a></li>
 <li class="toc-h3"><a href="#204-tool-calling">20.4 Tool Calling 完整实现</a></li>
 <li class="toc-h3"><a href="#205-memory-schema">20.5 Memory 三层架构 (完整 Schema)</a></li>
-<li class="toc-h3"><a href="#206">20.6 真实业界采用</a></li>
+<li class="toc-h3"><a href="#206">20.6 真实业界采用 (索引)</a></li>
 <li class="toc-h3"><a href="#207-agent-5">20.7 Agent 死循环防御 5 道防线</a></li>
 <li class="toc-h3"><a href="#208-agent-finops">20.8 Agent 成本优化 (FinOps 实战)</a></li>
-<li class="toc-h3"><a href="#209-agent-rag">20.9 Agent RAG 实施陷阱</a></li>
-<li class="toc-h3"><a href="#2010-agent-rag">20.10 Agent RAG 评估</a></li>
+<li class="toc-h3"><a href="#209-agent-rag">20.9 Agent RAG 评估</a></li>
 <li class="toc-h2"><a href="#a-xmind">附录 A: XMind 打开方式</a></li>
 <li class="toc-h3"><a href="#a1">A.1 直接打开</a></li>
 <li class="toc-h3"><a href="#a2-opml">A.2 OPML 兜底</a></li>
@@ -607,7 +606,7 @@ h3:hover::before, h4:hover::before {
 <li class="toc-h3"><a href="#c1-blog">C.1 论文 / 官方 Blog</a></li>
 <li class="toc-h3"><a href="#c2">C.2 工程文档</a></li>
 <li class="toc-h3"><a href="#c3">C.3 业界开源参考</a></li>
-<li class="toc-h2"><a href="#_819">末尾: 一句话总结</a></li></ul>
+<li class="toc-h2"><a href="#_822">末尾: 一句话总结</a></li></ul>
 </nav>
 <main id="content">
 <h1 id="rag-v4"><span class="pron">RAG<span class="ipa">/ræɡ/</span><button class="speak-btn" onclick="speak('RAG')" title="点击朗读 RAG">🔊</button></span> 知识地图 v4 — 体系化完整版</h1>
@@ -19995,14 +19994,6 @@ class ModularRAG:
 </tr>
 </tbody>
 </table>
-<h5 id="5_13">5 形态本质区别 — 一句话区分</h5>
-<ul>
-<li>Plan-and-Execute: 先规划完整 N 步, 再串行执行 (规划与执行解耦)</li>
-<li>ReAct: 边思考边行动边观察, Thought→Action→Observation 单步循环</li>
-<li>Multi-Agent: 多角色分工 (Planner / Researcher / Writer / Critic) 对话协作</li>
-<li>Self-Reflection: 输出后自评, 不满意则重做</li>
-<li>Iterative: 检索→评估→信息不足则再检索, 直到信息充分</li>
-</ul>
 <h4 id="2021-1-plan-and-execute-">20.2.1 形态 1: Plan-and-Execute (规划-执行解耦)</h4>
 <h5 id="_769">核心思想</h5>
 <ul>
@@ -20360,278 +20351,194 @@ class ModularRAG:
 <li>否 → ReAct (默认)</li>
 </ul>
 <h3 id="203-6">20.3 6 大主流框架完整对比</h3>
-<h4 id="2031-langgraph-langchain-2024">20.3.1 LangGraph (LangChain 出品, 2024 主流)</h4>
+<h4 id="2031-langgraph-langchain-2024-2026">20.3.1 LangGraph (LangChain 出品, 2024-2026 主流)</h4>
 <h5 id="_801">架构</h5>
 <ul>
-<li>基于图的状态机</li>
-<li>节点 = 函数 (检索 / LLM / Tool)</li>
-<li>边 = 转移条件</li>
-<li>显式 State 对象在节点间传递</li>
+<li>显式 graph: Node (LLM 调用 / Tool 调用 / 自定义函数) + Edge (条件跳转)</li>
+<li>状态机: 每个 Node 读 / 写 shared state (TypedDict)</li>
+<li>检查点: checkpointer 持久化 state (Postgres/SQLite/Redis), 支持中断 + 恢复</li>
 </ul>
-<h5 id="_802">优势</h5>
+<h5 id="_802">优</h5>
 <ul>
-<li>显式控制流 (vs ReAct 隐式)</li>
-<li>易调试 (state 在每节点可见)</li>
-<li>支持循环 + 条件分支</li>
-<li>LangChain 生态全面</li>
+<li>灵活 (任意 graph, 不限范式) + 生产级 (LangSmith 追踪原生)</li>
+<li>中断恢复 (人在回路 / 多日任务必备)</li>
+<li>状态可观测 (debug 友好)</li>
 </ul>
-<h5 id="_803">劣势</h5>
+<h5 id="_803">劣</h5>
 <ul>
-<li>学习曲线陡 (vs CrewAI 简单)</li>
-<li>偏底层</li>
+<li>学习曲线高 (需理解 graph + state + checkpoint 三概念)</li>
+<li>配套 LangChain 重 (依赖一堆 community pkg)</li>
 </ul>
-<h5 id="_804">性能</h5>
+<h5 id="_804">适合</h5>
 <ul>
-<li>灵活, 性能取决于实现</li>
-<li>LangSmith 集成 trace</li>
+<li>复杂工作流 (条件分支 / 并行 / 循环)</li>
+<li>长时任务需中断恢复</li>
+<li>已用 LangChain 生态</li>
 </ul>
-<h5 id="_805">真实采用</h5>
+<h5 id="_805">不适合</h5>
 <ul>
-<li>大量企业 Agent 项目 (2024 后主流)</li>
+<li>极简 demo (overkill, 用 OpenAI Agents SDK 即可)</li>
+<li>不需要持久化的一次性任务</li>
 </ul>
-<h5 id="python-agent">Python 代码示例 (退款诊断 Agent)</h5>
-<pre><code class="language-python">from langgraph.graph import StateGraph, END
-# Python 3.12+ 用 typing.TypedDict; 3.11 及以下用 typing_extensions
-try:
-    from typing import TypedDict
-except ImportError:
-    from typing_extensions import TypedDict
-
-
-class RefundDiagnosisState(TypedDict):
-    order_id: str
-    order_status: dict
-    error_code_meaning: str
-    retry_log: list
-    risk_log: dict
-    final_answer: str
-
-
-async def get_order(state):
-    state[&quot;order_status&quot;] = await order_service.get(state[&quot;order_id&quot;])
-    return state
-
-
-async def lookup_error(state):
-    code = state[&quot;order_status&quot;].get(&quot;error_code&quot;)
-    state[&quot;error_code_meaning&quot;] = await payment_service.lookup_error_code(code)
-    return state
-
-
-async def get_retry_log(state):
-    state[&quot;retry_log&quot;] = await log_service.get_retry_log(state[&quot;order_id&quot;])
-    return state
-
-
-async def get_risk(state):
-    state[&quot;risk_log&quot;] = await risk_service.get_log(state[&quot;order_id&quot;])
-    return state
-
-
-async def synthesize(state):
-    state[&quot;final_answer&quot;] = await llm.complete(
-        f&quot;综合: {state['order_status']}, {state['error_code_meaning']}, ...&quot;
-    )
-    return state
-
-
-# 构建图
-workflow = StateGraph(RefundDiagnosisState)
-workflow.add_node(&quot;get_order&quot;, get_order)
-workflow.add_node(&quot;lookup_error&quot;, lookup_error)
-workflow.add_node(&quot;get_retry_log&quot;, get_retry_log)
-workflow.add_node(&quot;get_risk&quot;, get_risk)
-workflow.add_node(&quot;synthesize&quot;, synthesize)
-
-workflow.set_entry_point(&quot;get_order&quot;)
-workflow.add_edge(&quot;get_order&quot;, &quot;lookup_error&quot;)
-workflow.add_edge(&quot;lookup_error&quot;, &quot;get_retry_log&quot;)
-workflow.add_edge(&quot;get_retry_log&quot;, &quot;get_risk&quot;)
-workflow.add_edge(&quot;get_risk&quot;, &quot;synthesize&quot;)
-workflow.add_edge(&quot;synthesize&quot;, END)
-
-agent = workflow.compile()
-result = await agent.ainvoke({&quot;order_id&quot;: &quot;12345&quot;})
-</code></pre>
+<h5 id="_806">真实采用</h5>
+<ul>
+<li>LinkedIn / Replit / Elastic / Klarna / Uber 公开博客</li>
+<li>LangGraph Cloud (托管 SaaS, 2024.10 GA)</li>
+</ul>
 <h4 id="2032-llamaindex-agents">20.3.2 LlamaIndex Agents</h4>
 <ul>
 <li>架构: ReAct Agent (默认) + Function Calling Agent + OpenAI Agent</li>
-<li>优: 与 LlamaIndex 检索深度集成, 默认配置好用</li>
-<li>劣: 偏 RAG-centric, Tool 编排略弱</li>
-<li>适合: RAG 重场景</li>
+<li>优: 与 LlamaIndex 检索深度集成, 默认配置最少 5 行</li>
+<li>劣: 偏 RAG-centric, Tool 编排略弱; 状态持久化弱</li>
+<li>适合: RAG 为主 + 已用 LlamaIndex 生态</li>
+<li>不适合: 复杂工作流 (LangGraph 更强), 多 Agent 协作 (AutoGen 更专)</li>
+<li>真实采用: 大量 RAG demo + 中小公司 RAG 起步项目</li>
 </ul>
 <h4 id="2033-autogen-microsoft">20.3.3 AutoGen (Microsoft)</h4>
 <ul>
-<li>架构: Multi-Agent 对话 (User / Assistant / Critic / Executor)</li>
-<li>优: 多 Agent 协作天然</li>
-<li>劣: 单 Agent 任务过度复杂</li>
-<li>适合: 任务拆解 / 研究性任务</li>
+<li>架构: Multi-Agent 对话 (User / Assistant / Critic / Executor) + Actor model (0.4+)</li>
+<li>优: 多 Agent 协作天然 + Microsoft 维护稳定</li>
+<li>劣: 单 Agent 任务过度复杂; 学习曲线高</li>
+<li>适合: 多 Agent 协作 (Researcher + Writer + Critic) / 研究性任务 / 内容创作</li>
+<li>不适合: 简单 RAG / 单 Agent 客服 (Multi-Agent 是 overkill)</li>
+<li>真实采用: Microsoft Copilot Workspace 内部 / 学术界研究 Agent 论文常用</li>
 </ul>
 <h4 id="2034-crewai">20.3.4 CrewAI</h4>
 <ul>
-<li>架构: 角色化 Agent (Researcher/Writer/Critic) + 任务流程化</li>
-<li>优: 极易上手 (5 行代码起)</li>
-<li>劣: 灵活性不如 LangGraph</li>
-<li>适合: POC / 内容生成 demo</li>
+<li>架构: 角色化 Agent (Researcher/Writer/Critic) + sequential / hierarchical / consensual 三种 process</li>
+<li>优: 极易上手 (5 行代码起跑通) + 角色抽象直观</li>
+<li>劣: 生产级特性弱 (无 checkpoint / 无中断恢复 / 无原生追踪)</li>
+<li>适合: POC / 内容生成 demo / 创意类任务</li>
+<li>不适合: 生产级长时任务 / 严格 SLA 场景 (用 LangGraph)</li>
+<li>真实采用: 个人开发者 + Hackathon 项目, 企业生产级少</li>
 </ul>
-<h4 id="2035-openai-agents-sdk-swarm-202503-202410">20.3.5 OpenAI Agents SDK (前身 Swarm, 2025.03 取代) (2024.10)</h4>
+<h4 id="2035-openai-agents-sdk-swarm-202410-202503">20.3.5 OpenAI Agents SDK (前身 Swarm 2024.10, 2025.03 升级)</h4>
 <ul>
-<li>架构: 极简 Multi-Agent, 通过 handoff 转交</li>
-<li>优: 极简 (&lt; 100 行核心), OpenAI 官方</li>
-<li>劣: 太简, 生产级要自加监控/cache/retry</li>
-<li>适合: 学习概念</li>
+<li>架构: 极简 Multi-Agent, 通过 handoff 转交; 内置 MCP client (2025.Q2+)</li>
+<li>优: 极简 (核心 &lt; 200 行) + OpenAI 官方维护 + MCP 支持</li>
+<li>劣: 生产级特性需自加 (监控 / cache / retry / checkpoint)</li>
+<li>适合: OpenAI 生态 + 学习概念 + 中小项目</li>
+<li>不适合: 跨多 LLM 后端 / 复杂 graph 编排 (用 LangGraph)</li>
+<li>真实采用: 2025 后大量起步项目 (替代 LangChain 的简化路径)</li>
 </ul>
-<h4 id="2036-anthropic-plan-and-execute">20.3.6 Anthropic Plan-and-Execute (内部)</h4>
+<h4 id="2036-anthropic-claude-agent-sdk-2025q3">20.3.6 Anthropic Claude Agent SDK (2025.Q3+)</h4>
 <ul>
-<li>架构: Planner LLM + Executor LLM</li>
-<li>优: 步骤清晰 + 可解释 + 减少 LLM 调用</li>
-<li>劣: Planner 错则全错</li>
-<li>适合: 步骤明确高质量任务</li>
+<li>架构: 原生 Plan-and-Execute + extended thinking 内嵌 + MCP 主导</li>
+<li>优: Anthropic 官方 + 原生 MCP 生态最丰富 + Sonnet 4.5 推理质量顶</li>
+<li>劣: 锁定 Anthropic LLM (其他模型支持有限)</li>
+<li>适合: 已用 Claude + 重 MCP 工具复用 + 高质量推理任务</li>
+<li>不适合: 多 LLM 后端 / 不需要 thinking 的场景 (浪费成本)</li>
+<li>真实采用: Anthropic Claude Code / Claude Desktop / 大量 Claude 客户</li>
 </ul>
-<h4 id="2037-6">20.3.7 6 框架决策表</h4>
+<h4 id="2037-6-4">20.3.7 6 框架决策表 (4 维度)</h4>
 <table>
 <thead>
 <tr>
-<th>场景</th>
-<th>推荐框架</th>
+<th>框架</th>
+<th>学习曲线</th>
+<th>灵活性</th>
+<th>生产级</th>
+<th>何时选</th>
+<th>何时不选</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>RAG-centric</td>
-<td>LlamaIndex Agents</td>
-</tr>
-<tr>
-<td>复杂工作流 + 多 Agent</td>
 <td>LangGraph</td>
+<td>高</td>
+<td>极高</td>
+<td>极高</td>
+<td>复杂工作流 + 长时任务 + 已用 LangChain</td>
+<td>极简 demo (overkill)</td>
 </tr>
 <tr>
-<td>多角色协作</td>
+<td>LlamaIndex Agents</td>
+<td>中</td>
+<td>中</td>
+<td>中</td>
+<td>RAG 为主 + 已用 LlamaIndex</td>
+<td>复杂多 Agent 协作</td>
+</tr>
+<tr>
 <td>AutoGen</td>
+<td>高</td>
+<td>高</td>
+<td>高</td>
+<td>Multi-Agent 协作 + 研究类</td>
+<td>单 Agent 客服 (overkill)</td>
 </tr>
 <tr>
-<td>极简 MVP</td>
 <td>CrewAI</td>
+<td>极低</td>
+<td>中</td>
+<td>低</td>
+<td>POC / 内容生成 demo</td>
+<td>生产级长时任务</td>
 </tr>
 <tr>
-<td>OpenAI 生态 + 学习</td>
-<td>Swarm</td>
+<td>OpenAI Agents SDK</td>
+<td>低</td>
+<td>中</td>
+<td>中</td>
+<td>OpenAI 生态 + 学习 + MCP</td>
+<td>跨多 LLM / 复杂 graph</td>
 </tr>
 <tr>
-<td>步骤明确高质量</td>
-<td>Plan-and-Execute</td>
+<td>Anthropic Claude Agent SDK</td>
+<td>低</td>
+<td>中</td>
+<td>高</td>
+<td>Claude + MCP + 高质量推理</td>
+<td>多 LLM 后端</td>
 </tr>
 </tbody>
 </table>
-<h3 id="204-tool-calling">20.4 Tool Calling 完整实现</h3>
-<h4 id="2041-6">20.4.1 6 步标准流程</h4>
+<h5 id="3_9">选型流程 (3 问题)</h5>
 <ul>
-<li>步 1: 定义 Tool (JSON Schema)</li>
-<li>步 2: 用户提问</li>
-<li>步 3: 模型决策 (返 tool_calls)</li>
-<li>步 4: 代码执行 (调真实 API)</li>
-<li>步 5: 结果反馈 (role: tool)</li>
-<li>步 6: 最终生成自然语言答案</li>
+<li>Q1: 已用 LangChain / LlamaIndex 生态? → 用对应 Agents</li>
+<li>Q2: 多 Agent 协作必需? → AutoGen (Microsoft) 或 CrewAI (轻)</li>
+<li>Q3: 单 LLM 厂 + 想最简? → OpenAI Agents SDK 或 Anthropic Claude Agent SDK</li>
 </ul>
-<h4 id="2042-api">20.4.2 三家 API 完整差异</h4>
-<h5 id="openai-function-calling_1">OpenAI Function Calling</h5>
-<pre><code class="language-python">response = openai.chat.completions.create(
-    model=&quot;gpt-4o&quot;,
-    messages=messages,
-    tools=[{
-        &quot;type&quot;: &quot;function&quot;,
-        &quot;function&quot;: {
-            &quot;name&quot;: &quot;get_order&quot;,
-            &quot;description&quot;: &quot;查询订单状态&quot;,
-            &quot;parameters&quot;: {
-                &quot;type&quot;: &quot;object&quot;,
-                &quot;properties&quot;: {
-                    &quot;order_id&quot;: {&quot;type&quot;: &quot;string&quot;, &quot;description&quot;: &quot;订单号&quot;}
-                },
-                &quot;required&quot;: [&quot;order_id&quot;]
-            }
-        }
-    }],
-    tool_choice=&quot;auto&quot;,  # auto / none / 强制某 tool
-)
-
-# 响应:
-# response.choices[0].message.tool_calls[0].function.name
-# response.choices[0].message.tool_calls[0].function.arguments (JSON str)
-
-# 反馈:
-messages.append({
-    &quot;role&quot;: &quot;tool&quot;,
-    &quot;tool_call_id&quot;: tool_call.id,
-    &quot;content&quot;: json.dumps(result),
-})
-</code></pre>
-<h5 id="anthropic-tool-use_1">Anthropic Tool Use</h5>
-<pre><code class="language-python">response = anthropic.messages.create(
-    model=&quot;claude-sonnet-4-5-20250929&quot;,
-    messages=messages,
-    tools=[{
-        &quot;name&quot;: &quot;get_order&quot;,
-        &quot;description&quot;: &quot;查询订单状态&quot;,
-        &quot;input_schema&quot;: {  # 字段名不同 (input_schema vs parameters)
-            &quot;type&quot;: &quot;object&quot;,
-            &quot;properties&quot;: {
-                &quot;order_id&quot;: {&quot;type&quot;: &quot;string&quot;}
-            },
-            &quot;required&quot;: [&quot;order_id&quot;]
-        }
-    }],
-)
-
-# 响应:
-# response.content 含 tool_use type block
-# block.id / block.name / block.input
-
-# 反馈 (用 user message 含 tool_result block):
-messages.append({
-    &quot;role&quot;: &quot;user&quot;,
-    &quot;content&quot;: [{
-        &quot;type&quot;: &quot;tool_result&quot;,
-        &quot;tool_use_id&quot;: block.id,
-        &quot;content&quot;: json.dumps(result),
-    }]
-})
-</code></pre>
-<h5 id="gemini-function-calling_1">Gemini Function Calling</h5>
-<pre><code class="language-python">import google.generativeai as genai
-
-response = genai.generate_content(
-    contents=messages,
-    tools=[{
-        &quot;function_declarations&quot;: [{
-            &quot;name&quot;: &quot;get_order&quot;,
-            &quot;description&quot;: &quot;查询订单状态&quot;,
-            &quot;parameters&quot;: {
-                &quot;type&quot;: &quot;object&quot;,
-                &quot;properties&quot;: {
-                    &quot;order_id&quot;: {&quot;type&quot;: &quot;string&quot;}
-                },
-                &quot;required&quot;: [&quot;order_id&quot;]
-            }
-        }]
-    }]
-)
-
-# 响应:
-# response.candidates[0].content.parts[0].function_call
-
-# 反馈 (用 functionResponse role):
-messages.append({
-    &quot;role&quot;: &quot;function&quot;,
-    &quot;parts&quot;: [{
-        &quot;function_response&quot;: {
-            &quot;name&quot;: &quot;get_order&quot;,
-            &quot;response&quot;: {&quot;content&quot;: json.dumps(result)}
-        }
-    }]
-})
-</code></pre>
-<h4 id="2043">20.4.3 三家差异总结表</h4>
+<h5 id="_807">反模式</h5>
+<ul>
+<li>❌ Day 1 上 LangGraph multi-agent — 学习曲线高, 3 月调不通</li>
+<li>❌ 生产用 CrewAI — 无 checkpoint, 任务一断丢全部状态</li>
+<li>❌ Anthropic SDK 跑 OpenAI 模型 — MCP 兼容但能力打折</li>
+</ul>
+<h3 id="204-tool-calling">20.4 Tool Calling 完整实现</h3>
+<h4 id="2041-tool-calling-api">20.4.1 三家 Tool Calling API 实现 (描述对比)</h4>
+<h5 id="openai-function-calling-tool_calls">OpenAI Function Calling (tool_calls 字段)</h5>
+<ul>
+<li>调用形式: <code>tools=[{"type": "function", "function": {...}}]</code>, 响应在 <code>message.tool_calls[]</code></li>
+<li>反馈形式: 追加 <code>{"role": "tool", "tool_call_id": ..., "content": ...}</code> 到 messages</li>
+<li>并行支持: parallel_tool_calls=True (默认开)</li>
+<li>强制选某 tool: tool_choice="required" 或 {"type": "function", "function": {"name": ...}}</li>
+<li>推理模型: o1/o3 不支持流式工具调用, 只能批量返回</li>
+</ul>
+<h5 id="anthropic-tool-use-content-blocks">Anthropic Tool Use (content blocks)</h5>
+<ul>
+<li>调用形式: <code>tools=[{"name", "description", "input_schema"}]</code>, 响应在 <code>content[]</code> 含 <code>type=tool_use</code> block</li>
+<li>反馈形式: user message 中放 <code>{"type": "tool_result", "tool_use_id": ..., "content": ...}</code></li>
+<li>并行支持: 自然在 content blocks 列表里, 一次响应可含多个 tool_use</li>
+<li>强制选某 tool: tool_choice={"type": "tool", "name": ...}</li>
+<li>推理模型: extended thinking 内嵌工具调用 (Sonnet 4.5)</li>
+</ul>
+<h5 id="google-gemini-function-calling-part">Google Gemini Function Calling (Part 列表)</h5>
+<ul>
+<li>调用形式: <code>tools=[FunctionDeclaration(...)]</code>, 响应在 <code>parts[]</code> 含 function_call</li>
+<li>反馈形式: 追加 Part with function_response</li>
+<li>并行支持: parts 列表自然并行</li>
+<li>强制选某 tool: tool_config={"function_calling_config": {"mode": "ANY"}}</li>
+<li>推理模型: Gemini 2.0 Flash Thinking 支持</li>
+</ul>
+<h5 id="_808">关键差异速记</h5>
+<ul>
+<li>API 形态: OpenAI 字段最简 / Anthropic content block 最规范 / Gemini Part 最灵活</li>
+<li>Schema 严格度: Anthropic &gt; OpenAI &gt; Gemini (按"输出格式严格度"排)</li>
+<li>并行调用: 三家都原生支持</li>
+<li>反馈方式: OpenAI 用 tool role / Anthropic 用 user content / Gemini 用 Part</li>
+</ul>
+<h4 id="2042">20.4.2 三家差异总结表</h4>
 <table>
 <thead>
 <tr>
@@ -20674,15 +20581,15 @@ messages.append({
 </tr>
 </tbody>
 </table>
-<h4 id="2044-mcp-model-context-protocol-anthropic-202411">20.4.4 MCP 协议 (Model Context Protocol, Anthropic 2024.11)</h4>
-<h5 id="_806">是什么</h5>
+<h4 id="2043-mcp-model-context-protocol-anthropic-202411">20.4.3 MCP 协议 (Model Context Protocol, Anthropic 2024.11)</h4>
+<h5 id="_809">是什么</h5>
 <ul>
 <li>Anthropic 主导的开放协议, 标准化 LLM 与外部工具 / 数据源的通信</li>
 <li>类比: USB-C for LLM tools — 任何符合 MCP 的 server 可被任何 MCP 兼容的 client 调用</li>
 <li>协议层: stdio / HTTP+SSE / WebSocket 三种 transport</li>
 <li>数据层: tools (函数调用) / resources (静态数据) / prompts (提示模板) 三类能力</li>
 </ul>
-<h5 id="_807">解决了什么问题</h5>
+<h5 id="_810">解决了什么问题</h5>
 <ul>
 <li>之前每个 LLM 厂商 (OpenAI / Anthropic / Gemini) 工具调用 schema 不一样, 集成 N 个 LLM × M 个工具 = N×M 工程量</li>
 <li>MCP 后变成 N + M (LLM 接 MCP, 工具实现 MCP server, 任意组合)</li>
@@ -20695,7 +20602,7 @@ messages.append({
 <li>OpenAI 2025.Q2 起也支持 (Agents SDK 内置 MCP client)</li>
 <li>Google Gemini 2025.Q3 跟进</li>
 </ul>
-<h5 id="_808">优缺点</h5>
+<h5 id="_811">优缺点</h5>
 <ul>
 <li>优: 工具复用 / 跨 LLM 可移植 / 标准化降低集成成本 / 社区生态丰富</li>
 <li>缺: 协议本身相对新 (2024.11 才发, 仍在演进) / server 质量参差 / 性能有协议开销 (vs 直连函数调用)</li>
@@ -20712,7 +20619,7 @@ messages.append({
 <li>性能极敏感 (μs 级 RTT 不接受协议开销)</li>
 <li>工具非常专有 (没有公开 server 也没必要按 MCP 暴露)</li>
 </ul>
-<h4 id="2045-tool-calling">20.4.5 三家 Tool Calling 选型决策表</h4>
+<h4 id="2044-tool-calling">20.4.4 三家 Tool Calling 选型决策表</h4>
 <table>
 <thead>
 <tr>
@@ -20773,7 +20680,7 @@ messages.append({
 </tr>
 </tbody>
 </table>
-<h5 id="3_9">选型流程 (3 问题)</h5>
+<h5 id="3_10">选型流程 (3 问题)</h5>
 <ul>
 <li>Q1: 用 MCP 生态? → Yes → Anthropic (原生 + 主导, 兼容最好)</li>
 <li>Q2: 极致成本 + 大 context? → Yes → Gemini (Flash + Context Cache)</li>
@@ -20781,7 +20688,7 @@ messages.append({
 </ul>
 <h3 id="205-memory-schema">20.5 Memory 三层架构 (完整 Schema)</h3>
 <h4 id="2051-l1-session-memory">20.5.1 L1 Session Memory (短期)</h4>
-<h5 id="_809">用途</h5>
+<h5 id="_812">用途</h5>
 <ul>
 <li>本次会话历史</li>
 <li>跨多轮 (用户上下文连续)</li>
@@ -20795,12 +20702,12 @@ messages.append({
 <li>TTL: 6 小时 (EXPIRE 21600)</li>
 <li>选 List 而非 Hash 原因: 历史天然有序, RPUSH/LRANGE 比 Hash 更适合 append-only + 范围查询</li>
 </ul>
-<h5 id="_810">容量</h5>
+<h5 id="_813">容量</h5>
 <ul>
 <li>单 session 20 messages × 2KB = 40KB</li>
 <li>1 万活跃 session = 400MB Redis</li>
 </ul>
-<h5 id="_811">实现</h5>
+<h5 id="_814">实现</h5>
 <pre><code class="language-python">async def add_to_session(session_id: str, role: str, content: str):
     msg = {&quot;role&quot;: role, &quot;content&quot;: content, &quot;ts&quot;: time.time()}
     await redis.rpush(f&quot;session:{session_id}:messages&quot;, json.dumps(msg))
@@ -20812,7 +20719,7 @@ async def get_session_history(session_id: str, last_n: int = 20):
     return [json.loads(m) for m in msgs]
 </code></pre>
 <h4 id="2052-l2-user-preference">20.5.2 L2 User Preference (长期)</h4>
-<h5 id="_812">用途</h5>
+<h5 id="_815">用途</h5>
 <ul>
 <li>跨会话用户偏好 (语气 / 角色 / 兴趣)</li>
 <li>LLM 个性化</li>
@@ -20845,12 +20752,12 @@ async def update_user_facts(user_id: str, new_facts: list):
         merged, user_id
     )
 </code></pre>
-<h5 id="_813">大小</h5>
+<h5 id="_816">大小</h5>
 <ul>
 <li>单 user ~5KB; 10 万 user = 500MB</li>
 </ul>
 <h4 id="2053-l3-business-memory">20.5.3 L3 Business Memory (业务上下文)</h4>
-<h5 id="_814">用途</h5>
+<h5 id="_817">用途</h5>
 <ul>
 <li>客户 / 项目 / 任务相关上下文</li>
 <li>跨用户共享</li>
@@ -20870,7 +20777,7 @@ async def update_user_facts(user_id: str, new_facts: list):
 -- 未归一化 → 用 vector_cosine_ops (pgvector 0.5+) 或 vector_l2_ops
 CREATE INDEX ON business_memories USING hnsw (embedding vector_ip_ops);
 </code></pre>
-<h5 id="_815">检索</h5>
+<h5 id="_818">检索</h5>
 <pre><code class="language-python">async def get_relevant_business_memories(
     query: str, project_id: str, top_k: int = 3
 ):
@@ -20921,36 +20828,16 @@ CREATE INDEX ON business_memories USING hnsw (embedding vector_ip_ops);
         {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: query},
     ]
 </code></pre>
-<h3 id="206">20.6 真实业界采用</h3>
-<h4 id="2061-klarna-ai-plan-and-execute">20.6.1 Klarna AI 客服 (Plan-and-Execute)</h4>
+<h3 id="206">20.6 真实业界采用 (索引)</h3>
+<blockquote>
+<p>完整案例已分散在其它章节, 此处只列索引避免重复.</p>
+</blockquote>
 <ul>
-<li>2024 Q1 年报披露 (https://www.klarna.com/international/press/klarna-ai-assistant-handles-two-thirds-of-customer-service-chats-in-its-first-month/)</li>
-<li>关键数字 (年报原文 + 推算):</li>
-<li>月 250 万 chat (2024 Q1 数据, 2 个月数据外推)</li>
-<li>处理工作量相当于 700 全职客服 (年报原话: "performing the equivalent work of 700 full-time agents")</li>
-<li>工单解决时间 11min → 2min (年报数据)</li>
-<li>客户满意度 NPS 与人工持平 (NPS 数字可能后续微调)</li>
-<li>估算年省 $40M (基于 700 人 × 平均人力成本)</li>
-<li>数学澄清 (避免误解):</li>
-<li>250 万/月 ≠ 250 万 query 都走 Agent</li>
-<li>80/15/5 分流: 80% FAQ 走普通 RAG, 15% 增强, 5% 走 Agent</li>
-<li>5% Agent ≈ 12.5 万复杂 query/月</li>
-<li>这 12.5 万复杂 query 加上 80% 的简单 query 自动处理, 共同替代了 700 人的工作量</li>
-<li>不是"5% 流量替代 700 人", 是"95% 自动 + 5% Agent 共同替代 700 人"</li>
-<li>关键设计: 80/15/5 严格分流避免成本爆 + Tool Calling 业务系统集成 + 严格 Refusal</li>
-</ul>
-<h4 id="2062-cursor-devin-claude-code-agentic-coding">20.6.2 Cursor / Devin / Claude Code (Agentic Coding)</h4>
-<ul>
-<li>2024-2026 趋势: 不预先索引整 repo</li>
-<li>LLM 主动用 grep/find/read 探索</li>
-<li>单次任务 $5-50, 但替代开发者数小时工作</li>
-</ul>
-<h4 id="2063-microsoft-copilot-workspace-plan-implement-review">20.6.3 Microsoft Copilot Workspace (Plan-Implement-Review)</h4>
-<ul>
-<li>三步 Agent</li>
-<li>Planner LLM 设计修改方案</li>
-<li>Executor LLM 执行 (改代码 / 跑测试)</li>
-<li>Reviewer LLM 审查</li>
+<li>Klarna AI 客服 (Plan-and-Execute, 95%/5% 分流): 详见 §13.8 (含 2025.05 部分 rollback) + §20.1.5 量化对比</li>
+<li>Cursor / Devin / Claude Code (Agentic Coding): 详见 §12.4 + §13.28 (Computer Use 误操作风险) + §15.7 Q7.3</li>
+<li>Microsoft Copilot Workspace (Plan-Implement-Review): 详见 §15.7 Q7.1 + §13.27 (Recall 隐私事故)</li>
+<li>Anthropic Computer Use (GUI Agent): 详见 §13.28 + §16.1.7 子类 4 (Tool Misuse)</li>
+<li>OpenAI Operator (Browser Agent): 详见 §13.29</li>
 </ul>
 <h3 id="207-agent-5">20.7 Agent 死循环防御 5 道防线</h3>
 <h4 id="2071-3">20.7.1 真实事故 (3 起公开案例)</h4>
@@ -21013,7 +20900,7 @@ CREATE INDEX ON business_memories USING hnsw (embedding vector_ip_ops);
 - &nbsp;&nbsp;&nbsp;&nbsp;if llm.is_done(state): break  # 主动收敛
 - &nbsp;&nbsp;if cost_so_far &gt; 0.5: emit_alert(query, cost_so_far)  # 防线 5
 - &nbsp;&nbsp;return synthesizer(state)</p>
-<h5 id="_816">监控仪表盘 (上线必备)</h5>
+<h5 id="_819">监控仪表盘 (上线必备)</h5>
 <ul>
 <li>Histogram: step_count P50/P95/P99</li>
 <li>Histogram: cost_per_query P50/P95/P99</li>
@@ -21112,34 +20999,8 @@ CREATE INDEX ON business_memories USING hnsw (embedding vector_ip_ops);
 <li>❌ 不监控 P99 cost — 边缘 query 烧 $5-50 看不到</li>
 <li>❌ 实时 query 用 Batch — 用户等 24h, 退订率爆</li>
 </ul>
-<h3 id="209-agent-rag">20.9 Agent RAG 实施陷阱</h3>
-<h4 id="2091-agent">20.9.1 ❌ 一上来就 Agent</h4>
-<ul>
-<li>80% query 是简单 FAQ, 全 Agent 浪费 + 成本爆</li>
-<li>对: 先 Modular RAG (Phase 1), 再 Agent (Phase 3)</li>
-</ul>
-<h4 id="2092-agent-rag">20.9.2 ❌ Agent 替代 RAG</h4>
-<ul>
-<li>错: 删了 RAG 全用 Agent</li>
-<li>对: Agent 内部仍用 RAG 多次</li>
-</ul>
-<h4 id="2093-max_steps">20.9.3 ❌ 不限 max_steps</h4>
-<ul>
-<li>真实事故: 1 小时烧 $5000</li>
-<li>必须 max_steps + budget cap + 死循环检测</li>
-</ul>
-<h4 id="2094">20.9.4 ❌ 工具描述模糊</h4>
-<ul>
-<li>LLM 选错 tool 率 30%+</li>
-<li>对: 工具描述详细 + Few-shot 示例</li>
-</ul>
-<h4 id="2095-20">20.9.5 ❌ 工具数量 &gt; 20</h4>
-<ul>
-<li>LLM context 装不下 + 选错率高</li>
-<li>对: 工具数量控制 &lt; 10, &gt; 10 必须分层路由</li>
-</ul>
-<h3 id="2010-agent-rag">20.10 Agent RAG 评估</h3>
-<h4 id="20101">20.10.1 业务指标</h4>
+<h3 id="209-agent-rag">20.9 Agent RAG 评估</h3>
+<h4 id="2091">20.9.1 业务指标</h4>
 <ul>
 <li>任务完成率 (% query 成功完成)</li>
 <li>步数分布 (平均步数 / 最大步数)</li>
@@ -21147,20 +21008,20 @@ CREATE INDEX ON business_memories USING hnsw (embedding vector_ip_ops);
 <li>转人工率</li>
 <li>用户满意度</li>
 </ul>
-<h4 id="20102">20.10.2 技术指标</h4>
+<h4 id="2092">20.9.2 技术指标</h4>
 <ul>
 <li>Tool 选择准确率</li>
 <li>Tool 执行成功率</li>
 <li>死循环熔断率</li>
 <li>平均延迟</li>
 </ul>
-<h4 id="20103-bad-case">20.10.3 Bad case 闭环</h4>
+<h4 id="2093-bad-case">20.9.3 Bad case 闭环</h4>
 <ul>
 <li>收集失败任务</li>
 <li>标根因 (Plan 错 / Tool 错 / Synthesis 错)</li>
 <li>优化 (改 Planner prompt / 改 Tool 描述 / 加新 Tool)</li>
 </ul>
-<h4 id="20104-agent-3">20.10.4 Agent 评估框架对比 (3 大主流)</h4>
+<h4 id="2094-agent-3">20.9.4 Agent 评估框架对比 (3 大主流)</h4>
 <table>
 <thead>
 <tr>
@@ -21215,7 +21076,7 @@ CREATE INDEX ON business_memories USING hnsw (embedding vector_ip_ops);
 </tr>
 </tbody>
 </table>
-<h5 id="_817">选哪个</h5>
+<h5 id="_820">选哪个</h5>
 <ul>
 <li>评 RAG Agent (含 Tool Calling 多步检索) → TaskBench (粒度细, 易归因)</li>
 <li>评通用 Agent 能力 (跨多环境) → AgentBench</li>
@@ -21227,7 +21088,7 @@ CREATE INDEX ON business_memories USING hnsw (embedding vector_ip_ops);
 <li>自建步骤: 100-300 真实 query → 人工标 ground truth (含正确步骤序列) → 跑 Agent → 对比 → 计算 task completion / step accuracy / cost / latency 4 指标</li>
 <li>自建成本: ~10-20 工时 / 每 100 query</li>
 </ul>
-<h5 id="_818">业界经验</h5>
+<h5 id="_821">业界经验</h5>
 <ul>
 <li>Anthropic 内部 Computer Use eval 用了 OSWorld (369 任务跨 OS) — 公开数据</li>
 <li>Cursor 用 SWE-Bench-Verified (人工筛过的 SWE-Bench 子集) 监控 release</li>
@@ -21405,7 +21266,7 @@ CREATE INDEX ON business_memories USING hnsw (embedding vector_ip_ops);
 <li>Anthropic Cookbook (Contextual Retrieval 实现)</li>
 </ul>
 <hr />
-<h2 id="_819">末尾: 一句话总结</h2>
+<h2 id="_822">末尾: 一句话总结</h2>
 <blockquote>
 <p>企业 RAG 成败 70% 在数据治理 (Layer 1), 20% 在检索架构 (Layer 2-3), 10% 在 LLM 选型.</p>
 <p>Modular RAG (Layer 4) 决定能不能"按问题分流", Agent (Layer 5) 决定能不能"跨系统诊断".</p>

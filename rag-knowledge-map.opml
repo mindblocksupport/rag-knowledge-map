@@ -14491,13 +14491,6 @@ CRAG | — | — | — | — | ✅ 天然匹配
 GraphRAG | ✅ 常用 | ✅ 可用 | ✅ 大规模 | — | ✅ 多轮
 LightRAG | ✅ 常用 | ✅ 可用 | — | — | ✅ 多轮
 Adaptive RAG | ✅ 可用 | ✅ 可用 | — | — | —"/>
-        <outline text="5 形态本质区别 — 一句话区分">
-          <outline text="Plan-and-Execute: 先规划完整 N 步, 再串行执行 (规划与执行解耦)"/>
-          <outline text="ReAct: 边思考边行动边观察, Thought→Action→Observation 单步循环"/>
-          <outline text="Multi-Agent: 多角色分工 (Planner / Researcher / Writer / Critic) 对话协作"/>
-          <outline text="Self-Reflection: 输出后自评, 不满意则重做"/>
-          <outline text="Iterative: 检索→评估→信息不足则再检索, 直到信息充分"/>
-        </outline>
       </outline>
       <outline text="20.2.1 形态 1: Plan-and-Execute (规划-执行解耦)">
         <outline text="核心思想">
@@ -14790,91 +14783,131 @@ Iterative | 检索 → 评估 → 再检索 | 3-7 | $0.15-0.50 | 多跳推理 / 
       </outline>
     </outline>
     <outline text="20.3 6 大主流框架完整对比">
-      <outline text="20.3.1 LangGraph (LangChain 出品, 2024 主流)">
+      <outline text="20.3.1 LangGraph (LangChain 出品, 2024-2026 主流)">
         <outline text="架构">
-          <outline text="基于图的状态机"/>
-          <outline text="节点 = 函数 (检索 / LLM / Tool)"/>
-          <outline text="边 = 转移条件"/>
-          <outline text="显式 State 对象在节点间传递"/>
+          <outline text="显式 graph: Node (LLM 调用 / Tool 调用 / 自定义函数) + Edge (条件跳转)"/>
+          <outline text="状态机: 每个 Node 读 / 写 shared state (TypedDict)"/>
+          <outline text="检查点: checkpointer 持久化 state (Postgres/SQLite/Redis), 支持中断 + 恢复"/>
         </outline>
-        <outline text="优势">
-          <outline text="显式控制流 (vs ReAct 隐式)"/>
-          <outline text="易调试 (state 在每节点可见)"/>
-          <outline text="支持循环 + 条件分支"/>
-          <outline text="LangChain 生态全面"/>
+        <outline text="优">
+          <outline text="灵活 (任意 graph, 不限范式) + 生产级 (LangSmith 追踪原生)"/>
+          <outline text="中断恢复 (人在回路 / 多日任务必备)"/>
+          <outline text="状态可观测 (debug 友好)"/>
         </outline>
-        <outline text="劣势">
-          <outline text="学习曲线陡 (vs CrewAI 简单)"/>
-          <outline text="偏底层"/>
+        <outline text="劣">
+          <outline text="学习曲线高 (需理解 graph + state + checkpoint 三概念)"/>
+          <outline text="配套 LangChain 重 (依赖一堆 community pkg)"/>
         </outline>
-        <outline text="性能">
-          <outline text="灵活, 性能取决于实现"/>
-          <outline text="LangSmith 集成 trace"/>
+        <outline text="适合">
+          <outline text="复杂工作流 (条件分支 / 并行 / 循环)"/>
+          <outline text="长时任务需中断恢复"/>
+          <outline text="已用 LangChain 生态"/>
+        </outline>
+        <outline text="不适合">
+          <outline text="极简 demo (overkill, 用 OpenAI Agents SDK 即可)"/>
+          <outline text="不需要持久化的一次性任务"/>
         </outline>
         <outline text="真实采用">
-          <outline text="大量企业 Agent 项目 (2024 后主流)"/>
+          <outline text="LinkedIn / Replit / Elastic / Klarna / Uber 公开博客"/>
+          <outline text="LangGraph Cloud (托管 SaaS, 2024.10 GA)"/>
         </outline>
-        <outline text="Python 代码示例 (退款诊断 Agent)"/>
       </outline>
       <outline text="20.3.2 LlamaIndex Agents">
         <outline text="架构: ReAct Agent (默认) + Function Calling Agent + OpenAI Agent"/>
-        <outline text="优: 与 LlamaIndex 检索深度集成, 默认配置好用"/>
-        <outline text="劣: 偏 RAG-centric, Tool 编排略弱"/>
-        <outline text="适合: RAG 重场景"/>
+        <outline text="优: 与 LlamaIndex 检索深度集成, 默认配置最少 5 行"/>
+        <outline text="劣: 偏 RAG-centric, Tool 编排略弱; 状态持久化弱"/>
+        <outline text="适合: RAG 为主 + 已用 LlamaIndex 生态"/>
+        <outline text="不适合: 复杂工作流 (LangGraph 更强), 多 Agent 协作 (AutoGen 更专)"/>
+        <outline text="真实采用: 大量 RAG demo + 中小公司 RAG 起步项目"/>
       </outline>
       <outline text="20.3.3 AutoGen (Microsoft)">
-        <outline text="架构: Multi-Agent 对话 (User / Assistant / Critic / Executor)"/>
-        <outline text="优: 多 Agent 协作天然"/>
-        <outline text="劣: 单 Agent 任务过度复杂"/>
-        <outline text="适合: 任务拆解 / 研究性任务"/>
+        <outline text="架构: Multi-Agent 对话 (User / Assistant / Critic / Executor) + Actor model (0.4+)"/>
+        <outline text="优: 多 Agent 协作天然 + Microsoft 维护稳定"/>
+        <outline text="劣: 单 Agent 任务过度复杂; 学习曲线高"/>
+        <outline text="适合: 多 Agent 协作 (Researcher + Writer + Critic) / 研究性任务 / 内容创作"/>
+        <outline text="不适合: 简单 RAG / 单 Agent 客服 (Multi-Agent 是 overkill)"/>
+        <outline text="真实采用: Microsoft Copilot Workspace 内部 / 学术界研究 Agent 论文常用"/>
       </outline>
       <outline text="20.3.4 CrewAI">
-        <outline text="架构: 角色化 Agent (Researcher/Writer/Critic) + 任务流程化"/>
-        <outline text="优: 极易上手 (5 行代码起)"/>
-        <outline text="劣: 灵活性不如 LangGraph"/>
-        <outline text="适合: POC / 内容生成 demo"/>
+        <outline text="架构: 角色化 Agent (Researcher/Writer/Critic) + sequential / hierarchical / consensual 三种 process"/>
+        <outline text="优: 极易上手 (5 行代码起跑通) + 角色抽象直观"/>
+        <outline text="劣: 生产级特性弱 (无 checkpoint / 无中断恢复 / 无原生追踪)"/>
+        <outline text="适合: POC / 内容生成 demo / 创意类任务"/>
+        <outline text="不适合: 生产级长时任务 / 严格 SLA 场景 (用 LangGraph)"/>
+        <outline text="真实采用: 个人开发者 + Hackathon 项目, 企业生产级少"/>
       </outline>
-      <outline text="20.3.5 OpenAI Agents SDK (前身 Swarm, 2025.03 取代) (2024.10)">
-        <outline text="架构: 极简 Multi-Agent, 通过 handoff 转交"/>
-        <outline text="优: 极简 (&lt; 100 行核心), OpenAI 官方"/>
-        <outline text="劣: 太简, 生产级要自加监控/cache/retry"/>
-        <outline text="适合: 学习概念"/>
+      <outline text="20.3.5 OpenAI Agents SDK (前身 Swarm 2024.10, 2025.03 升级)">
+        <outline text="架构: 极简 Multi-Agent, 通过 handoff 转交; 内置 MCP client (2025.Q2+)"/>
+        <outline text="优: 极简 (核心 &lt; 200 行) + OpenAI 官方维护 + MCP 支持"/>
+        <outline text="劣: 生产级特性需自加 (监控 / cache / retry / checkpoint)"/>
+        <outline text="适合: OpenAI 生态 + 学习概念 + 中小项目"/>
+        <outline text="不适合: 跨多 LLM 后端 / 复杂 graph 编排 (用 LangGraph)"/>
+        <outline text="真实采用: 2025 后大量起步项目 (替代 LangChain 的简化路径)"/>
       </outline>
-      <outline text="20.3.6 Anthropic Plan-and-Execute (内部)">
-        <outline text="架构: Planner LLM + Executor LLM"/>
-        <outline text="优: 步骤清晰 + 可解释 + 减少 LLM 调用"/>
-        <outline text="劣: Planner 错则全错"/>
-        <outline text="适合: 步骤明确高质量任务"/>
+      <outline text="20.3.6 Anthropic Claude Agent SDK (2025.Q3+)">
+        <outline text="架构: 原生 Plan-and-Execute + extended thinking 内嵌 + MCP 主导"/>
+        <outline text="优: Anthropic 官方 + 原生 MCP 生态最丰富 + Sonnet 4.5 推理质量顶"/>
+        <outline text="劣: 锁定 Anthropic LLM (其他模型支持有限)"/>
+        <outline text="适合: 已用 Claude + 重 MCP 工具复用 + 高质量推理任务"/>
+        <outline text="不适合: 多 LLM 后端 / 不需要 thinking 的场景 (浪费成本)"/>
+        <outline text="真实采用: Anthropic Claude Code / Claude Desktop / 大量 Claude 客户"/>
       </outline>
-      <outline text="20.3.7 6 框架决策表" _note="场景 | 推荐框架
-RAG-centric | LlamaIndex Agents
-复杂工作流 + 多 Agent | LangGraph
-多角色协作 | AutoGen
-极简 MVP | CrewAI
-OpenAI 生态 + 学习 | Swarm
-步骤明确高质量 | Plan-and-Execute"/>
+      <outline text="20.3.7 6 框架决策表 (4 维度)" _note="框架 | 学习曲线 | 灵活性 | 生产级 | 何时选 | 何时不选
+LangGraph | 高 | 极高 | 极高 | 复杂工作流 + 长时任务 + 已用 LangChain | 极简 demo (overkill)
+LlamaIndex Agents | 中 | 中 | 中 | RAG 为主 + 已用 LlamaIndex | 复杂多 Agent 协作
+AutoGen | 高 | 高 | 高 | Multi-Agent 协作 + 研究类 | 单 Agent 客服 (overkill)
+CrewAI | 极低 | 中 | 低 | POC / 内容生成 demo | 生产级长时任务
+OpenAI Agents SDK | 低 | 中 | 中 | OpenAI 生态 + 学习 + MCP | 跨多 LLM / 复杂 graph
+Anthropic Claude Agent SDK | 低 | 中 | 高 | Claude + MCP + 高质量推理 | 多 LLM 后端">
+        <outline text="选型流程 (3 问题)">
+          <outline text="Q1: 已用 LangChain / LlamaIndex 生态? → 用对应 Agents"/>
+          <outline text="Q2: 多 Agent 协作必需? → AutoGen (Microsoft) 或 CrewAI (轻)"/>
+          <outline text="Q3: 单 LLM 厂 + 想最简? → OpenAI Agents SDK 或 Anthropic Claude Agent SDK"/>
+        </outline>
+        <outline text="反模式">
+          <outline text="❌ Day 1 上 LangGraph multi-agent — 学习曲线高, 3 月调不通"/>
+          <outline text="❌ 生产用 CrewAI — 无 checkpoint, 任务一断丢全部状态"/>
+          <outline text="❌ Anthropic SDK 跑 OpenAI 模型 — MCP 兼容但能力打折"/>
+        </outline>
+      </outline>
     </outline>
     <outline text="20.4 Tool Calling 完整实现">
-      <outline text="20.4.1 6 步标准流程">
-        <outline text="步 1: 定义 Tool (JSON Schema)"/>
-        <outline text="步 2: 用户提问"/>
-        <outline text="步 3: 模型决策 (返 tool_calls)"/>
-        <outline text="步 4: 代码执行 (调真实 API)"/>
-        <outline text="步 5: 结果反馈 (role: tool)"/>
-        <outline text="步 6: 最终生成自然语言答案"/>
+      <outline text="20.4.1 三家 Tool Calling API 实现 (描述对比)">
+        <outline text="OpenAI Function Calling (tool_calls 字段)">
+          <outline text="调用形式: tools=[{"type": "function", "function": {...}}], 响应在 message.tool_calls[]"/>
+          <outline text="反馈形式: 追加 {"role": "tool", "toolcallid": ..., "content": ...} 到 messages"/>
+          <outline text="并行支持: paralleltoolcalls=True (默认开)"/>
+          <outline text="强制选某 tool: tool_choice="required" 或 {"type": "function", "function": {"name": ...}}"/>
+          <outline text="推理模型: o1/o3 不支持流式工具调用, 只能批量返回"/>
+        </outline>
+        <outline text="Anthropic Tool Use (content blocks)">
+          <outline text="调用形式: tools=[{"name", "description", "inputschema"}], 响应在 content[] 含 type=tooluse block"/>
+          <outline text="反馈形式: user message 中放 {"type": "toolresult", "tooluse_id": ..., "content": ...}"/>
+          <outline text="并行支持: 自然在 content blocks 列表里, 一次响应可含多个 tool_use"/>
+          <outline text="强制选某 tool: tool_choice={"type": "tool", "name": ...}"/>
+          <outline text="推理模型: extended thinking 内嵌工具调用 (Sonnet 4.5)"/>
+        </outline>
+        <outline text="Google Gemini Function Calling (Part 列表)">
+          <outline text="调用形式: tools=[FunctionDeclaration(...)], 响应在 parts[] 含 function_call"/>
+          <outline text="反馈形式: 追加 Part with function_response"/>
+          <outline text="并行支持: parts 列表自然并行"/>
+          <outline text="强制选某 tool: toolconfig={"functioncalling_config": {"mode": "ANY"}}"/>
+          <outline text="推理模型: Gemini 2.0 Flash Thinking 支持"/>
+        </outline>
+        <outline text="关键差异速记">
+          <outline text="API 形态: OpenAI 字段最简 / Anthropic content block 最规范 / Gemini Part 最灵活"/>
+          <outline text="Schema 严格度: Anthropic &gt; OpenAI &gt; Gemini (按"输出格式严格度"排)"/>
+          <outline text="并行调用: 三家都原生支持"/>
+          <outline text="反馈方式: OpenAI 用 tool role / Anthropic 用 user content / Gemini 用 Part"/>
+        </outline>
       </outline>
-      <outline text="20.4.2 三家 API 完整差异">
-        <outline text="OpenAI Function Calling"/>
-        <outline text="Anthropic Tool Use"/>
-        <outline text="Gemini Function Calling"/>
-      </outline>
-      <outline text="20.4.3 三家差异总结表" _note="维度 | OpenAI | Anthropic | Gemini
+      <outline text="20.4.2 三家差异总结表" _note="维度 | OpenAI | Anthropic | Gemini
 Schema 字段 | parameters | inputschema | parameters
 反馈 role | tool | user (with toolresult) | function (with response)
 Parallel call | 是 | 是 (Sonnet 3.5+) | 是
 Computer Use | 无 | 是 (Claude 3.5 Sonnet 起) | 无
 兼容 OpenAPI | 需转 | 需转 | 是"/>
-      <outline text="20.4.4 MCP 协议 (Model Context Protocol, Anthropic 2024.11)">
+      <outline text="20.4.3 MCP 协议 (Model Context Protocol, Anthropic 2024.11)">
         <outline text="是什么">
           <outline text="Anthropic 主导的开放协议, 标准化 LLM 与外部工具 / 数据源的通信"/>
           <outline text="类比: USB-C for LLM tools — 任何符合 MCP 的 server 可被任何 MCP 兼容的 client 调用"/>
@@ -14907,7 +14940,7 @@ Computer Use | 无 | 是 (Claude 3.5 Sonnet 起) | 无
           <outline text="工具非常专有 (没有公开 server 也没必要按 MCP 暴露)"/>
         </outline>
       </outline>
-      <outline text="20.4.5 三家 Tool Calling 选型决策表" _note="维度 | Anthropic (tooluse blocks) | OpenAI (toolcalls) | Gemini (functioncall parts)
+      <outline text="20.4.4 三家 Tool Calling 选型决策表" _note="维度 | Anthropic (tooluse blocks) | OpenAI (toolcalls) | Gemini (functioncall parts)
 API 形态 | content block 嵌入 | message 字段 + tool role | Part 列表
 并行调用 | parallel tool use 原生 | paralleltool_calls flag | parts 列表自然并行
 输出格式严格度 | 高 (JSON Schema 严格) | 高 (但 schema 较松) | 中 (Part 类型多变)
@@ -14966,36 +14999,12 @@ MCP 支持 | 原生 (Anthropic 主导) | 2025.Q2+ (Agents SDK) | 2025.Q3+
       </outline>
       <outline text="20.5.4 三层组合 — Prompt 拼接 (16K context budget)"/>
     </outline>
-    <outline text="20.6 真实业界采用">
-      <outline text="20.6.1 Klarna AI 客服 (Plan-and-Execute)">
-        <outline text="2024 Q1 年报披露 (https://www.klarna.com/international/press/klarna-ai-assistant-handles-two-thirds-of-customer-service-chats-in-its-first-month/)"/>
-        <outline text="关键数字 (年报原文 + 推算):">
-          <outline text="月 250 万 chat (2024 Q1 数据, 2 个月数据外推)"/>
-          <outline text="处理工作量相当于 700 全职客服 (年报原话: "performing the equivalent work of 700 full-time agents")"/>
-          <outline text="工单解决时间 11min → 2min (年报数据)"/>
-          <outline text="客户满意度 NPS 与人工持平 (NPS 数字可能后续微调)"/>
-          <outline text="估算年省 $40M (基于 700 人 × 平均人力成本)"/>
-        </outline>
-        <outline text="数学澄清 (避免误解):">
-          <outline text="250 万/月 ≠ 250 万 query 都走 Agent"/>
-          <outline text="80/15/5 分流: 80% FAQ 走普通 RAG, 15% 增强, 5% 走 Agent"/>
-          <outline text="5% Agent ≈ 12.5 万复杂 query/月"/>
-          <outline text="这 12.5 万复杂 query 加上 80% 的简单 query 自动处理, 共同替代了 700 人的工作量"/>
-          <outline text="不是"5% 流量替代 700 人", 是"95% 自动 + 5% Agent 共同替代 700 人""/>
-        </outline>
-        <outline text="关键设计: 80/15/5 严格分流避免成本爆 + Tool Calling 业务系统集成 + 严格 Refusal"/>
-      </outline>
-      <outline text="20.6.2 Cursor / Devin / Claude Code (Agentic Coding)">
-        <outline text="2024-2026 趋势: 不预先索引整 repo"/>
-        <outline text="LLM 主动用 grep/find/read 探索"/>
-        <outline text="单次任务 $5-50, 但替代开发者数小时工作"/>
-      </outline>
-      <outline text="20.6.3 Microsoft Copilot Workspace (Plan-Implement-Review)">
-        <outline text="三步 Agent"/>
-        <outline text="Planner LLM 设计修改方案"/>
-        <outline text="Executor LLM 执行 (改代码 / 跑测试)"/>
-        <outline text="Reviewer LLM 审查"/>
-      </outline>
+    <outline text="20.6 真实业界采用 (索引)" _note="完整案例已分散在其它章节, 此处只列索引避免重复.">
+      <outline text="Klarna AI 客服 (Plan-and-Execute, 95%/5% 分流): 详见 §13.8 (含 2025.05 部分 rollback) + §20.1.5 量化对比"/>
+      <outline text="Cursor / Devin / Claude Code (Agentic Coding): 详见 §12.4 + §13.28 (Computer Use 误操作风险) + §15.7 Q7.3"/>
+      <outline text="Microsoft Copilot Workspace (Plan-Implement-Review): 详见 §15.7 Q7.1 + §13.27 (Recall 隐私事故)"/>
+      <outline text="Anthropic Computer Use (GUI Agent): 详见 §13.28 + §16.1.7 子类 4 (Tool Misuse)"/>
+      <outline text="OpenAI Operator (Browser Agent): 详见 §13.29"/>
     </outline>
     <outline text="20.7 Agent 死循环防御 5 道防线">
       <outline text="20.7.1 真实事故 (3 起公开案例)">
@@ -15106,48 +15115,26 @@ MCP 支持 | 原生 (Anthropic 主导) | 2025.Q2+ (Agents SDK) | 2025.Q3+
         <outline text="❌ 实时 query 用 Batch — 用户等 24h, 退订率爆"/>
       </outline>
     </outline>
-    <outline text="20.9 Agent RAG 实施陷阱">
-      <outline text="20.9.1 ❌ 一上来就 Agent">
-        <outline text="80% query 是简单 FAQ, 全 Agent 浪费 + 成本爆"/>
-        <outline text="对: 先 Modular RAG (Phase 1), 再 Agent (Phase 3)"/>
-      </outline>
-      <outline text="20.9.2 ❌ Agent 替代 RAG">
-        <outline text="错: 删了 RAG 全用 Agent"/>
-        <outline text="对: Agent 内部仍用 RAG 多次"/>
-      </outline>
-      <outline text="20.9.3 ❌ 不限 max_steps">
-        <outline text="真实事故: 1 小时烧 $5000"/>
-        <outline text="必须 max_steps + budget cap + 死循环检测"/>
-      </outline>
-      <outline text="20.9.4 ❌ 工具描述模糊">
-        <outline text="LLM 选错 tool 率 30%+"/>
-        <outline text="对: 工具描述详细 + Few-shot 示例"/>
-      </outline>
-      <outline text="20.9.5 ❌ 工具数量 &gt; 20">
-        <outline text="LLM context 装不下 + 选错率高"/>
-        <outline text="对: 工具数量控制 &lt; 10, &gt; 10 必须分层路由"/>
-      </outline>
-    </outline>
-    <outline text="20.10 Agent RAG 评估">
-      <outline text="20.10.1 业务指标">
+    <outline text="20.9 Agent RAG 评估">
+      <outline text="20.9.1 业务指标">
         <outline text="任务完成率 (% query 成功完成)"/>
         <outline text="步数分布 (平均步数 / 最大步数)"/>
         <outline text="单 query 成本分布 (P50 / P95 / P99)"/>
         <outline text="转人工率"/>
         <outline text="用户满意度"/>
       </outline>
-      <outline text="20.10.2 技术指标">
+      <outline text="20.9.2 技术指标">
         <outline text="Tool 选择准确率"/>
         <outline text="Tool 执行成功率"/>
         <outline text="死循环熔断率"/>
         <outline text="平均延迟"/>
       </outline>
-      <outline text="20.10.3 Bad case 闭环">
+      <outline text="20.9.3 Bad case 闭环">
         <outline text="收集失败任务"/>
         <outline text="标根因 (Plan 错 / Tool 错 / Synthesis 错)"/>
         <outline text="优化 (改 Planner prompt / 改 Tool 描述 / 加新 Tool)"/>
       </outline>
-      <outline text="20.10.4 Agent 评估框架对比 (3 大主流)" _note="维度 | TaskBench | AgentBench | SWE-Bench
+      <outline text="20.9.4 Agent 评估框架对比 (3 大主流)" _note="维度 | TaskBench | AgentBench | SWE-Bench
 出处 | THUDM 2023 | THUDM 2023 | Princeton 2024
 覆盖任务 | 28 任务 (跨 6 类: API / SQL / 工具组合) | 8 环境 (操作系统 / DB / web 浏览 / 知识图谱 / 卡牌游戏 / 家务规划等) | 真实 GitHub Issue → PR (2294 instance, 12 大开源项目)
 评估粒度 | step-level (单步成功率) | task-level (任务完成率) | end-to-end (PR 是否合并)

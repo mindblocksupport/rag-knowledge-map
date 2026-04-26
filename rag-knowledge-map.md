@@ -16100,13 +16100,6 @@ class ModularRAG:
 | LightRAG | ✅ 常用 | ✅ 可用 | — | — | ✅ 多轮 |
 | Adaptive RAG | ✅ 可用 | ✅ 可用 | — | — | — |
 
-##### 5 形态本质区别 — 一句话区分
-- Plan-and-Execute: 先规划完整 N 步, 再串行执行 (规划与执行解耦)
-- ReAct: 边思考边行动边观察, Thought→Action→Observation 单步循环
-- Multi-Agent: 多角色分工 (Planner / Researcher / Writer / Critic) 对话协作
-- Self-Reflection: 输出后自评, 不满意则重做
-- Iterative: 检索→评估→信息不足则再检索, 直到信息充分
-
 #### 20.2.1 形态 1: Plan-and-Execute (规划-执行解耦)
 
 ##### 核心思想
@@ -16376,255 +16369,128 @@ class ModularRAG:
 
 ### 20.3 6 大主流框架完整对比
 
-#### 20.3.1 LangGraph (LangChain 出品, 2024 主流)
+#### 20.3.1 LangGraph (LangChain 出品, 2024-2026 主流)
 
 ##### 架构
-- 基于图的状态机
-- 节点 = 函数 (检索 / LLM / Tool)
-- 边 = 转移条件
-- 显式 State 对象在节点间传递
+- 显式 graph: Node (LLM 调用 / Tool 调用 / 自定义函数) + Edge (条件跳转)
+- 状态机: 每个 Node 读 / 写 shared state (TypedDict)
+- 检查点: checkpointer 持久化 state (Postgres/SQLite/Redis), 支持中断 + 恢复
 
-##### 优势
-- 显式控制流 (vs ReAct 隐式)
-- 易调试 (state 在每节点可见)
-- 支持循环 + 条件分支
-- LangChain 生态全面
+##### 优
+- 灵活 (任意 graph, 不限范式) + 生产级 (LangSmith 追踪原生)
+- 中断恢复 (人在回路 / 多日任务必备)
+- 状态可观测 (debug 友好)
 
-##### 劣势
-- 学习曲线陡 (vs CrewAI 简单)
-- 偏底层
+##### 劣
+- 学习曲线高 (需理解 graph + state + checkpoint 三概念)
+- 配套 LangChain 重 (依赖一堆 community pkg)
 
-##### 性能
-- 灵活, 性能取决于实现
-- LangSmith 集成 trace
+##### 适合
+- 复杂工作流 (条件分支 / 并行 / 循环)
+- 长时任务需中断恢复
+- 已用 LangChain 生态
+
+##### 不适合
+- 极简 demo (overkill, 用 OpenAI Agents SDK 即可)
+- 不需要持久化的一次性任务
 
 ##### 真实采用
-- 大量企业 Agent 项目 (2024 后主流)
-
-##### Python 代码示例 (退款诊断 Agent)
-
-```python
-from langgraph.graph import StateGraph, END
-# Python 3.12+ 用 typing.TypedDict; 3.11 及以下用 typing_extensions
-try:
-    from typing import TypedDict
-except ImportError:
-    from typing_extensions import TypedDict
-
-
-class RefundDiagnosisState(TypedDict):
-    order_id: str
-    order_status: dict
-    error_code_meaning: str
-    retry_log: list
-    risk_log: dict
-    final_answer: str
-
-
-async def get_order(state):
-    state["order_status"] = await order_service.get(state["order_id"])
-    return state
-
-
-async def lookup_error(state):
-    code = state["order_status"].get("error_code")
-    state["error_code_meaning"] = await payment_service.lookup_error_code(code)
-    return state
-
-
-async def get_retry_log(state):
-    state["retry_log"] = await log_service.get_retry_log(state["order_id"])
-    return state
-
-
-async def get_risk(state):
-    state["risk_log"] = await risk_service.get_log(state["order_id"])
-    return state
-
-
-async def synthesize(state):
-    state["final_answer"] = await llm.complete(
-        f"综合: {state['order_status']}, {state['error_code_meaning']}, ..."
-    )
-    return state
-
-
-# 构建图
-workflow = StateGraph(RefundDiagnosisState)
-workflow.add_node("get_order", get_order)
-workflow.add_node("lookup_error", lookup_error)
-workflow.add_node("get_retry_log", get_retry_log)
-workflow.add_node("get_risk", get_risk)
-workflow.add_node("synthesize", synthesize)
-
-workflow.set_entry_point("get_order")
-workflow.add_edge("get_order", "lookup_error")
-workflow.add_edge("lookup_error", "get_retry_log")
-workflow.add_edge("get_retry_log", "get_risk")
-workflow.add_edge("get_risk", "synthesize")
-workflow.add_edge("synthesize", END)
-
-agent = workflow.compile()
-result = await agent.ainvoke({"order_id": "12345"})
-```
+- LinkedIn / Replit / Elastic / Klarna / Uber 公开博客
+- LangGraph Cloud (托管 SaaS, 2024.10 GA)
 
 #### 20.3.2 LlamaIndex Agents
 - 架构: ReAct Agent (默认) + Function Calling Agent + OpenAI Agent
-- 优: 与 LlamaIndex 检索深度集成, 默认配置好用
-- 劣: 偏 RAG-centric, Tool 编排略弱
-- 适合: RAG 重场景
+- 优: 与 LlamaIndex 检索深度集成, 默认配置最少 5 行
+- 劣: 偏 RAG-centric, Tool 编排略弱; 状态持久化弱
+- 适合: RAG 为主 + 已用 LlamaIndex 生态
+- 不适合: 复杂工作流 (LangGraph 更强), 多 Agent 协作 (AutoGen 更专)
+- 真实采用: 大量 RAG demo + 中小公司 RAG 起步项目
 
 #### 20.3.3 AutoGen (Microsoft)
-- 架构: Multi-Agent 对话 (User / Assistant / Critic / Executor)
-- 优: 多 Agent 协作天然
-- 劣: 单 Agent 任务过度复杂
-- 适合: 任务拆解 / 研究性任务
+- 架构: Multi-Agent 对话 (User / Assistant / Critic / Executor) + Actor model (0.4+)
+- 优: 多 Agent 协作天然 + Microsoft 维护稳定
+- 劣: 单 Agent 任务过度复杂; 学习曲线高
+- 适合: 多 Agent 协作 (Researcher + Writer + Critic) / 研究性任务 / 内容创作
+- 不适合: 简单 RAG / 单 Agent 客服 (Multi-Agent 是 overkill)
+- 真实采用: Microsoft Copilot Workspace 内部 / 学术界研究 Agent 论文常用
 
 #### 20.3.4 CrewAI
-- 架构: 角色化 Agent (Researcher/Writer/Critic) + 任务流程化
-- 优: 极易上手 (5 行代码起)
-- 劣: 灵活性不如 LangGraph
-- 适合: POC / 内容生成 demo
+- 架构: 角色化 Agent (Researcher/Writer/Critic) + sequential / hierarchical / consensual 三种 process
+- 优: 极易上手 (5 行代码起跑通) + 角色抽象直观
+- 劣: 生产级特性弱 (无 checkpoint / 无中断恢复 / 无原生追踪)
+- 适合: POC / 内容生成 demo / 创意类任务
+- 不适合: 生产级长时任务 / 严格 SLA 场景 (用 LangGraph)
+- 真实采用: 个人开发者 + Hackathon 项目, 企业生产级少
 
-#### 20.3.5 OpenAI Agents SDK (前身 Swarm, 2025.03 取代) (2024.10)
-- 架构: 极简 Multi-Agent, 通过 handoff 转交
-- 优: 极简 (< 100 行核心), OpenAI 官方
-- 劣: 太简, 生产级要自加监控/cache/retry
-- 适合: 学习概念
+#### 20.3.5 OpenAI Agents SDK (前身 Swarm 2024.10, 2025.03 升级)
+- 架构: 极简 Multi-Agent, 通过 handoff 转交; 内置 MCP client (2025.Q2+)
+- 优: 极简 (核心 < 200 行) + OpenAI 官方维护 + MCP 支持
+- 劣: 生产级特性需自加 (监控 / cache / retry / checkpoint)
+- 适合: OpenAI 生态 + 学习概念 + 中小项目
+- 不适合: 跨多 LLM 后端 / 复杂 graph 编排 (用 LangGraph)
+- 真实采用: 2025 后大量起步项目 (替代 LangChain 的简化路径)
 
-#### 20.3.6 Anthropic Plan-and-Execute (内部)
-- 架构: Planner LLM + Executor LLM
-- 优: 步骤清晰 + 可解释 + 减少 LLM 调用
-- 劣: Planner 错则全错
-- 适合: 步骤明确高质量任务
+#### 20.3.6 Anthropic Claude Agent SDK (2025.Q3+)
+- 架构: 原生 Plan-and-Execute + extended thinking 内嵌 + MCP 主导
+- 优: Anthropic 官方 + 原生 MCP 生态最丰富 + Sonnet 4.5 推理质量顶
+- 劣: 锁定 Anthropic LLM (其他模型支持有限)
+- 适合: 已用 Claude + 重 MCP 工具复用 + 高质量推理任务
+- 不适合: 多 LLM 后端 / 不需要 thinking 的场景 (浪费成本)
+- 真实采用: Anthropic Claude Code / Claude Desktop / 大量 Claude 客户
 
-#### 20.3.7 6 框架决策表
+#### 20.3.7 6 框架决策表 (4 维度)
 
-| 场景 | 推荐框架 |
-|---|---|
-| RAG-centric | LlamaIndex Agents |
-| 复杂工作流 + 多 Agent | LangGraph |
-| 多角色协作 | AutoGen |
-| 极简 MVP | CrewAI |
-| OpenAI 生态 + 学习 | Swarm |
-| 步骤明确高质量 | Plan-and-Execute |
+| 框架 | 学习曲线 | 灵活性 | 生产级 | 何时选 | 何时不选 |
+|---|---|---|---|---|---|
+| LangGraph | 高 | 极高 | 极高 | 复杂工作流 + 长时任务 + 已用 LangChain | 极简 demo (overkill) |
+| LlamaIndex Agents | 中 | 中 | 中 | RAG 为主 + 已用 LlamaIndex | 复杂多 Agent 协作 |
+| AutoGen | 高 | 高 | 高 | Multi-Agent 协作 + 研究类 | 单 Agent 客服 (overkill) |
+| CrewAI | 极低 | 中 | 低 | POC / 内容生成 demo | 生产级长时任务 |
+| OpenAI Agents SDK | 低 | 中 | 中 | OpenAI 生态 + 学习 + MCP | 跨多 LLM / 复杂 graph |
+| Anthropic Claude Agent SDK | 低 | 中 | 高 | Claude + MCP + 高质量推理 | 多 LLM 后端 |
+
+##### 选型流程 (3 问题)
+- Q1: 已用 LangChain / LlamaIndex 生态? → 用对应 Agents
+- Q2: 多 Agent 协作必需? → AutoGen (Microsoft) 或 CrewAI (轻)
+- Q3: 单 LLM 厂 + 想最简? → OpenAI Agents SDK 或 Anthropic Claude Agent SDK
+
+##### 反模式
+- ❌ Day 1 上 LangGraph multi-agent — 学习曲线高, 3 月调不通
+- ❌ 生产用 CrewAI — 无 checkpoint, 任务一断丢全部状态
+- ❌ Anthropic SDK 跑 OpenAI 模型 — MCP 兼容但能力打折
 
 ### 20.4 Tool Calling 完整实现
 
-#### 20.4.1 6 步标准流程
-- 步 1: 定义 Tool (JSON Schema)
-- 步 2: 用户提问
-- 步 3: 模型决策 (返 tool_calls)
-- 步 4: 代码执行 (调真实 API)
-- 步 5: 结果反馈 (role: tool)
-- 步 6: 最终生成自然语言答案
+#### 20.4.1 三家 Tool Calling API 实现 (描述对比)
 
-#### 20.4.2 三家 API 完整差异
+##### OpenAI Function Calling (tool_calls 字段)
+- 调用形式: `tools=[{"type": "function", "function": {...}}]`, 响应在 `message.tool_calls[]`
+- 反馈形式: 追加 `{"role": "tool", "tool_call_id": ..., "content": ...}` 到 messages
+- 并行支持: parallel_tool_calls=True (默认开)
+- 强制选某 tool: tool_choice="required" 或 {"type": "function", "function": {"name": ...}}
+- 推理模型: o1/o3 不支持流式工具调用, 只能批量返回
 
-##### OpenAI Function Calling
-```python
-response = openai.chat.completions.create(
-    model="gpt-4o",
-    messages=messages,
-    tools=[{
-        "type": "function",
-        "function": {
-            "name": "get_order",
-            "description": "查询订单状态",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "order_id": {"type": "string", "description": "订单号"}
-                },
-                "required": ["order_id"]
-            }
-        }
-    }],
-    tool_choice="auto",  # auto / none / 强制某 tool
-)
+##### Anthropic Tool Use (content blocks)
+- 调用形式: `tools=[{"name", "description", "input_schema"}]`, 响应在 `content[]` 含 `type=tool_use` block
+- 反馈形式: user message 中放 `{"type": "tool_result", "tool_use_id": ..., "content": ...}`
+- 并行支持: 自然在 content blocks 列表里, 一次响应可含多个 tool_use
+- 强制选某 tool: tool_choice={"type": "tool", "name": ...}
+- 推理模型: extended thinking 内嵌工具调用 (Sonnet 4.5)
 
-# 响应:
-# response.choices[0].message.tool_calls[0].function.name
-# response.choices[0].message.tool_calls[0].function.arguments (JSON str)
+##### Google Gemini Function Calling (Part 列表)
+- 调用形式: `tools=[FunctionDeclaration(...)]`, 响应在 `parts[]` 含 function_call
+- 反馈形式: 追加 Part with function_response
+- 并行支持: parts 列表自然并行
+- 强制选某 tool: tool_config={"function_calling_config": {"mode": "ANY"}}
+- 推理模型: Gemini 2.0 Flash Thinking 支持
 
-# 反馈:
-messages.append({
-    "role": "tool",
-    "tool_call_id": tool_call.id,
-    "content": json.dumps(result),
-})
-```
+##### 关键差异速记
+- API 形态: OpenAI 字段最简 / Anthropic content block 最规范 / Gemini Part 最灵活
+- Schema 严格度: Anthropic > OpenAI > Gemini (按"输出格式严格度"排)
+- 并行调用: 三家都原生支持
+- 反馈方式: OpenAI 用 tool role / Anthropic 用 user content / Gemini 用 Part
 
-##### Anthropic Tool Use
-```python
-response = anthropic.messages.create(
-    model="claude-sonnet-4-5-20250929",
-    messages=messages,
-    tools=[{
-        "name": "get_order",
-        "description": "查询订单状态",
-        "input_schema": {  # 字段名不同 (input_schema vs parameters)
-            "type": "object",
-            "properties": {
-                "order_id": {"type": "string"}
-            },
-            "required": ["order_id"]
-        }
-    }],
-)
-
-# 响应:
-# response.content 含 tool_use type block
-# block.id / block.name / block.input
-
-# 反馈 (用 user message 含 tool_result block):
-messages.append({
-    "role": "user",
-    "content": [{
-        "type": "tool_result",
-        "tool_use_id": block.id,
-        "content": json.dumps(result),
-    }]
-})
-```
-
-##### Gemini Function Calling
-```python
-import google.generativeai as genai
-
-response = genai.generate_content(
-    contents=messages,
-    tools=[{
-        "function_declarations": [{
-            "name": "get_order",
-            "description": "查询订单状态",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "order_id": {"type": "string"}
-                },
-                "required": ["order_id"]
-            }
-        }]
-    }]
-)
-
-# 响应:
-# response.candidates[0].content.parts[0].function_call
-
-# 反馈 (用 functionResponse role):
-messages.append({
-    "role": "function",
-    "parts": [{
-        "function_response": {
-            "name": "get_order",
-            "response": {"content": json.dumps(result)}
-        }
-    }]
-})
-```
-
-#### 20.4.3 三家差异总结表
+#### 20.4.2 三家差异总结表
 
 | 维度 | OpenAI | Anthropic | Gemini |
 |---|---|---|---|
@@ -16634,7 +16500,7 @@ messages.append({
 | Computer Use | 无 | 是 (Claude 3.5 Sonnet 起) | 无 |
 | 兼容 OpenAPI | 需转 | 需转 | 是 |
 
-#### 20.4.4 MCP 协议 (Model Context Protocol, Anthropic 2024.11)
+#### 20.4.3 MCP 协议 (Model Context Protocol, Anthropic 2024.11)
 
 ##### 是什么
 - Anthropic 主导的开放协议, 标准化 LLM 与外部工具 / 数据源的通信
@@ -16667,7 +16533,7 @@ messages.append({
 - 性能极敏感 (μs 级 RTT 不接受协议开销)
 - 工具非常专有 (没有公开 server 也没必要按 MCP 暴露)
 
-#### 20.4.5 三家 Tool Calling 选型决策表
+#### 20.4.4 三家 Tool Calling 选型决策表
 
 | 维度 | Anthropic (tool_use blocks) | OpenAI (tool_calls) | Gemini (function_call parts) |
 |---|---|---|---|
@@ -16838,34 +16704,15 @@ async def build_agent_prompt(
     ]
 ```
 
-### 20.6 真实业界采用
+### 20.6 真实业界采用 (索引)
 
-#### 20.6.1 Klarna AI 客服 (Plan-and-Execute)
-- 2024 Q1 年报披露 (https://www.klarna.com/international/press/klarna-ai-assistant-handles-two-thirds-of-customer-service-chats-in-its-first-month/)
-- 关键数字 (年报原文 + 推算):
-  - 月 250 万 chat (2024 Q1 数据, 2 个月数据外推)
-  - 处理工作量相当于 700 全职客服 (年报原话: "performing the equivalent work of 700 full-time agents")
-  - 工单解决时间 11min → 2min (年报数据)
-  - 客户满意度 NPS 与人工持平 (NPS 数字可能后续微调)
-  - 估算年省 $40M (基于 700 人 × 平均人力成本)
-- 数学澄清 (避免误解):
-  - 250 万/月 ≠ 250 万 query 都走 Agent
-  - 80/15/5 分流: 80% FAQ 走普通 RAG, 15% 增强, 5% 走 Agent
-  - 5% Agent ≈ 12.5 万复杂 query/月
-  - 这 12.5 万复杂 query 加上 80% 的简单 query 自动处理, 共同替代了 700 人的工作量
-  - 不是"5% 流量替代 700 人", 是"95% 自动 + 5% Agent 共同替代 700 人"
-- 关键设计: 80/15/5 严格分流避免成本爆 + Tool Calling 业务系统集成 + 严格 Refusal
+> 完整案例已分散在其它章节, 此处只列索引避免重复.
 
-#### 20.6.2 Cursor / Devin / Claude Code (Agentic Coding)
-- 2024-2026 趋势: 不预先索引整 repo
-- LLM 主动用 grep/find/read 探索
-- 单次任务 $5-50, 但替代开发者数小时工作
-
-#### 20.6.3 Microsoft Copilot Workspace (Plan-Implement-Review)
-- 三步 Agent
-- Planner LLM 设计修改方案
-- Executor LLM 执行 (改代码 / 跑测试)
-- Reviewer LLM 审查
+- Klarna AI 客服 (Plan-and-Execute, 95%/5% 分流): 详见 §13.8 (含 2025.05 部分 rollback) + §20.1.5 量化对比
+- Cursor / Devin / Claude Code (Agentic Coding): 详见 §12.4 + §13.28 (Computer Use 误操作风险) + §15.7 Q7.3
+- Microsoft Copilot Workspace (Plan-Implement-Review): 详见 §15.7 Q7.1 + §13.27 (Recall 隐私事故)
+- Anthropic Computer Use (GUI Agent): 详见 §13.28 + §16.1.7 子类 4 (Tool Misuse)
+- OpenAI Operator (Browser Agent): 详见 §13.29
 
 ### 20.7 Agent 死循环防御 5 道防线
 
@@ -16980,49 +16827,27 @@ async def build_agent_prompt(
 - ❌ 不监控 P99 cost — 边缘 query 烧 $5-50 看不到
 - ❌ 实时 query 用 Batch — 用户等 24h, 退订率爆
 
-### 20.9 Agent RAG 实施陷阱
+### 20.9 Agent RAG 评估
 
-#### 20.9.1 ❌ 一上来就 Agent
-- 80% query 是简单 FAQ, 全 Agent 浪费 + 成本爆
-- 对: 先 Modular RAG (Phase 1), 再 Agent (Phase 3)
-
-#### 20.9.2 ❌ Agent 替代 RAG
-- 错: 删了 RAG 全用 Agent
-- 对: Agent 内部仍用 RAG 多次
-
-#### 20.9.3 ❌ 不限 max_steps
-- 真实事故: 1 小时烧 $5000
-- 必须 max_steps + budget cap + 死循环检测
-
-#### 20.9.4 ❌ 工具描述模糊
-- LLM 选错 tool 率 30%+
-- 对: 工具描述详细 + Few-shot 示例
-
-#### 20.9.5 ❌ 工具数量 > 20
-- LLM context 装不下 + 选错率高
-- 对: 工具数量控制 < 10, > 10 必须分层路由
-
-### 20.10 Agent RAG 评估
-
-#### 20.10.1 业务指标
+#### 20.9.1 业务指标
 - 任务完成率 (% query 成功完成)
 - 步数分布 (平均步数 / 最大步数)
 - 单 query 成本分布 (P50 / P95 / P99)
 - 转人工率
 - 用户满意度
 
-#### 20.10.2 技术指标
+#### 20.9.2 技术指标
 - Tool 选择准确率
 - Tool 执行成功率
 - 死循环熔断率
 - 平均延迟
 
-#### 20.10.3 Bad case 闭环
+#### 20.9.3 Bad case 闭环
 - 收集失败任务
 - 标根因 (Plan 错 / Tool 错 / Synthesis 错)
 - 优化 (改 Planner prompt / 改 Tool 描述 / 加新 Tool)
 
-#### 20.10.4 Agent 评估框架对比 (3 大主流)
+#### 20.9.4 Agent 评估框架对比 (3 大主流)
 
 | 维度 | TaskBench | AgentBench | SWE-Bench |
 |---|---|---|---|
