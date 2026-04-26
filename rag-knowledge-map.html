@@ -708,40 +708,30 @@ h3:hover::before, h4:hover::before {
 <h3 id="00-0">0.0 §0 速览思维导图 ⭐</h3>
 <figure class="mermaid-figure">
 <pre class="mermaid">mindmap
-  root((§0 速览))
-    9 核心概念
+  root((速览))
+    核心概念
       RAG 定义
-      Dense/Sparse/Hybrid
-      3 阶段架构
-      离线索引构建
-      在线检索生成
+      Dense Sparse Hybrid
+      三阶段架构
       喂 LLM 真相
-      数据生成
-      chunk_id 关联
-      向量为何不喂
-    5 层架构
+      数据流
+    架构层级
       L1 数据治理
       L2 索引
       L3 检索
       L4 Router
       L5 Agent
-    4 代演进
-      Naive 2020-22
-      Advanced 2023
-      Modular 2024
-      Agent 2024-25
-    Anthropic 三层
-      Augmented LLM 90%
-      Workflow 8-15%
-      Agent 2-5%
-    业务决策
-      80/15/5 分流
-      6 道治理
-      Hybrid 必要性
-    术语速查
-      60+ 概念
-      Workflow 5 Pattern</pre>
-<figcaption class="mermaid-caption">🗺️ §0 速览章全景: 9 个核心概念 + 5 层架构 + 4 代演进 + 业务流程 + 60+ 术语 + 决策原则.</figcaption>
+    演进四代
+      Naive
+      Advanced
+      Modular
+      Agent
+    决策原则
+      Anthropic 三层
+      流量分流
+      Hybrid 必选
+      术语速查</pre>
+<figcaption class="mermaid-caption">🗺️ §0 速览全景: 核心概念 / 架构层级 / 演进史 / 决策原则 四大类.</figcaption>
 </figure>
 <blockquote>
 <p>进入 §0 之前先看这张思维导图建立全章认知.</p>
@@ -4255,52 +4245,41 @@ h3:hover::before, h4:hover::before {
 <h3 id="400-4-l1">4.0.0 §4 L1 数据治理思维导图 ⭐</h3>
 <figure class="mermaid-figure">
 <pre class="mermaid">mindmap
-  root((§4 L1 数据治理))
-    7 大职责
-      Ingestion 多源接入
-      Parser 解析
-      Boilerplate 噪声过滤
-      PII 检测脱敏
-      Dedup 去重
-      Quality 质量评估
-      元数据丰富化
-    7 种脏数据
-      重复 20-40%
-      过时未删 15-30%
-      格式破坏 30-60%
-      噪声 5-15%
-      多语言 100%
-      PII 5-20%
-      版本爆炸 90%
-    工具栈
-      Parser
-        LlamaParse
-        Reducto
-        pypdfium2
-        GPT-5 Vision
+  root((数据治理))
+    七大职责
+      多源接入
+      解析
+      噪声过滤
+      PII 脱敏
+      去重
+      质量评估
+      元数据丰富
+    七类脏数据
+      重复
+      过时
+      格式破坏
+      噪声
+      多语言
       PII
-        Presidio
-        spaCy NER
-        AWS Comprehend
-      Dedup
-        datasketch MinHash
-        SHA256
-      Quality
-        Haiku LLM-as-judge
-      Pipeline
-        Spark + Airflow
-    5 大指标
-      Recall@10
-      Faithfulness
+      版本爆炸
+    工具栈
+      LlamaParse
+      Presidio
+      MinHash LSH
+      Haiku 评分
+      Spark Airflow
+    核心指标
+      召回率
+      忠实度
       重复率
       PII 漏检率
-      平均质量分
+      质量分
     实战 SOP
-      §4.16 端到端 walkthrough
+      端到端走查
       Spark Pipeline
-      KB Health 监控
+      KB 健康监控
       Bad case 闭环</pre>
-<figcaption class="mermaid-caption">🛡️ §4 L1 数据治理全景: 7 大职责 + 7 种脏数据 + 12 类工具栈 + 5 大指标 + 实战 SOP.</figcaption>
+<figcaption class="mermaid-caption">🛡️ §4 L1 数据治理全景: 七大职责 / 七类脏数据 / 工具栈 / 核心指标 / 实战 SOP.</figcaption>
 </figure>
 <blockquote>
 <p>进入 §4 之前先看这张思维导图建立全章认知.</p>
@@ -7383,40 +7362,34 @@ h3:hover::before, h4:hover::before {
 <h3 id="50-5-l2">5.0 §5 L2 索引思维导图 ⭐</h3>
 <figure class="mermaid-figure">
 <pre class="mermaid">mindmap
-  root((§5 L2 索引))
-    Chunking 8 策略
-      固定窗口 NDCG 0.55
-      递归字符 0.62
-      句子窗口 0.68
-      父子分块 0.72
-      语义分块 0.74
-      Late Chunking 0.82
-      Contextual Retrieval 0.83
-      AST-aware 代码专用
-    Embedder
-      BGE-M3 1024 维
-      Voyage-3 1024 维
-      OpenAI text-3 3072 维
-      Cohere v3 1024 维
-      Qwen3 1024-2048
-      NV-Embed v2 4096
+  root((索引))
+    Chunking 策略
+      固定窗口
+      递归字符
+      父子分块
+      语义分块
+      Late Chunking
+      Contextual
+      AST-aware
+    Embedder 选型
+      BGE-M3
+      Voyage-3
+      OpenAI text-3
+      Cohere v3
+      Qwen3
     ANN 索引
-      HNSW 主流
-      IVF 大规模
-      DiskANN 极大规模
+      HNSW
+      IVF
+      DiskANN
     多模态
       CLIP
       BLIP
       ColPali
-    Embedder fine-tune
+    Fine-tune
       Triple loss
       InfoNCE
-      Multiple Negatives
-    决策
-      中文选 BGE-M3
-      英文选 Voyage-3
-      全球选 OpenAI</pre>
-<figcaption class="mermaid-caption">📚 §5 L2 索引全景: 8 种 Chunking 策略 + 12+ Embedder 选型 + 3 种 ANN 索引 + Contextual/Late Chunking.</figcaption>
+      Hard negatives</pre>
+<figcaption class="mermaid-caption">📚 §5 L2 索引全景: Chunking 策略 / Embedder 选型 / ANN 索引 / 多模态 / Fine-tune.</figcaption>
 </figure>
 <blockquote>
 <p>进入本章之前先看这张思维导图建立全章认知.</p>
@@ -8795,44 +8768,32 @@ h3:hover::before, h4:hover::before {
 <h3 id="60-6-l3">6.0 §6 L3 检索思维导图 ⭐</h3>
 <figure class="mermaid-figure">
 <pre class="mermaid">mindmap
-  root((§6 L3 检索))
+  root((检索))
     Hybrid 三通道
       Dense ANN
-        HNSW
-        cosine
       Sparse BM25
-        倒排索引
-        Robertson 1994
-      SPLADE 神经稀疏
-    RRF 融合
-      公式 1/(k+rank)
-      k=60 论文最优
-      rank-based 兼容两路
-    Reranker 8 种
+      SPLADE 神经
+    融合排序
+      RRF 公式
+      加权融合
+      调参经验
+    Reranker
       BGE-Reranker
-      Cohere Rerank-3.5
-      Cross-Encoder
-      ColBERT-v2
-      mxbai
-      Jina Reranker
-      RankGPT
+      Cohere Rerank
+      ColBERT
       LLM Cascade
-    Query Transformation
-      HyDE 假设文档
-      Multi-Query 多变体
-      Step-Back 抽象
-      Decomposition 拆解
+    Query 改写
+      HyDE
+      Multi-Query
+      Step-Back
+      Decomposition
       RAG-Fusion
-      Sub-Question
-    Post-Retrieval
+    后处理
       MMR 多样性
-      Lost in the Middle
       LongContextReorder
       Adaptive K
-    CRAG 兜底
-      Web Search
-      Self-RAG</pre>
-<figcaption class="mermaid-caption">🔍 §6 L3 检索全景: Hybrid 三通道 + RRF 融合 + Reranker 精排 + 6 种 Query Transformation + Lost in the Middle.</figcaption>
+      CRAG 兜底</pre>
+<figcaption class="mermaid-caption">🔍 §6 L3 检索全景: Hybrid 三通道 / RRF 融合 / Reranker / Query 改写 / 后处理.</figcaption>
 </figure>
 <blockquote>
 <p>进入本章之前先看这张思维导图建立全章认知.</p>
@@ -10226,18 +10187,12 @@ h3:hover::before, h4:hover::before {
 <h3 id="70-7-l4-router">7.0 §7 L4 Router 思维导图 ⭐</h3>
 <figure class="mermaid-figure">
 <pre class="mermaid">mindmap
-  root((§7 L4 Router))
-    三层混合
-      规则路由 70%
-        关键词正则
-        长度判断
-      语义路由 20%
-        kNN on intent
-        embedding cosine
-      LLM 兜底 10%
-        Haiku judge
-        复杂度评分
-    5 类 Query
+  root((Router))
+    三层路由
+      规则正则
+      语义匹配
+      LLM 兜底
+    Query 分类
       FAQ 简单
       编号查询
       复杂诊断
@@ -10250,20 +10205,15 @@ h3:hover::before, h4:hover::before {
       text2sql
       clarification
       refusal
-    Text2SQL
-      RAGFlow 三模块
-      Schema 注入
-      Few-shot
-      Validator 兜底
-    80/15/5 分流
-      简单 RAG 80%
-      增强 RAG 15%
-      Agent 5%
+    流量分流
+      简单 RAG
+      增强 RAG
+      Agent
     监控
-      path_distribution
-      准确率 0.95+
-      延迟 50ms</pre>
-<figcaption class="mermaid-caption">🚦 §7 L4 Router 全景: 三层混合路由 + 5 类 Query 分流 + Text2SQL + 80/15/5 决策.</figcaption>
+      分布偏移
+      准确率
+      延迟</pre>
+<figcaption class="mermaid-caption">🚦 §7 L4 Router 全景: 三层路由 / Query 分类 / 路径输出 / 流量分流.</figcaption>
 </figure>
 <blockquote>
 <p>进入本章之前先看这张思维导图建立全章认知.</p>
@@ -10719,39 +10669,35 @@ h3:hover::before, h4:hover::before {
 <h3 id="80-8-l5-agent">8.0 §8 L5 Agent 思维导图 ⭐</h3>
 <figure class="mermaid-figure">
 <pre class="mermaid">mindmap
-  root((§8 L5 Agent))
-    6 框架
+  root((Agent))
+    Agent 框架
       LangGraph
-      LlamaIndex Agents
+      LlamaIndex
       AutoGen
       CrewAI
-      OpenAI Agents SDK
-      Anthropic Claude SDK
-    Tool Calling 6 步
+      OpenAI SDK
+      Anthropic SDK
+    Tool Calling
       定义 schema
-      传给 LLM
-      LLM 输出 tool_call
-      执行
-      结果回传
-      LLM 决定下一步
-    Memory 三层
-      L1 Session Redis
-      L2 User Pref Postgres
-      L3 Business Vector DB
-    5 高级模式
+      LLM 选工具
+      执行返回
+      多轮迭代
+    Memory 分层
+      L1 Session
+      L2 User Pref
+      L3 Business
+    高级模式
       Self-RAG
       CRAG
       GraphRAG
       LightRAG
       Adaptive RAG
     Agent 代价
-      慢 5-30s
-      贵 $0.05-1
-      难调试
-      死循环
-    详见 §20
-      Agent RAG 完整讲透</pre>
-<figcaption class="mermaid-caption">🤖 §8 L5 Agent 全景: 6 框架 + Tool Calling + Memory 三层 + 5 高级 RAG-Agent 模式.</figcaption>
+      延迟
+      成本
+      调试难
+      死循环</pre>
+<figcaption class="mermaid-caption">🤖 §8 L5 Agent 全景: 框架 / Tool Calling / Memory 分层 / 高级模式 / Agent 代价.</figcaption>
 </figure>
 <blockquote>
 <p>进入本章之前先看这张思维导图建立全章认知.</p>
@@ -11378,47 +11324,38 @@ Pattern; GraphRAG / LightRAG 接近 Prompt Chaining.
 <h3 id="90-9">9.0 §9 横切思维导图 ⭐</h3>
 <figure class="mermaid-figure">
 <pre class="mermaid">mindmap
-  root((§9 横切关注点))
-    ACL 三层
-      Doc 级权限
-      Chunk 级 metadata
-      Output 级二次过滤
-    Audit Log
-      15+ 字段
-      query/answer/sources
-      user/timestamp
-    5 层缓存
-      HTTP 30-60%
-      Embedding 70-90%
-      Retrieval 20-40%
-      Generation 10-25%
-      Semantic 5-15%
-    Refusal
-      不知道说不知道
+  root((横切))
+    权限审计
+      Doc 级 ACL
+      Chunk 级
+      Output 过滤
+      Audit Log
+    缓存策略
+      HTTP
+      Embedding
+      Retrieval
+      Generation
+      Semantic
+    拒答机制
       阈值调优
-      Air Canada 教训
-    Observability
+      兜底回复
+      Air Canada
+    可观测
       LangSmith
-      Phoenix Arize
+      Phoenix
       Langfuse
-      LangSmith 追踪
-    Guardrail
-      LlamaGuard
-      NeMo Guardrails
-      Constitutional AI
-      OpenAI Moderation
     部署模式
-      SaaS 托管
+      SaaS
       私有云
       混合云
-      端侧 Local
-      边缘 Edge
+      端侧
+      边缘
     合规
       GDPR
-      EU AI Act
+      AI Act
       个保法
       HIPAA</pre>
-<figcaption class="mermaid-caption">🛠️ §9 横切关注点全景: ACL 三层 + Audit + 5 层缓存 + Refusal + Observability + Guardrail + 5 部署模式.</figcaption>
+<figcaption class="mermaid-caption">🛠️ §9 横切全景: 权限审计 / 缓存 / 拒答 / 可观测 / 部署 / 合规.</figcaption>
 </figure>
 <blockquote>
 <p>进入本章之前先看这张思维导图建立全章认知.</p>
@@ -21374,57 +21311,56 @@ class ModularRAG:
 <h3 id="200-20-agent-rag">20.0 §20 Agent RAG 思维导图 ⭐</h3>
 <figure class="mermaid-figure">
 <pre class="mermaid">mindmap
-  root((§20 Agent RAG))
+  root((Agent RAG))
     Anthropic 三层
-      Augmented LLM 90%
-      Workflow 8-15%
-      Agent 2-5%
-    Workflow 5 Pattern
+      Augmented LLM
+      Workflow
+      Agent
+    Workflow Pattern
       Prompt Chaining
       Routing
       Parallelization
-      Orchestrator-Workers
-      Evaluator-Optimizer
+      Orchestrator
+      Evaluator
     Agent 5 部件
-      Modular RAG 基座
-      Planner 大脑
-      Tool Calling 双手
-      Memory 脊髓
-      多步推理 心跳
-    7 层架构
-      L1 Query Understanding
-      L2 Router
-      L3 Planner
-      L4 Tool Loop
-      L5 Memory
-      L6 Synthesizer
-      L7 Validator
-    5 大形态
+      Modular RAG
+      Planner
+      Tool Calling
+      Memory
+      多步推理
+    架构七层
+      Query Understanding
+      Router
+      Planner
+      Tool Loop
+      Memory
+      Synthesizer
+      Validator
+    Agent 形态
       Plan-and-Execute
       ReAct
       Multi-Agent
       Self-Reflection
       Iterative
-    6 大框架
+    主流框架
       LangGraph
       LlamaIndex
       AutoGen
       CrewAI
-      OpenAI Agents SDK
-      Anthropic Claude SDK
+      OpenAI SDK
+      Anthropic SDK
     死循环防御
       max_steps
       timeout
       budget cap
       重复检测
-      告警
-    FinOps 5 杠杆
+    FinOps 杠杆
       选对层次
-      Router 80/15/5
+      流量分流
       模型分级
       Prompt Caching
       Batch API</pre>
-<figcaption class="mermaid-caption">🎯 §20 Agent RAG (Gen 4) 全景: Anthropic 三层模型 + Workflow 5 Pattern + Agent 5 部件 + 7 层架构 + 5 形态 + 6 框架.</figcaption>
+<figcaption class="mermaid-caption">🎯 §20 Agent RAG 全景: 三层模型 / Workflow Pattern / Agent 部件 / 架构层级 / Agent 形态 / 框架 / 防御.</figcaption>
 </figure>
 <blockquote>
 <p>进入本章之前先看这张思维导图建立全章认知.</p>
