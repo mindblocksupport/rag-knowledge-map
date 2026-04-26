@@ -457,6 +457,7 @@ h3:hover::before, h4:hover::before {
 <nav class="toc">
 <h2>📚 目录</h2>
 <ul><li class="toc-h2"><a href="#_1">〇. 速览 + 读者地图</a></li>
+<li class="toc-h3"><a href="#00-0">0.0 §0 速览思维导图 ⭐</a></li>
 <li class="toc-h3"><a href="#01-rag">0.1 一句话定义 RAG</a></li>
 <li class="toc-h3"><a href="#02-rag">0.2 RAG 答案质量方程</a></li>
 <li class="toc-h3"><a href="#03-rag-5">0.3 企业 RAG 5 层架构 (按职责分层, 不绑流量)</a></li>
@@ -484,6 +485,7 @@ h3:hover::before, h4:hover::before {
 <li class="toc-h3"><a href="#30">3.0 章节定位 (本章已瘦身)</a></li>
 <li class="toc-h3"><a href="#37-5">3.7 5 层接口契约</a></li>
 <li class="toc-h2"><a href="#layer-1-ingestion-write-path">四. Layer 1 数据治理 — 写流程 (Ingestion Write Path)</a></li>
+<li class="toc-h3"><a href="#400-4-l1">4.0.0 §4 L1 数据治理思维导图 ⭐</a></li>
 <li class="toc-h3"><a href="#40">4.0 本章知识体系总览 + 工具栈速查 ⭐</a></li>
 <li class="toc-h3"><a href="#41-70-l1">4.1 章节定位 — 为什么 70% 项目质量瓶颈在 L1</a></li>
 <li class="toc-h3"><a href="#42-7">4.2 7 种脏数据形态 — 真实生产中遇到的具体问题</a></li>
@@ -502,6 +504,7 @@ h3:hover::before, h4:hover::before {
 <li class="toc-h3"><a href="#415-rag-honest-reality-check">4.15 RAG 脏数据治理的局限性 + 业界最新玩法 (Honest Reality Check)</a></li>
 <li class="toc-h3"><a href="#416-sop-walkthrough">4.16 脏数据处理 — 端到端实战 SOP (集大成 walkthrough)</a></li>
 <li class="toc-h2"><a href="#layer-2-index-build-path">五. Layer 2 索引质量 — 索引构建流程 (Index Build Path)</a></li>
+<li class="toc-h3"><a href="#50-5-l2">5.0 §5 L2 索引思维导图 ⭐</a></li>
 <li class="toc-h3"><a href="#51-l2">5.1 章节定位 — L2 决定召回的"理论上限"</a></li>
 <li class="toc-h3"><a href="#52-chunking-8">5.2 Chunking 8 种策略 (写流程详解)</a></li>
 <li class="toc-h3"><a href="#53-embedder">5.3 Embedder (嵌入模型) — 推理流程详解</a></li>
@@ -511,6 +514,7 @@ h3:hover::before, h4:hover::before {
 <li class="toc-h3"><a href="#57-l2">5.7 真实事故 (L2 相关)</a></li>
 <li class="toc-h3"><a href="#58-index-build-path">5.8 完整 Index Build Path 端到端</a></li>
 <li class="toc-h2"><a href="#layer-3-hybrid-query-read-path">六. Layer 3 Hybrid 检索 — 读流程 (Query Read Path)</a></li>
+<li class="toc-h3"><a href="#60-6-l3">6.0 §6 L3 检索思维导图 ⭐</a></li>
 <li class="toc-h3"><a href="#61">6.1 章节定位</a></li>
 <li class="toc-h3"><a href="#62-hybrid-search">6.2 Hybrid Search 三通道详解</a></li>
 <li class="toc-h3"><a href="#63-rrf-fusion">6.3 RRF Fusion (倒数排名融合) 读流程</a></li>
@@ -522,6 +526,7 @@ h3:hover::before, h4:hover::before {
 <li class="toc-h3"><a href="#69-crag-corrective-rag">6.9 CRAG (Corrective-RAG) 完整流程</a></li>
 <li class="toc-h3"><a href="#610-read-path">6.10 完整 Read Path 端到端总结</a></li>
 <li class="toc-h2"><a href="#layer-4-modular-router">七. Layer 4 Modular Router — 路由决策流程</a></li>
+<li class="toc-h3"><a href="#70-7-l4-router">7.0 §7 L4 Router 思维导图 ⭐</a></li>
 <li class="toc-h3"><a href="#71">7.1 章节定位</a></li>
 <li class="toc-h3"><a href="#72-modular-rag-7">7.2 Modular RAG 7 模块完整接口</a></li>
 <li class="toc-h3"><a href="#73-router-3">7.3 Router 路由决策流程 (3 层混合)</a></li>
@@ -530,6 +535,7 @@ h3:hover::before, h4:hover::before {
 <li class="toc-h3"><a href="#76-validator">7.6 Validator (输出校验)</a></li>
 <li class="toc-h3"><a href="#77-router">7.7 Router 真实事故</a></li>
 <li class="toc-h2"><a href="#layer-5-agent-orchestration">八. Layer 5 Agent Orchestration — 多步推理流程</a></li>
+<li class="toc-h3"><a href="#80-8-l5-agent">8.0 §8 L5 Agent 思维导图 ⭐</a></li>
 <li class="toc-h3"><a href="#81">8.1 章节定位</a></li>
 <li class="toc-h3"><a href="#82-6-agent">8.2 6 主流 Agent 框架对比</a></li>
 <li class="toc-h3"><a href="#83-tool-calling-6">8.3 Tool Calling 6 步完整流程</a></li>
@@ -539,6 +545,7 @@ h3:hover::before, h4:hover::before {
 <li class="toc-h3"><a href="#87-agent-6">8.7 Agent 完整执行流程 (退款诊断 6 步)</a></li>
 <li class="toc-h3"><a href="#88-agent">8.8 业界 Agent 案例</a></li>
 <li class="toc-h2"><a href="#generation-llm-streaming-validator">九. Generation 生成流程 (LLM 推理 + Streaming + Validator)</a></li>
+<li class="toc-h3"><a href="#90-9">9.0 §9 横切思维导图 ⭐</a></li>
 <li class="toc-h3"><a href="#91">9.1 章节定位</a></li>
 <li class="toc-h3"><a href="#92-context-building">9.2 Context Building (上下文组装)</a></li>
 <li class="toc-h3"><a href="#93-llm-inference">9.3 LLM Inference (推理) 完整流程</a></li>
@@ -661,6 +668,7 @@ h3:hover::before, h4:hover::before {
 <li class="toc-h3"><a href="#199-modular-rag">19.9 Modular RAG 适合谁</a></li>
 <li class="toc-h3"><a href="#1910-modular-rag">19.10 Modular RAG 工业实现选型</a></li>
 <li class="toc-h2"><a href="#agent-rag-gen-4">二十. Agent RAG 深度详解 (Gen 4 范式)</a></li>
+<li class="toc-h3"><a href="#200-20-agent-rag">20.0 §20 Agent RAG 思维导图 ⭐</a></li>
 <li class="toc-h3"><a href="#201-agent-rag">20.1 Agent RAG 是什么 — 核心讲透</a></li>
 <li class="toc-h3"><a href="#202-agent-rag-5">20.2 Agent RAG 5 大形态 (每种算法循环 + 完整流程)</a></li>
 <li class="toc-h3"><a href="#203-6">20.3 6 大主流框架完整对比</a></li>
@@ -697,6 +705,47 @@ h3:hover::before, h4:hover::before {
 </blockquote>
 <hr />
 <h2 id="_1">〇. 速览 + 读者地图</h2>
+<h3 id="00-0">0.0 §0 速览思维导图 ⭐</h3>
+<figure class="mermaid-figure">
+<pre class="mermaid">mindmap
+  root((§0 速览))
+    9 核心概念
+      RAG 定义
+      Dense/Sparse/Hybrid
+      3 阶段架构
+      离线索引构建
+      在线检索生成
+      喂 LLM 真相
+      数据生成
+      chunk_id 关联
+      向量为何不喂
+    5 层架构
+      L1 数据治理
+      L2 索引
+      L3 检索
+      L4 Router
+      L5 Agent
+    4 代演进
+      Naive 2020-22
+      Advanced 2023
+      Modular 2024
+      Agent 2024-25
+    Anthropic 三层
+      Augmented LLM 90%
+      Workflow 8-15%
+      Agent 2-5%
+    业务决策
+      80/15/5 分流
+      6 道治理
+      Hybrid 必要性
+    术语速查
+      60+ 概念
+      Workflow 5 Pattern</pre>
+<figcaption class="mermaid-caption">🗺️ §0 速览章全景: 9 个核心概念 + 5 层架构 + 4 代演进 + 业务流程 + 60+ 术语 + 决策原则.</figcaption>
+</figure>
+<blockquote>
+<p>进入 §0 之前先看这张思维导图建立全章认知.</p>
+</blockquote>
 <h3 id="01-rag">0.1 一句话定义 <span class="pron">RAG<span class="ipa">/ræɡ/</span><button class="speak-btn" onclick="speak('RAG')" title="点击朗读 RAG">🔊</button></span></h3>
 <h4 id="011">0.1.1 业务定义</h4>
 <ul>
@@ -4203,6 +4252,59 @@ h3:hover::before, h4:hover::before {
 <p>70% 项目栽这一层. 决定 RAG 系统能"知道"什么 + "不能错说"什么.
 本节结构: 业务价值 → 完整写流程总览 → 每个组件独立小节 (含读写细节).</p>
 </blockquote>
+<h3 id="400-4-l1">4.0.0 §4 L1 数据治理思维导图 ⭐</h3>
+<figure class="mermaid-figure">
+<pre class="mermaid">mindmap
+  root((§4 L1 数据治理))
+    7 大职责
+      Ingestion 多源接入
+      Parser 解析
+      Boilerplate 噪声过滤
+      PII 检测脱敏
+      Dedup 去重
+      Quality 质量评估
+      元数据丰富化
+    7 种脏数据
+      重复 20-40%
+      过时未删 15-30%
+      格式破坏 30-60%
+      噪声 5-15%
+      多语言 100%
+      PII 5-20%
+      版本爆炸 90%
+    工具栈
+      Parser
+        LlamaParse
+        Reducto
+        pypdfium2
+        GPT-5 Vision
+      PII
+        Presidio
+        spaCy NER
+        AWS Comprehend
+      Dedup
+        datasketch MinHash
+        SHA256
+      Quality
+        Haiku LLM-as-judge
+      Pipeline
+        Spark + Airflow
+    5 大指标
+      Recall@10
+      Faithfulness
+      重复率
+      PII 漏检率
+      平均质量分
+    实战 SOP
+      §4.16 端到端 walkthrough
+      Spark Pipeline
+      KB Health 监控
+      Bad case 闭环</pre>
+<figcaption class="mermaid-caption">🛡️ §4 L1 数据治理全景: 7 大职责 + 7 种脏数据 + 12 类工具栈 + 5 大指标 + 实战 SOP.</figcaption>
+</figure>
+<blockquote>
+<p>进入 §4 之前先看这张思维导图建立全章认知.</p>
+</blockquote>
 <h3 id="40">4.0 本章知识体系总览 + 工具栈速查 ⭐</h3>
 <blockquote>
 <p>读完本章你会掌握 7 大职责 / 7 种脏数据 / 12 类工具 / 5 大指标. 这一节先给你一张全景图.</p>
@@ -7278,6 +7380,47 @@ h3:hover::before, h4:hover::before {
 <p>决定召回的"上限". 同一检索算法, 索引差 vs 好的 NDCG 差 30-50%.
 本节: 8 种 Chunking + Embedder 推理流程 + Vector Index 构建 + Contextual / Late Chunking / 多模态 / Fine-tune.</p>
 </blockquote>
+<h3 id="50-5-l2">5.0 §5 L2 索引思维导图 ⭐</h3>
+<figure class="mermaid-figure">
+<pre class="mermaid">mindmap
+  root((§5 L2 索引))
+    Chunking 8 策略
+      固定窗口 NDCG 0.55
+      递归字符 0.62
+      句子窗口 0.68
+      父子分块 0.72
+      语义分块 0.74
+      Late Chunking 0.82
+      Contextual Retrieval 0.83
+      AST-aware 代码专用
+    Embedder
+      BGE-M3 1024 维
+      Voyage-3 1024 维
+      OpenAI text-3 3072 维
+      Cohere v3 1024 维
+      Qwen3 1024-2048
+      NV-Embed v2 4096
+    ANN 索引
+      HNSW 主流
+      IVF 大规模
+      DiskANN 极大规模
+    多模态
+      CLIP
+      BLIP
+      ColPali
+    Embedder fine-tune
+      Triple loss
+      InfoNCE
+      Multiple Negatives
+    决策
+      中文选 BGE-M3
+      英文选 Voyage-3
+      全球选 OpenAI</pre>
+<figcaption class="mermaid-caption">📚 §5 L2 索引全景: 8 种 Chunking 策略 + 12+ Embedder 选型 + 3 种 ANN 索引 + Contextual/Late Chunking.</figcaption>
+</figure>
+<blockquote>
+<p>进入本章之前先看这张思维导图建立全章认知.</p>
+</blockquote>
 <h3 id="51-l2">5.1 章节定位 — L2 决定召回的"理论上限"</h3>
 <h4 id="511">5.1.1 一句话核心</h4>
 <ul>
@@ -8648,6 +8791,51 @@ h3:hover::before, h4:hover::before {
 <blockquote>
 <p>决定召回的"实际值". 单一通道是 60% 项目栽倒的根因.
 本节: 完整检索读流程 + 3 通道 + RRF / Rerank + Query Transformation + Lost in the Middle / MMR / CRAG.</p>
+</blockquote>
+<h3 id="60-6-l3">6.0 §6 L3 检索思维导图 ⭐</h3>
+<figure class="mermaid-figure">
+<pre class="mermaid">mindmap
+  root((§6 L3 检索))
+    Hybrid 三通道
+      Dense ANN
+        HNSW
+        cosine
+      Sparse BM25
+        倒排索引
+        Robertson 1994
+      SPLADE 神经稀疏
+    RRF 融合
+      公式 1/(k+rank)
+      k=60 论文最优
+      rank-based 兼容两路
+    Reranker 8 种
+      BGE-Reranker
+      Cohere Rerank-3.5
+      Cross-Encoder
+      ColBERT-v2
+      mxbai
+      Jina Reranker
+      RankGPT
+      LLM Cascade
+    Query Transformation
+      HyDE 假设文档
+      Multi-Query 多变体
+      Step-Back 抽象
+      Decomposition 拆解
+      RAG-Fusion
+      Sub-Question
+    Post-Retrieval
+      MMR 多样性
+      Lost in the Middle
+      LongContextReorder
+      Adaptive K
+    CRAG 兜底
+      Web Search
+      Self-RAG</pre>
+<figcaption class="mermaid-caption">🔍 §6 L3 检索全景: Hybrid 三通道 + RRF 融合 + Reranker 精排 + 6 种 Query Transformation + Lost in the Middle.</figcaption>
+</figure>
+<blockquote>
+<p>进入本章之前先看这张思维导图建立全章认知.</p>
 </blockquote>
 <h3 id="61">6.1 章节定位</h3>
 <h4 id="611">6.1.1 业务价值</h4>
@@ -10035,6 +10223,51 @@ h3:hover::before, h4:hover::before {
 <p>决定"该走哪条路". 不是所有问题都该走同一检索器.
 本节: Modular RAG 7 模块 + Router 三层混合 + Text2SQL 完整流程.</p>
 </blockquote>
+<h3 id="70-7-l4-router">7.0 §7 L4 Router 思维导图 ⭐</h3>
+<figure class="mermaid-figure">
+<pre class="mermaid">mindmap
+  root((§7 L4 Router))
+    三层混合
+      规则路由 70%
+        关键词正则
+        长度判断
+      语义路由 20%
+        kNN on intent
+        embedding cosine
+      LLM 兜底 10%
+        Haiku judge
+        复杂度评分
+    5 类 Query
+      FAQ 简单
+      编号查询
+      复杂诊断
+      实时状态
+      跨系统
+    路径输出
+      simple_rag
+      enhanced_rag
+      agent
+      text2sql
+      clarification
+      refusal
+    Text2SQL
+      RAGFlow 三模块
+      Schema 注入
+      Few-shot
+      Validator 兜底
+    80/15/5 分流
+      简单 RAG 80%
+      增强 RAG 15%
+      Agent 5%
+    监控
+      path_distribution
+      准确率 0.95+
+      延迟 50ms</pre>
+<figcaption class="mermaid-caption">🚦 §7 L4 Router 全景: 三层混合路由 + 5 类 Query 分流 + Text2SQL + 80/15/5 决策.</figcaption>
+</figure>
+<blockquote>
+<p>进入本章之前先看这张思维导图建立全章认知.</p>
+</blockquote>
 <h3 id="71">7.1 章节定位</h3>
 <blockquote>
 <p>本章 L4 Modular Router 是 Anthropic Workflow 5 Pattern 中的 Pattern 2 Routing 在 RAG 场景的工业实现. 完整 5 Pattern 见 §20.1.4.</p>
@@ -10482,6 +10715,46 @@ h3:hover::before, h4:hover::before {
 <blockquote>
 <p>5% 高价值查询的归宿. Agent 不是替代 RAG, 是承认 RAG 不够.
 本节: 6 框架对比 + Tool Calling 6 步 + Memory 三层 + 7 高级模式 + 完整执行流程.</p>
+</blockquote>
+<h3 id="80-8-l5-agent">8.0 §8 L5 Agent 思维导图 ⭐</h3>
+<figure class="mermaid-figure">
+<pre class="mermaid">mindmap
+  root((§8 L5 Agent))
+    6 框架
+      LangGraph
+      LlamaIndex Agents
+      AutoGen
+      CrewAI
+      OpenAI Agents SDK
+      Anthropic Claude SDK
+    Tool Calling 6 步
+      定义 schema
+      传给 LLM
+      LLM 输出 tool_call
+      执行
+      结果回传
+      LLM 决定下一步
+    Memory 三层
+      L1 Session Redis
+      L2 User Pref Postgres
+      L3 Business Vector DB
+    5 高级模式
+      Self-RAG
+      CRAG
+      GraphRAG
+      LightRAG
+      Adaptive RAG
+    Agent 代价
+      慢 5-30s
+      贵 $0.05-1
+      难调试
+      死循环
+    详见 §20
+      Agent RAG 完整讲透</pre>
+<figcaption class="mermaid-caption">🤖 §8 L5 Agent 全景: 6 框架 + Tool Calling + Memory 三层 + 5 高级 RAG-Agent 模式.</figcaption>
+</figure>
+<blockquote>
+<p>进入本章之前先看这张思维导图建立全章认知.</p>
 </blockquote>
 <h3 id="81">8.1 章节定位</h3>
 <h4 id="811">8.1.1 核心理念</h4>
@@ -11101,6 +11374,54 @@ Pattern; GraphRAG / LightRAG 接近 Prompt Chaining.
 <h2 id="generation-llm-streaming-validator">九. Generation 生成流程 (LLM 推理 + Streaming + Validator)</h2>
 <blockquote>
 <p>RAG 最后一步 — 把检索的 chunks + query 拼成 prompt 给 LLM, 流式输出 + 校验.</p>
+</blockquote>
+<h3 id="90-9">9.0 §9 横切思维导图 ⭐</h3>
+<figure class="mermaid-figure">
+<pre class="mermaid">mindmap
+  root((§9 横切关注点))
+    ACL 三层
+      Doc 级权限
+      Chunk 级 metadata
+      Output 级二次过滤
+    Audit Log
+      15+ 字段
+      query/answer/sources
+      user/timestamp
+    5 层缓存
+      HTTP 30-60%
+      Embedding 70-90%
+      Retrieval 20-40%
+      Generation 10-25%
+      Semantic 5-15%
+    Refusal
+      不知道说不知道
+      阈值调优
+      Air Canada 教训
+    Observability
+      LangSmith
+      Phoenix Arize
+      Langfuse
+      LangSmith 追踪
+    Guardrail
+      LlamaGuard
+      NeMo Guardrails
+      Constitutional AI
+      OpenAI Moderation
+    部署模式
+      SaaS 托管
+      私有云
+      混合云
+      端侧 Local
+      边缘 Edge
+    合规
+      GDPR
+      EU AI Act
+      个保法
+      HIPAA</pre>
+<figcaption class="mermaid-caption">🛠️ §9 横切关注点全景: ACL 三层 + Audit + 5 层缓存 + Refusal + Observability + Guardrail + 5 部署模式.</figcaption>
+</figure>
+<blockquote>
+<p>进入本章之前先看这张思维导图建立全章认知.</p>
 </blockquote>
 <h3 id="91">9.1 章节定位</h3>
 <h4 id="911">9.1.1 业务价值</h4>
@@ -21049,6 +21370,64 @@ class ModularRAG:
 <blockquote>
 <p>Agent RAG 不是替代 Modular RAG, 是在其上加智能调度大脑.
 5% 高价值 query 的归宿. 跨系统业务诊断的唯一解.</p>
+</blockquote>
+<h3 id="200-20-agent-rag">20.0 §20 Agent RAG 思维导图 ⭐</h3>
+<figure class="mermaid-figure">
+<pre class="mermaid">mindmap
+  root((§20 Agent RAG))
+    Anthropic 三层
+      Augmented LLM 90%
+      Workflow 8-15%
+      Agent 2-5%
+    Workflow 5 Pattern
+      Prompt Chaining
+      Routing
+      Parallelization
+      Orchestrator-Workers
+      Evaluator-Optimizer
+    Agent 5 部件
+      Modular RAG 基座
+      Planner 大脑
+      Tool Calling 双手
+      Memory 脊髓
+      多步推理 心跳
+    7 层架构
+      L1 Query Understanding
+      L2 Router
+      L3 Planner
+      L4 Tool Loop
+      L5 Memory
+      L6 Synthesizer
+      L7 Validator
+    5 大形态
+      Plan-and-Execute
+      ReAct
+      Multi-Agent
+      Self-Reflection
+      Iterative
+    6 大框架
+      LangGraph
+      LlamaIndex
+      AutoGen
+      CrewAI
+      OpenAI Agents SDK
+      Anthropic Claude SDK
+    死循环防御
+      max_steps
+      timeout
+      budget cap
+      重复检测
+      告警
+    FinOps 5 杠杆
+      选对层次
+      Router 80/15/5
+      模型分级
+      Prompt Caching
+      Batch API</pre>
+<figcaption class="mermaid-caption">🎯 §20 Agent RAG (Gen 4) 全景: Anthropic 三层模型 + Workflow 5 Pattern + Agent 5 部件 + 7 层架构 + 5 形态 + 6 框架.</figcaption>
+</figure>
+<blockquote>
+<p>进入本章之前先看这张思维导图建立全章认知.</p>
 </blockquote>
 <h3 id="201-agent-rag">20.1 Agent RAG 是什么 — 核心讲透</h3>
 <blockquote>
